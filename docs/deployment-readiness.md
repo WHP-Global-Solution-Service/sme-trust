@@ -1,6 +1,10 @@
 # Deployment Readiness — GitHub Pages
 
-สถานะ: **พร้อม Deploy** (ตรวจในเครื่องแล้ว — ยังไม่ได้ Push หรือ Deploy จริง)
+สถานะ: **Deploy แล้ว** — https://whp-global-solution-service.github.io/sme-trust/
+
+- Repository: https://github.com/WHP-Global-Solution-Service/sme-trust (branch `main`)
+- Deploy อัตโนมัติด้วย GitHub Actions ทุกครั้งที่ Push ไป `main` (รัน `npm test` และ Build ก่อน Deploy)
+- ตรวจเว็บจริงด้วยเบราว์เซอร์ (22 ต.ค. 2569): หน้าแรก, ลิงก์ตรง `/verify/...` (ปลายทาง QR), หน้า Demo 8 Scenario, Start Demo, Refresh ระหว่างสาธิต และ AI ตรวจโฆษณา — ทำงานถูกต้อง ไม่มี JavaScript error
 
 ## ผลการตรวจ
 
@@ -13,10 +17,10 @@
 | QR Code ใช้ URL ที่รองรับ Sub-path | `appUrl()` = `origin + BASE_URL + path` · E2E ตรวจลิงก์ภายในขึ้นต้นด้วย `/sme-trust/` | ✅ |
 | localStorage | ทุก Store persist ปกติภายใต้ Sub-path (E2E Reset/Reload) · ข้อมูลเสียหายใช้ Seed แทน | ✅ |
 | ไม่มี API Keys / Secrets | สแกน `src/` และ `.github/` (คำว่า api key, secret, token, bearer) — ไม่พบ · ไม่มี `fetch`/XHR/WebSocket/sendBeacon | ✅ |
-| GitHub Actions Workflow | `.github/workflows/deploy-pages.yml`: `npm ci` → `npm test` → `npm run build` (VITE_BASE=/<repo>/) → upload-pages-artifact → deploy-pages · permissions `pages: write`, `id-token: write` (จำเป็นสำหรับ deploy-pages ไม่ใช่ Secret) | ✅ ตรวจโครงสร้างแล้ว (ยังไม่ได้รันบน GitHub) |
+| GitHub Actions Workflow | `.github/workflows/deploy-pages.yml`: `npm ci` → `npm test` → `npm run build` (VITE_BASE=/<repo>/) → upload-pages-artifact → deploy-pages · permissions `pages: write`, `id-token: write` (จำเป็นสำหรับ deploy-pages ไม่ใช่ Secret) | ✅ รันบน GitHub สำเร็จ (ครั้งแรกล้มเหลวเพราะยังไม่เปิด Pages → เปิด Settings → Pages → Source: GitHub Actions แล้ว Re-run ผ่าน) |
 | `package-lock.json` | มีและรวม `@playwright/test` (devDependency) | ✅ `npm ci` ใช้ได้ |
 
-## ขั้นตอน Deploy (เมื่อได้รับอนุมัติ)
+## ขั้นตอน Deploy (ทำแล้ว — เก็บไว้สำหรับ Repository ใหม่)
 
 1. `git init` → Commit → สร้าง Repository บน GitHub (ชื่อ repo จะเป็น Base path เช่น `sme-trust`)
 2. Settings → Pages → Source: **GitHub Actions**
