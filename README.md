@@ -1,0 +1,107 @@
+# SME Trust Platform — ระบบสาธิต (Interactive Prototype)
+
+แพลตฟอร์มสาธิตสำหรับลงทะเบียน คัดกรอง รับรองความน่าเชื่อถือของผู้ประกอบการ SME และป้องกันปัญหาการซื้อขายออนไลน์
+ได้รับแรงบันดาลใจจากแนวคิดความร่วมมือระหว่างสภา SME และสำนักงานคณะกรรมการคุ้มครองผู้บริโภค (สคบ.)
+
+> **ระบบสาธิต (Prototype)** — Frontend-only ไม่มี Backend ไม่เชื่อมต่อระบบภายนอก ข้อมูลทั้งหมดเป็นข้อมูลสมมติและเก็บใน `localStorage` ของเบราว์เซอร์เท่านั้น
+> ไม่ใช่ระบบยืนยันตัวตน การรับรอง หรือ Blacklist ของหน่วยงานรัฐที่ใช้งานจริง และไม่ได้รับการรับรองจากหน่วยงานใด
+
+## เริ่มต้นใช้งาน
+
+ต้องการ Node.js 18 ขึ้นไป (ทดสอบกับ Node 20.19)
+
+```bash
+npm install
+npm run dev        # เปิด http://localhost:5173
+npm run build      # Type-check (tsc -b) + Production build ไปที่ dist/
+npm run preview    # เปิดดู build
+npm test           # พิสูจน์อักษรไทย, Flow ข้ามบทบาท, AI Simulation, Demo Scenarios 8 เรื่อง + Full Journey, Workflow และ Render ทุกหน้า
+npm run typecheck  # TypeScript (strict)
+npm run test:e2e   # E2E บน Chromium จริง (build + preview อัตโนมัติ) — ครั้งแรกอาจต้อง npx playwright install chromium
+npm run test:e2e:subpath  # E2E ภายใต้ /sme-trust/ (เหมือน GitHub Pages)
+npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop + iPhone + iPad — ครั้งแรกต้อง npx playwright install webkit
+```
+
+เริ่มนำเสนอ: เปิด **`/demo`** (หน้ารวม Demo Scenarios — ปุ่มบนหน้าแรก) → **Start Full Journey** (เรื่องต่อเนื่อง 1 → 8) หรือ **Start Demo** รายเรื่อง แล้วใช้ **Demo Controller** (แผงขวาบนเดสก์ท็อป / แถบล่างบนมือถือ) ไปทีละขั้น · ปุ่มถัดไปเปิดเมื่อทำขั้นนั้นเสร็จจริง · **Restart Scenario** เริ่มเรื่องเดิมใหม่ได้ทุกเมื่อ
+จำลองหน้าจอโทรศัพท์ / iPad / โน้ตบุ๊ก: ปุ่ม **จำลองหน้าจอ** บน Topbar หรือ Demo Mode → มุมมองหน้าจอ
+บัญชีผู้ประกอบการตัวอย่างใช้ PIN `123456`
+
+## Deploy บน GitHub Pages
+
+มี Workflow ที่ `.github/workflows/deploy-pages.yml` (Push ที่ `main` → Build → Deploy) ตั้งค่า Repository: **Settings → Pages → Source: GitHub Actions**
+
+- Build ด้วย `VITE_BASE=/<ชื่อ repo>/` — Router, ลิงก์ QR/ใบรับรอง และ Device Preview ใช้ Base Path นี้อัตโนมัติ
+- `postbuild` คัดลอก `index.html` เป็น `404.html` เพื่อให้ลิงก์ตรง (เช่น `/verify/...`) เปิดได้บน GitHub Pages
+- Build เองในเครื่อง: `VITE_BASE=/sme-trust/ npm run build` (Git Bash บน Windows ให้เติม `MSYS_NO_PATHCONV=1` นำหน้า)
+
+## สิ่งที่สาธิตได้
+
+| บทบาท | ฟังก์ชันหลัก |
+|---|---|
+| ผู้ประกอบการ | ลงทะเบียน (OTP/e-KYC/PIN จำลอง), PIN Login + Biometric จำลอง, ลงทะเบียนร้านค้า 7 ขั้นตอน (บันทึก/กลับมาทำต่อ), ขอรับรอง/ต่ออายุ, SME Trust Passport, ตอบข้อร้องเรียน, รับคำเตือนและส่งหลักฐานแก้ไข, อบรม+แบบทดสอบ, อุทธรณ์, Marketing Toolkit (Badge/QR) |
+| ผู้บริโภค | ค้นหา/ทำเนียบร้านค้า (ไม่ต้องเข้าสู่ระบบ), สแกน QR จำลอง, ตรวจใบรับรอง, แจ้งปัญหา 7 ขั้นตอน, ตอบข้อเสนอ/ยืนยันผล/ขอส่งต่อ |
+| เจ้าหน้าที่ | Dashboard + Work Queue, ตรวจและอนุมัติคำขอ, ตรวจช่องทางขาย, จัดการใบรับรอง, จัดการข้อร้องเรียน (ปรับผล Screening), ออกคำแนะนำ/คำเตือน, ตรวจผลแก้ไข, Risk Review + อุทธรณ์, Training Records, Reports (CSV) |
+| AI Simulation (ผู้ประกอบการ) | AI-01 ตรวจสอบข้อความโฆษณา (Highlight, ระดับความเสี่ยงเบื้องต้น, ข้อความเสนอแก้ไข, เปรียบเทียบก่อน–หลัง), AI-02 ช่วยจัดการข้อร้องเรียน (สรุปประเด็น, ข้อมูลที่ควรขอ, ร่างคำตอบ 3 Tone นำไปใส่เคสโดยไม่ส่งอัตโนมัติ), ประวัติการใช้งาน — **Rule-based ในเบราว์เซอร์ ไม่ใช่ AI Model จริง** |
+| ผู้ดูแลระบบ | Admin Dashboard (12 KPI + 7 กราฟ คำนวณจาก Mock State), บัญชีทั้งหมด, Audit Log, Export/Reset ข้อมูลสาธิต |
+
+## เทคโนโลยี
+
+React 18 + TypeScript, Vite 5, Tailwind CSS 3, React Router 6, Zustand 4 (persist → localStorage), React Hook Form + Zod, Lucide React, Recharts, date-fns
+
+ไลบรารีเพิ่มเติมที่เลือกใช้ (และเหตุผล):
+
+- `qrcode.react` — สร้าง QR Code ฝั่ง Client ไม่ต้องเรียกบริการภายนอก
+- `@fontsource/noto-sans-thai` — Bundle ฟอนต์ Noto Sans Thai มากับแอป แทนการโหลดจาก Google Fonts (ไม่มีการเชื่อมต่อภายนอก)
+- `clsx` — รวม className แบบมีเงื่อนไข (ขนาดเล็กมาก)
+- `tsx` (dev) — รันชุดทดสอบ TypeScript ใน Node โดยไม่ต้องติดตั้ง Test Framework ขนาดใหญ่
+
+ไม่ได้ติดตั้ง ESLint/Prettier เพื่อลดขนาดโปรเจกต์ ใช้ `tsc` แบบ `strict` + `noUnusedLocals` ในการตรวจโค้ด
+
+## โครงสร้างโปรเจกต์
+
+```
+src/
+  app/            App + Router
+  routes/         AppRoutes (ทุกเส้นทาง + Role Gate), nav.ts (เมนูแต่ละบทบาท)
+  components/
+    common/       ui (Button, Card, Badge, Alert, Stat...), DataTable, Modal, Stepper, Timeline, Trust (Certificate/Badge/QR), Charts
+    forms/        Field/Input/Select, PinPad/OtpInput, MockUpload
+    feedback/     Toast, Confirm Dialog, Prototype Banner
+    layout/       AppShell (Sidebar/Topbar/Bottom Nav), DemoPanel, DemoController
+  features/       หน้าจอแยกตามโมดูล (onboarding, auth, merchants, verification, certification, passport,
+                  consumers, complaints, resolution, warnings, training, risk, officer, admin, demo)
+    ai-assistant/ AI Simulation — rules/ services/ (Pure Function) แยกจาก components/ pages/
+  demo/           Demo Controller (types, controller.ts)
+  stores/         Zustand stores แยก Domain + workflows.ts (Action ข้าม Domain)
+  mock/data/      ข้อมูลจำลองที่เชื่อมโยงกันผ่าน ID
+  mock/scenarios/ Demo Scenario 1–8 + Fixtures + บัญชีสาธิต
+  types/          TypeScript models
+  utils/          trust (ผลตรวจสอบ), screening (Rule-based), criteria, stats (KPI), format, id
+  hooks/          useCurrent*, useStats
+  constants/      ป้ายกำกับสถานะภาษาไทย
+tests/            flows, ai, scenarios, workflows, render (*.test.mts) · e2e/ (Playwright *.spec.ts)
+docs/             เอกสารประกอบ
+```
+
+## เอกสาร
+
+- [docs/requirements.md](docs/requirements.md) — ขอบเขตและการแมปข้อกำหนด
+- [docs/architecture.md](docs/architecture.md) — สถาปัตยกรรมและ State
+- [docs/design-system.md](docs/design-system.md) — สี ตัวอักษร Component
+- [docs/user-flows.md](docs/user-flows.md) — ลำดับการใช้งานและสถานะ
+- [docs/demo-guide.md](docs/demo-guide.md) — ขั้นตอนสาธิตแต่ละ Scenario
+- [docs/demo-scenario-architecture.md](docs/demo-scenario-architecture.md) — Demo Controller, Gate, Full Journey, Restart
+- [docs/ai-simulation.md](docs/ai-simulation.md) — กฎและการทำงานของ AI-01 / AI-02
+- [docs/mock-data.md](docs/mock-data.md) — ข้อมูลจำลองและความเชื่อมโยง
+- [docs/test-checklist.md](docs/test-checklist.md) — รายการทดสอบและผล
+- [docs/limitations.md](docs/limitations.md) — ข้อจำกัดและสิ่งที่ระบบนี้ไม่ใช่
+- [docs/uat-report.md](docs/uat-report.md) — ผล UAT ล่าสุด (Test case / Expected / Actual / Severity / Fix / Retest)
+- [docs/known-issues.md](docs/known-issues.md) — ข้อจำกัดที่ยังเหลือ
+- [docs/deployment-readiness.md](docs/deployment-readiness.md) — ความพร้อม GitHub Pages
+
+## แหล่งอ้างอิงแนวคิด
+
+- ข่าว: https://spacebar.th/business/sme-council-consumer-protection-board-sign-mou-upgrade-online-stores
+- สคบ.: https://www.ocpb.go.th/
+
+ใช้ข่าวเป็นข้อมูลประกอบแนวคิดเท่านั้น ไม่ถือเป็นข้อกำหนดทางกฎหมายหรือการอนุมัติระบบอย่างเป็นทางการ

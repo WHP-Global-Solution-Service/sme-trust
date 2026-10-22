@@ -1,0 +1,60 @@
+import type { Role } from '@/types';
+import type { DemoCtx } from '@/stores/demo';
+
+/** ข้อมูลที่ใช้ตรวจเงื่อนไขของขั้นตอน (อ่านอย่างเดียว) */
+export interface GateInput {
+  ctx: DemoCtx;
+  startedAt: string;
+  signals: Record<string, string | number | boolean>;
+  session: { role: Role; operatorId: string; merchantLoggedIn: boolean };
+}
+
+export interface DemoStep {
+  id: string;
+  title: string;
+  instruction: string | ((ctx: DemoCtx) => string);
+  tip?: string;
+  role: Role;
+  route: (ctx: DemoCtx) => string;
+  /** เหตุผลของการเปลี่ยนบทบาท เมื่อเข้าสู่ขั้นนี้จากบทบาทอื่น (แสดงใน Role Transition) */
+  transition?: string;
+  /** ป้ายปุ่มถัดไป (CTA) เมื่ออยู่ที่ขั้นนี้ */
+  nextLabel?: string;
+  /** เงื่อนไขที่ต้องผ่านก่อนกดถัดไป — ไม่มี = ขั้นอธิบาย/ดูข้อมูล */
+  gate?: { check: (g: GateInput) => boolean; hint: string };
+  /** บันทึก IDs ที่เกิดจากขั้นนี้ลงบริบท (ทำเมื่อกดถัดไป) */
+  capture?: (g: GateInput) => Partial<DemoCtx>;
+}
+
+/** ข้อมูลจาก Scenario ก่อนหน้าใช้ต่อไม่ได้ — ต้องให้ผู้ใช้เลือกว่าจะย้อนกลับไปทำให้ครบ หรือใช้ข้อมูลตัวอย่าง */
+export interface ContinuityIssue {
+  /** สาเหตุ เช่น ร้านจาก Scenario 2 ยังไม่ได้รับการรับรอง */
+  message: string;
+  /** Scenario ที่ต้องย้อนกลับไปทำให้ครบ */
+  fixScenario: string;
+  /** ข้อมูลตัวอย่างที่จะใช้แทน */
+  fallbackLabel: string;
+}
+
+export interface ScenarioDef {
+  id: string;
+  no: number;
+  title: string;
+  objective: string;
+  keyMessage: string;
+  audience: Role[];
+  duration: string;
+  benefits: { sme: string; consumer: string; ocpb: string };
+  /** อธิบายว่าเป็นคนละเหตุการณ์ (กรณีศึกษาแยก) */
+  caseNote?: string;
+  nextCta?: string;
+  /** เตรียมบริบท/Fixture — carry = ต่อจาก Scenario ก่อนหน้าโดยไม่ Reset ทั้งระบบ */
+  prepare: (journey: DemoCtx, carry: boolean) => DemoCtx;
+  /** ตรวจว่าข้อมูลที่ส่งต่อมาใช้ได้หรือไม่ (เฉพาะการเล่นต่อเนื่อง) — ถ้าไม่ได้ prepare จะใช้ข้อมูลตัวอย่าง */
+  continuity?: (journey: DemoCtx) => ContinuityIssue | undefined;
+  /** IDs ที่ส่งต่อให้ Scenario ถัดไป */
+  exports?: (ctx: DemoCtx) => Partial<DemoCtx>;
+  steps: DemoStep[];
+  /** สรุปสิ่งที่เปลี่ยนแปลงใน Mock State (คำนวณจากข้อมูลจริง) */
+  summary: (ctx: DemoCtx) => string[];
+}

@@ -1,0 +1,46 @@
+import type {
+  AppNotification,
+  AuditEntry,
+  Certification,
+  Complaint,
+  Enrollment,
+  Merchant,
+  Operator,
+  RiskCase,
+  VerificationApplication,
+  WarningRecord,
+} from '@/types';
+import { seed } from '@/mock/data';
+import type { AiHistoryEntry } from '@/features/ai-assistant/types/ai.types';
+import { createEntityStore } from './createEntityStore';
+
+// ===== Domain stores (แหล่งข้อมูลเดียวของทุกหน้าจอ) =====
+export const useOperatorStore = createEntityStore<Operator>('operators', seed.operators);
+export const useMerchantStore = createEntityStore<Merchant>('merchants', seed.merchants);
+export const useVerificationStore = createEntityStore<VerificationApplication>('applications', seed.applications);
+export const useCertificationStore = createEntityStore<Certification>('certifications', seed.certifications);
+export const useComplaintStore = createEntityStore<Complaint>('complaints', seed.complaints);
+export const useWarningStore = createEntityStore<WarningRecord>('warnings', seed.warnings);
+export const useRiskStore = createEntityStore<RiskCase>('risk', seed.riskCases);
+export const useTrainingStore = createEntityStore<Enrollment>('enrollments', seed.enrollments);
+export const useNotificationStore = createEntityStore<AppNotification>('notifications', seed.notifications);
+export const useAuditStore = createEntityStore<AuditEntry>('audit', seed.audit);
+/** ประวัติ AI Simulation (ไม่เก็บข้อความที่ผู้ใช้พิมพ์เอง) */
+export const useAiHistoryStore = createEntityStore<AiHistoryEntry>('ai-history', seed.aiHistory);
+
+export const domainStores = [
+  useOperatorStore,
+  useMerchantStore,
+  useVerificationStore,
+  useCertificationStore,
+  useComplaintStore,
+  useWarningStore,
+  useRiskStore,
+  useTrainingStore,
+  useNotificationStore,
+  useAuditStore,
+  useAiHistoryStore,
+];
+
+export { useSessionStore } from './session';
+export { useUiStore, toast, confirmDialog } from './ui';

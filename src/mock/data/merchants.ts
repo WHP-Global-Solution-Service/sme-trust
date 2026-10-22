@@ -1,0 +1,113 @@
+import type { Merchant, SalesChannel } from '@/types';
+import { d, doc } from './helpers';
+
+const ch = (id: string, type: SalesChannel['type'], handle: string, status: SalesChannel['status'], verifiedAt?: string): SalesChannel => ({
+  id,
+  type,
+  handle,
+  status,
+  verifiedAt: verifiedAt ? d(verifiedAt) : undefined,
+});
+
+// ชื่อร้าน ชื่อบุคคล และลิงก์ทั้งหมดเป็นข้อมูลสมมติ
+export const merchants: Merchant[] = [
+  {
+    id: 'M-001', operatorId: 'OP-001', shopName: 'บ้านผ้าคราม สกลนคร', businessType: 'individual', ownerName: 'สมหญิง ทอผ้างาม',
+    category: 'แฟชั่นและเครื่องแต่งกาย', province: 'สกลนคร', district: 'เมืองสกลนคร', phone: '0810000001', email: 'somying@demo.local',
+    description: 'ผ้าย้อมครามธรรมชาติทอมือจากกลุ่มแม่บ้าน เสื้อผ้าและผ้าพันคอ พร้อมนโยบายเปลี่ยนสินค้าภายใน 7 วัน',
+    channels: [ch('CH-001', 'facebook', 'baanphakram.demo', 'verified', '2026-04-10'), ch('CH-002', 'line', 'baanphakram', 'verified', '2026-04-10'), ch('CH-003', 'tiktok', 'baanphakram.demo', 'pending')],
+    documents: [doc('สำเนาทะเบียนพาณิชย์ (จำลอง).pdf', 'ทะเบียนพาณิชย์', '2026-04-03'), doc('ภาพหน้าร้าน (จำลอง).jpg', 'ภาพสถานที่', '2026-04-03', 1200)],
+    registrationStatus: 'approved', riskStatus: 'none', createdAt: d('2026-04-03'), approvedAt: d('2026-04-10'),
+  },
+  {
+    id: 'M-002', operatorId: 'OP-002', shopName: 'ครัวแม่มาลี', businessType: 'individual', ownerName: 'มาลี ครัวดี',
+    category: 'อาหารและเครื่องดื่ม', province: 'เชียงใหม่', district: 'สันทราย', phone: '0810000002', email: 'malee@demo.local',
+    description: 'น้ำพริกหนุ่มและแคบหมูสูตรครอบครัว บรรจุสุญญากาศ มีเลขสารบบอาหาร (จำลอง)',
+    channels: [ch('CH-004', 'facebook', 'kruamaemalee.demo', 'pending'), ch('CH-005', 'marketplace', 'kruamaemalee-shop', 'pending')],
+    documents: [doc('ทะเบียนพาณิชย์ (จำลอง).pdf', 'ทะเบียนพาณิชย์', '2026-10-12'), doc('ใบอนุญาตผลิตอาหาร (จำลอง).pdf', 'ใบอนุญาต', '2026-10-12')],
+    registrationStatus: 'pending_review', riskStatus: 'none', createdAt: d('2026-10-12'),
+  },
+  {
+    id: 'M-003', operatorId: 'OP-003', shopName: 'สวยใสคอสเมติก', businessType: 'juristic', ownerName: 'ณัฐวดี สวยสม',
+    juristic: { companyName: 'บริษัท สวยใส เดโม่ จำกัด', registrationNo: 'DEMO-0105569000301', companyType: 'บริษัทจำกัด', authorizedPerson: 'ณัฐวดี สวยสม', applicantName: 'ณัฐวดี สวยสม' },
+    category: 'ความงามและสุขภาพ', province: 'กรุงเทพมหานคร', district: 'บางกะปิ', address: 'อาคารสมมติ ชั้น 3 เขตบางกะปิ', phone: '0810000003', email: 'nattawadee@demo.local',
+    description: 'เครื่องสำอางและสกินแคร์ผลิตในประเทศ จำหน่ายผ่านโซเชียลมีเดียและ Live',
+    channels: [ch('CH-006', 'facebook', 'suaysaicosmetic.demo', 'verified', '2026-05-12'), ch('CH-007', 'tiktok', 'suaysai.demo', 'verified', '2026-05-12'), ch('CH-008', 'website', 'suaysai-demo.example', 'unverified')],
+    documents: [doc('หนังสือรับรองนิติบุคคล (จำลอง).pdf', 'หนังสือรับรอง', '2026-05-04'), doc('ใบรับจดแจ้งเครื่องสำอาง (จำลอง).pdf', 'ใบอนุญาต', '2026-05-04')],
+    registrationStatus: 'approved', riskStatus: 'warning', createdAt: d('2026-05-04'), approvedAt: d('2026-05-12'),
+  },
+  {
+    id: 'M-004', operatorId: 'OP-004', shopName: 'ไอทีแกดเจ็ตช็อป', businessType: 'individual', ownerName: 'กิตติพงษ์ แกดเจ็ตเทพ',
+    category: 'อิเล็กทรอนิกส์และแกดเจ็ต', province: 'นนทบุรี', district: 'ปากเกร็ด', phone: '0810000004', email: 'kittipong@demo.local',
+    description: 'อุปกรณ์เสริมมือถือ หูฟัง พาวเวอร์แบงก์ ส่งทั่วประเทศ',
+    channels: [ch('CH-009', 'facebook', 'itgadget.demo', 'verified', '2026-04-22'), ch('CH-010', 'tiktok', 'itgadget.demo', 'verified', '2026-04-22')],
+    documents: [doc('ทะเบียนพาณิชย์ (จำลอง).pdf', 'ทะเบียนพาณิชย์', '2026-04-16')],
+    registrationStatus: 'approved', riskStatus: 'suspended', createdAt: d('2026-04-16'), approvedAt: d('2026-04-22'),
+  },
+  {
+    id: 'M-005', operatorId: 'OP-005', shopName: 'ร้านกาแฟดอยสูง', businessType: 'individual', ownerName: 'อาทิตย์ ดอยงาม',
+    category: 'อาหารและเครื่องดื่ม', province: 'เชียงราย', district: 'แม่ฟ้าหลวง', phone: '0810000005', email: 'arthit@demo.local',
+    description: 'เมล็ดกาแฟอาราบิกาคั่วสดจากไร่ชุมชน แจ้งวันคั่วทุกถุง',
+    channels: [ch('CH-011', 'facebook', 'doisoongcoffee.demo', 'verified', '2026-04-28'), ch('CH-012', 'line', 'doisoong', 'verified', '2026-04-28'), ch('CH-013', 'website', 'doisoong-demo.example', 'verified', '2026-07-01'), ch('CH-014', 'marketplace', 'doisoong-shop', 'verified', '2026-07-01')],
+    documents: [doc('ทะเบียนพาณิชย์ (จำลอง).pdf', 'ทะเบียนพาณิชย์', '2026-04-21')],
+    registrationStatus: 'approved', riskStatus: 'none', createdAt: d('2026-04-21'), approvedAt: d('2026-04-28'),
+  },
+  {
+    id: 'M-006', operatorId: 'OP-006', shopName: 'ผลไม้สดจันทบุรี', businessType: 'individual', ownerName: 'วรรณา สวนสด',
+    category: 'เกษตรและผลไม้', province: 'จันทบุรี', district: 'ท่าใหม่', phone: '0810000006', email: 'wanna@demo.local',
+    description: 'ทุเรียน มังคุด ส่งตรงจากสวน รับประกันเนื้อ เคลมได้ภายใน 24 ชม.',
+    channels: [ch('CH-015', 'facebook', 'chanfruit.demo', 'verified', '2026-05-25'), ch('CH-016', 'line', 'chanfruit', 'pending')],
+    documents: [doc('ทะเบียนเกษตรกร (จำลอง).pdf', 'ทะเบียนเกษตรกร', '2026-05-19')],
+    registrationStatus: 'approved', riskStatus: 'none', createdAt: d('2026-05-19'), approvedAt: d('2026-05-25'),
+  },
+  {
+    id: 'M-007', operatorId: 'OP-007', shopName: 'ของเล่นไม้ลูกรัก', businessType: 'individual', ownerName: 'ประเสริฐ ไม้สวย',
+    category: 'ของเล่นและสินค้าเด็ก', province: 'ขอนแก่น', district: 'เมืองขอนแก่น', phone: '0810000007', email: 'prasert@demo.local',
+    description: 'ของเล่นไม้เสริมพัฒนาการ ทาสีปลอดสารตะกั่ว (ข้อมูลสาธิต)',
+    channels: [ch('CH-017', 'facebook', 'lookrak-toys.demo', 'verified', '2025-09-10')],
+    documents: [doc('ทะเบียนพาณิชย์ (จำลอง).pdf', 'ทะเบียนพาณิชย์', '2025-09-02')],
+    registrationStatus: 'approved', riskStatus: 'none', createdAt: d('2025-09-02'), approvedAt: d('2025-09-10'),
+  },
+  {
+    id: 'M-008', operatorId: 'OP-008', shopName: 'เฮลท์ตี้ซัพพลีเมนต์', businessType: 'individual', ownerName: 'ชัยวัฒน์ เฮลท์ตี้',
+    category: 'ความงามและสุขภาพ', province: 'กรุงเทพมหานคร', district: 'ลาดพร้าว', phone: '0810000008', email: 'chaiwat@demo.local',
+    description: 'อาหารเสริมควบคุมน้ำหนัก (ร้านตัวอย่างสำหรับกรณีเพิกถอน)',
+    channels: [ch('CH-018', 'facebook', 'healthy-supp.demo', 'verified', '2026-04-12'), ch('CH-019', 'tiktok', 'healthysupp.demo', 'rejected')],
+    documents: [doc('ทะเบียนพาณิชย์ (จำลอง).pdf', 'ทะเบียนพาณิชย์', '2026-04-06')],
+    registrationStatus: 'approved', riskStatus: 'revoked', createdAt: d('2026-04-06'), approvedAt: d('2026-04-12'),
+  },
+  {
+    id: 'M-009', operatorId: 'OP-009', shopName: 'ผ้าไหมบุรีรัมย์', businessType: 'juristic', ownerName: 'สุนันทา ไหมทอง',
+    juristic: { companyName: 'ห้างหุ้นส่วนจำกัด ไหมทอง เดโม่', registrationNo: 'DEMO-0313569000452', companyType: 'ห้างหุ้นส่วนจำกัด', authorizedPerson: 'สุนันทา ไหมทอง', applicantName: 'สุนันทา ไหมทอง' },
+    category: 'หัตถกรรมและของที่ระลึก', province: 'บุรีรัมย์', district: 'นาโพธิ์', address: 'หมู่บ้านสมมติ ต.นาโพธิ์', phone: '0810000009', email: 'sunanta@demo.local',
+    description: 'ผ้าไหมมัดหมี่ทอมือ ผ้าซิ่น และผ้าคลุมไหล่',
+    channels: [ch('CH-020', 'facebook', 'maithong.demo', 'verified', '2026-06-10'), ch('CH-021', 'line', 'maithong', 'verified', '2026-06-10')],
+    documents: [doc('หนังสือรับรองห้างหุ้นส่วน (จำลอง).pdf', 'หนังสือรับรอง', '2026-06-03')],
+    registrationStatus: 'approved', riskStatus: 'under_investigation', createdAt: d('2026-06-03'), approvedAt: d('2026-06-10'),
+  },
+  {
+    id: 'M-010', operatorId: 'OP-010', shopName: 'สมุนไพรบ้านนา', businessType: 'individual', ownerName: 'บุญมี สมุนไพรไทย',
+    category: 'ความงามและสุขภาพ', province: 'นครราชสีมา', district: 'ปักธงชัย', phone: '0810000010', email: 'boonmee@demo.local',
+    description: 'ยาหม่องสมุนไพร ลูกประคบ และน้ำมันนวด',
+    channels: [ch('CH-022', 'facebook', 'baannaherb.demo', 'pending')],
+    documents: [doc('ภาพสินค้า (จำลอง).jpg', 'ภาพสินค้า', '2026-09-14', 900)],
+    registrationStatus: 'need_info', riskStatus: 'none', createdAt: d('2026-09-14'),
+  },
+  {
+    id: 'M-011', operatorId: 'OP-011', shopName: 'เครื่องหนังภูเก็ต', businessType: 'individual', ownerName: 'ธีรวัฒน์ หนังแท้',
+    category: 'แฟชั่นและเครื่องแต่งกาย', province: 'ภูเก็ต', district: 'กะทู้', phone: '0810000011', email: 'teerawat@demo.local',
+    description: 'กระเป๋าหนังแท้ทำมือ (ฉบับร่าง)',
+    channels: [ch('CH-023', 'website', 'phuketleather-demo.example', 'unverified')],
+    documents: [],
+    registrationStatus: 'draft', riskStatus: 'none', createdAt: d('2026-10-15'),
+  },
+  {
+    id: 'M-012', operatorId: 'OP-008', shopName: 'เฮลท์พลัสช็อป', businessType: 'individual', ownerName: 'ชัยวัฒน์ เฮลท์ตี้',
+    category: 'ความงามและสุขภาพ', province: 'กรุงเทพมหานคร', district: 'จตุจักร', phone: '0810000008', email: 'chaiwat@demo.local',
+    description: 'อาหารเสริมและเครื่องดื่มเพื่อสุขภาพ',
+    channels: [ch('CH-024', 'tiktok', 'healthplus.demo', 'pending')],
+    documents: [doc('ทะเบียนพาณิชย์ (จำลอง).pdf', 'ทะเบียนพาณิชย์', '2026-10-16')],
+    registrationStatus: 'submitted', riskStatus: 'allegation', createdAt: d('2026-10-16'),
+    identityFlag: 'Mock Identity ID เดียวกับเจ้าของร้าน "เฮลท์ตี้ซัพพลีเมนต์" (M-008) ซึ่งถูกเพิกถอนการรับรอง',
+  },
+];

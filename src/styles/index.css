@@ -1,0 +1,54 @@
+@import '@fontsource/noto-sans-thai/400.css';
+@import '@fontsource/noto-sans-thai/500.css';
+@import '@fontsource/noto-sans-thai/600.css';
+@import '@fontsource/noto-sans-thai/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-bg font-sans text-ink antialiased;
+    overflow-x: hidden;
+  }
+  ::selection {
+    @apply bg-primary-100;
+  }
+  /* ป้องกันการ์ด/คอลัมน์ขยายเกินจอเมื่อมีข้อความ truncate (min-width: auto ของ grid item) */
+  .grid > * {
+    min-width: 0;
+  }
+  /* Checkbox/Radio ใหญ่ขึ้น กดง่ายสำหรับผู้ใช้ทุกวัย */
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+  }
+  /* เลขที่เอกสารในตารางไม่ตัดบรรทัดกลางรหัส */
+  td .font-mono {
+    white-space: nowrap;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
