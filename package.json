@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "test": "tsx tests/thai.test.mts && tsx tests/flows.test.mts && tsx tests/ai.test.mts && tsx tests/scenarios.test.mts && tsx tests/workflows.test.mts && tsx tests/render.test.mts",
+    "test": "tsx tests/thai.test.mts && tsx tests/flows.test.mts && tsx tests/ai.test.mts && tsx tests/scenarios.test.mts && tsx tests/workflows.test.mts && tsx tests/v2/marketplace.test.mts && tsx tests/v2/assessment.test.mts && tsx tests/v2/workflows.test.mts && tsx tests/render.test.mts",
     "test:flows": "tsx tests/flows.test.mts",
     "test:scenarios": "tsx tests/scenarios.test.mts",
     "test:e2e": "playwright test --project=chromium",

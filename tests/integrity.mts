@@ -126,5 +126,24 @@ export function integrityProblems(): string[] {
       if (mm && !set.has(mm[1])) p.push(`${n.id}: ลิงก์ ${n.link} ชี้ไปข้อมูลที่ไม่มีอยู่`);
     }
   }
+  // ---- v2: การเชื่อมต่อ Marketplace (จำลอง) และผลประเมิน ----
+  const conns = S.useMarketplaceStore.getState().items;
+  const assessments = S.useAssessmentStore.getState().items;
+  unique('marketplace-connections', conns);
+  unique('trust-assessments', assessments);
+  for (const c of conns) {
+    if (!ids.m.has(c.merchantId)) p.push(`${c.id}.merchantId → ${c.merchantId} ไม่มีอยู่`);
+    if (c.status === 'connected' && (!c.lastSyncAt || !c.consentAt)) p.push(`${c.id}: connected แต่ไม่มีวันที่ให้ความยินยอม/ซิงก์`);
+  }
+  for (const m of merchants) {
+    const live = conns.filter((c) => c.merchantId === m.id && c.status !== 'disconnected');
+    if (new Set(live.map((c) => c.platform)).size !== live.length) p.push(`${m.id}: เชื่อมต่อแพลตฟอร์มเดียวกันซ้ำ`);
+  }
+  for (const a of assessments) {
+    if (!ids.m.has(a.merchantId)) p.push(`${a.id}.merchantId → ${a.merchantId} ไม่มีอยู่`);
+    if (a.status === 'decided' && !a.decision) p.push(`${a.id}: decided แต่ไม่มีผลการพิจารณา`);
+    if (a.decision?.certId && !ids.cert.has(a.decision.certId)) p.push(`${a.id}.decision.certId → ${a.decision.certId} ไม่มีอยู่`);
+    if (a.decision?.riskCaseId && !ids.rsk.has(a.decision.riskCaseId)) p.push(`${a.id}.decision.riskCaseId → ${a.decision.riskCaseId} ไม่มีอยู่`);
+  }
   return p;
 }

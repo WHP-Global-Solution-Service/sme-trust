@@ -1,0 +1,47 @@
+import type { Archetype, MarketplaceConnection, Platform } from '@/features/marketplace/types';
+import { CONSENT_SCOPES, PLATFORMS } from '@/features/marketplace/data/platforms';
+import { hashString } from '@/features/marketplace/services/prng';
+import { d } from './helpers';
+import { merchants } from './merchants';
+
+/**
+ * การเชื่อมต่อ Marketplace ตัวอย่าง (จำลองทั้งหมด) — Archetype สอดคล้องกับเรื่องราวของร้านใน v1
+ * เช่น ร้านที่มีข้อร้องเรียนไม่ได้รับสินค้า = fulfillment_issue, ร้านที่ถูกเพิกถอน = ยอดขายดี (แสดงว่า Revoked แยกจาก Band)
+ */
+const shopName = (merchantId: string) => merchants.find((m) => m.id === merchantId)?.shopName ?? merchantId;
+
+export const mockShopId = (key: string, platform: Platform) => `${PLATFORMS[platform].idPrefix}-${(hashString(`${key}:${platform}`) % 900_000) + 100_000}`;
+
+function conn(n: number, merchantId: string, platform: Platform, archetype: Archetype, extra: Partial<MarketplaceConnection> = {}): MarketplaceConnection {
+  return {
+    id: `MKC-${String(n).padStart(3, '0')}`,
+    merchantId,
+    platform,
+    mockShopId: mockShopId(merchantId, platform),
+    mockShopName: `${shopName(merchantId)} (${PLATFORMS[platform].label})`,
+    status: 'connected',
+    scopes: [...CONSENT_SCOPES],
+    archetype,
+    seed: hashString(`${merchantId}:${platform}:${archetype}`),
+    createdAt: d('2026-09-01'),
+    consentAt: d('2026-09-01'),
+    lastSyncAt: d('2026-10-20'),
+    ...extra,
+  };
+}
+
+export const marketplaceConnections: MarketplaceConnection[] = [
+  conn(1, 'M-001', 'shopee', 'established_good'),
+  conn(2, 'M-001', 'lazada', 'established_good'),
+  conn(3, 'M-005', 'shopee', 'growing_ok'),
+  conn(4, 'M-006', 'lazada', 'growing_ok'),
+  conn(5, 'M-006', 'shopee', 'growing_ok', { status: 'sync_failed', lastSyncAt: undefined, failReason: 'การเชื่อมต่อหมดเวลา (จำลอง) — กด "ซิงก์ใหม่" เพื่อลองอีกครั้ง' }),
+  conn(6, 'M-003', 'shopee', 'review_burst'),
+  conn(7, 'M-004', 'shopee', 'fulfillment_issue'),
+  conn(8, 'M-004', 'lazada', 'fulfillment_issue'),
+  conn(9, 'M-008', 'shopee', 'established_good'),
+  conn(10, 'M-012', 'shopee', 'price_anomaly'),
+  conn(11, 'M-007', 'lazada', 'sales_spike'),
+  conn(12, 'M-009', 'shopee', 'growing_ok'),
+  conn(13, 'M-002', 'shopee', 'new_shop'),
+];
