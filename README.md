@@ -44,6 +44,15 @@ npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop
 | AI Simulation (ผู้ประกอบการ) | AI-01 ตรวจสอบข้อความโฆษณา (Highlight, ระดับความเสี่ยงเบื้องต้น, ข้อความเสนอแก้ไข, เปรียบเทียบก่อน–หลัง), AI-02 ช่วยจัดการข้อร้องเรียน (สรุปประเด็น, ข้อมูลที่ควรขอ, ร่างคำตอบ 3 Tone นำไปใส่เคสโดยไม่ส่งอัตโนมัติ), ประวัติการใช้งาน — **Rule-based ในเบราว์เซอร์ ไม่ใช่ AI Model จริง** |
 | ผู้ดูแลระบบ | Admin Dashboard (12 KPI + 7 กราฟ คำนวณจาก Mock State), บัญชีทั้งหมด, Audit Log, Export/Reset ข้อมูลสาธิต |
 
+## SME Trust v2 (Branch `sme-trustv.2` — อยู่ระหว่างพัฒนา)
+
+ต่อยอดจาก v1 โดยไม่ลบฟังก์ชันเดิม — รายละเอียดใน [docs/sme-trust-v2-plan.md](docs/sme-trust-v2-plan.md)
+
+- เชื่อมต่อ **Shopee (จำลอง) / Lazada (จำลอง)** — ยังไม่มีการเชื่อมต่อ API จริง ข้อมูลการขายสร้างแบบ Deterministic ในเบราว์เซอร์
+- วิเคราะห์ราคา ยอดขาย รีวิว → **Trust Assessment** (Band A–D / Insufficient Data, Data Coverage, Data Confidence, คำอธิบายทุกปัจจัย)
+- ผู้บริโภคไม่เห็นคะแนนตัวเลข · Standing (ระงับ/เพิกถอน) แยกจาก Band · ยกระดับ Level 3–4 ผ่าน Officer Review และเกณฑ์ v1 เท่านั้น
+- `npm run build:v2` — Build สำหรับเผยแพร่ที่ `/sme-trust/v2/` ในอนาคต (`dist-v2/`)
+
 ## เทคโนโลยี
 
 React 18 + TypeScript, Vite 5, Tailwind CSS 3, React Router 6, Zustand 4 (persist → localStorage), React Hook Form + Zod, Lucide React, Recharts, date-fns

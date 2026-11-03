@@ -65,7 +65,7 @@ test.describe('ดาวน์โหลด / พิมพ์ / Export', () => {
     await as(page, { role: 'admin', officerId: 'AD-001' }, '/admin/data');
     const json = await readDownload(page, () => page.getByRole('button', { name: 'Export Demo State (JSON)' }).click());
     const data = JSON.parse(json.text);
-    expect(Object.keys(data)).toHaveLength(11);
+    expect(Object.keys(data)).toHaveLength(13); // 11 Store ของ v1 + การเชื่อมต่อ Marketplace และผลประเมินของ v2
     expect(data['ร้านค้า']).toHaveLength(12);
     expect(data['ประวัติ AI Simulation']).toHaveLength(4);
   });

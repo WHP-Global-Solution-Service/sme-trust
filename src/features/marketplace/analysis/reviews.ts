@@ -13,6 +13,9 @@ export const REVIEW_RULES = {
   /** ข้อความสั้นกว่านี้ (ตัวอักษร) ถือว่าสั้นมาก */
   shortText: 8,
   lowQualityShare: 0.4,
+  /** ข้อความสั้น (< templatedText ตัวอักษร) ที่ซ้ำกันเกินสัดส่วนนี้ของรีวิว 5 ดาว ถือว่าเป็นรีวิวแบบเดียวกันผิดปกติ */
+  duplicateShare: 0.25,
+  templatedText: 12,
   /** ประเด็นเชิงลบที่พบอย่างน้อยกี่ครั้งจึงรายงาน */
   themeMin: 2,
   platformGap: 0.8,
@@ -45,7 +48,8 @@ export function analyzeReviews(snapshots: MarketplaceSnapshot[]): ReviewAnalysis
   const fives = sample.filter((r) => r.rating === 5);
   const textCount = new Map<string, number>();
   fives.forEach((r) => textCount.set(r.text, (textCount.get(r.text) ?? 0) + 1));
-  const lowQuality = fives.filter((r) => r.text.length < REVIEW_RULES.shortText || (textCount.get(r.text) ?? 0) >= 3).length;
+  // ข้อความสั้นมาก หรือข้อความสั้นแบบเดียวกันคิดเป็นสัดส่วนสูงของรีวิว 5 ดาว — รีวิวยาวที่บังเอิญตรงกันไม่นับ
+  const lowQuality = fives.filter((r) => r.text.length < REVIEW_RULES.shortText || (r.text.length < REVIEW_RULES.templatedText && (textCount.get(r.text) ?? 0) / fives.length > REVIEW_RULES.duplicateShare)).length;
   const lowQualityShare = fives.length ? lowQuality / fives.length : 0;
   if (fives.length >= 5 && lowQualityShare >= REVIEW_RULES.lowQualityShare) {
     findings.push({ id: 'review-quality', level: 'info', title: 'รีวิว 5 ดาวจำนวนมากข้อความสั้นหรือซ้ำกัน', detail: `${Math.round(lowQualityShare * 100)}% ของรีวิว 5 ดาวในตัวอย่าง`, evidence: [] });

@@ -287,6 +287,39 @@ interface TrustFactor {
 
 ---
 
+## สถานะการพัฒนา (Prompt 3.6 — P1–P5)
+
+| Phase | สถานะ | สิ่งที่ทำ |
+|---|---|---|
+| P0 | ✅ | Branch `sme-trustv.2`, แผนพัฒนา, ข้อสรุป D1–D10 |
+| P1 Data Foundation | ✅ | `features/marketplace` (types, platforms, catalog, archetypes, PRNG, generator), Store `marketplace-connections` / `trust-assessments` / `assessment-config`, Seed 13 การเชื่อมต่อ + 10 ผลประเมิน, Reset/Export/Integrity |
+| P2 Connection & Self-Registration | ✅ | `/m/marketplace` (ความยินยอม, ซิงก์, จำลองซิงก์ล้มเหลว, ซิงก์ใหม่, ยกเลิก), นำเข้าข้อมูลร้านใน Wizard ลงทะเบียนร้าน (ขั้นข้อมูลร้านค้า), Workflow + Audit + Notification (`stores/workflowsV2.ts`) |
+| P3 Analysis Engines | ✅ | `analysis/price.ts` (D9), `sales.ts`, `reviews.ts` (ใช้คำสำคัญ AI-02) |
+| P4 Trust Assessment Engine | ✅ | `trust-assessment/engine.ts` + `model.ts` (Config) — D2, D3, D5–D8 |
+| P5 UI | ✅ | ร้านค้า `/m/trust` · เจ้าหน้าที่ `/o/assessments`, `/o/assessments/:id` (ตารางคำนวณ + เกณฑ์ v1 + การตัดสิน) · ผู้ดูแลระบบ `/admin/assessment-model` · ผู้บริโภค: การ์ดผลประเมินในหน้าร้านและหน้าตรวจใบรับรอง · ข้อมูลประกอบในคำขอ Level 3–4 |
+| D4 | ✅ เตรียมแล้ว | `npm run build:v2` → `dist-v2/` (Base `/sme-trust/v2/`) — ไม่แก้ Workflow และยังไม่ Deploy |
+| P6 Demo v2 | ⏳ | ยังไม่ทำ (ตามขอบเขต) |
+| P7 Final QA | ⏳ | ยังไม่ทำ (ตามขอบเขต) |
+
+### เส้นทางใหม่
+
+| บทบาท | เส้นทาง |
+|---|---|
+| ผู้ประกอบการ | `/m/marketplace`, `/m/trust` · ปุ่มนำเข้าใน `/m/register-shop` |
+| เจ้าหน้าที่ / ผู้ดูแลระบบ | `/o/assessments`, `/o/assessments/:id` |
+| ผู้ดูแลระบบ | `/admin/assessment-model` |
+| ผู้บริโภค | การ์ด "ผลประเมินจากข้อมูลการขาย" ใน `/shop/:id` และ `/verify/:certId` |
+
+### ข้อจำกัดที่ยังเหลือ
+
+- ข้อมูล Marketplace, ช่วงราคาอ้างอิง และ Archetype เป็นข้อมูลสมมติทั้งหมด — เกณฑ์และค่าน้ำหนักเป็นค่าเริ่มต้นสำหรับการจำลอง ยังไม่ผ่านการปรับเทียบกับข้อมูลจริง
+- วันที่ซิงก์ของข้อมูลตัวอย่างคงที่ (20 ต.ค. 2569) — เมื่อเวลาผ่านไปเกิน 30/90 วัน ความเชื่อมั่นของข้อมูลจะลดลงตามกฎ (ถูกต้องตามการออกแบบ แต่ผลสาธิตจะเปลี่ยน) จนกว่าจะกด "ซิงก์ใหม่"
+- การนำเข้าข้อมูลใน Wizard ไม่ถูกบันทึกในฉบับร่าง (ถ้าออกกลางทางต้องนำเข้าใหม่)
+- ยังไม่แยกโค้ดหน้า v2 (Code-split) — Bundle 1.30 MB (gzip 392 KB) เพิ่มจาก 1.21 MB
+- Admin Dashboard ยังไม่มี KPI ของ v2 (มีสรุปจำนวนต่อ Band ในคิวของเจ้าหน้าที่แทน)
+- การเผยแพร่ `/sme-trust/v2/` บน GitHub Pages ต้องเพิ่มการส่งต่อลิงก์ตรงใน `404.html` ตอนรวม Artifact (ยังไม่ทำ)
+- E2E ของ v2 ทดสอบบน Chromium (ทั้ง `/`, `/sme-trust/v2/`) — ยังไม่รันบน Safari/WebKit (P7)
+
 ## ประเด็นที่ตัดสินใจแล้ว
 
 ดูตาราง **ข้อสรุปที่ตกลงแล้ว (D1–D10)** ด้านบน

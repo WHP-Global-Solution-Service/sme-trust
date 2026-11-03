@@ -72,6 +72,15 @@ const routes: [string, string, Record<string, unknown>][] = [
   ['/demo', 'consumer', {}], ['/demo', 'officer', {}], ['/demo/complete/s1', 'consumer', {}], ['/demo/overview', 'consumer', {}],
   ['/m/ai', 'merchant', { operatorId: 'OP-003', merchantLoggedIn: true }], ['/m/ai/ad-checker', 'merchant', { operatorId: 'OP-003', merchantLoggedIn: true }],
   ['/m/ai/complaint?case=CMP-2569-0005', 'merchant', { operatorId: 'OP-003', merchantLoggedIn: true }], ['/m/ai/history', 'merchant', { operatorId: 'OP-003', merchantLoggedIn: true }],
+  // v2
+  ['/m/marketplace', 'merchant', { operatorId: 'OP-001', merchantLoggedIn: true }], ['/m/marketplace', 'merchant', { operatorId: 'OP-006', merchantLoggedIn: true }],
+  ['/m/marketplace', 'merchant', { operatorId: 'OP-010', merchantLoggedIn: true }], ['/m/marketplace', 'merchant', { operatorId: 'OP-012', merchantLoggedIn: true }],
+  ['/m/trust', 'merchant', { operatorId: 'OP-001', merchantLoggedIn: true }], ['/m/trust', 'merchant', { operatorId: 'OP-002', merchantLoggedIn: true }],
+  ['/m/trust', 'merchant', { operatorId: 'OP-008', merchantLoggedIn: true }], ['/m/trust', 'merchant', { operatorId: 'OP-010', merchantLoggedIn: true }],
+  ['/o/assessments', 'officer', {}], ['/o/assessments/TAS-2569-0001', 'officer', {}], ['/o/assessments/TAS-2569-0006', 'officer', {}],
+  ['/o/assessments/TAS-2569-0008', 'officer', {}], ['/o/assessments/TAS-9999-0001', 'officer', {}], ['/o/assessments', 'admin', { officerId: 'AD-001' }],
+  ['/admin/assessment-model', 'admin', { officerId: 'AD-001' }], ['/shop/M-008', 'consumer', {}], ['/shop/M-002', 'consumer', {}], ['/shop/M-010', 'consumer', {}],
+  ['/o/assessments', 'consumer', { __deny: true }], ['/admin/assessment-model', 'officer', { __deny: true }], ['/m/trust', 'consumer', { __deny: true }],
   ['/nope', 'consumer', {}], ['/404', 'consumer', {}],
 ];
 

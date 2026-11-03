@@ -4,10 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, CheckCircle2, FlaskConical, Pencil, Plus, Save, Trash2, User } from 'lucide-react';
+import { Building2, CheckCircle2, Download, FlaskConical, Pencil, Plus, Save, Trash2, User } from 'lucide-react';
 import type { ChannelType, MockDocument } from '@/types';
 import { useSessionStore, toast } from '@/stores';
 import { submitShopRegistration } from '@/stores/workflows';
+import { attachImportedMarketplaces, mockShopProfile } from '@/stores/workflowsV2';
+import type { Archetype, Platform } from '@/features/marketplace/types';
+import { PLATFORM_LIST, PLATFORMS } from '@/features/marketplace/data/platforms';
+import { ConsentModal } from '@/features/marketplace/components/MarketplaceParts';
 import { useCurrentOperator } from '@/hooks/useCurrent';
 import { BUSINESS_CATEGORIES, CHANNEL_TYPES, COMPANY_TYPES, PROVINCES } from '@/constants/labels';
 import { fmtDate } from '@/utils/format';
@@ -71,6 +75,9 @@ export default function RegisterShopWizard() {
   useEffect(() => reportDemo('shop.step', step), [step]);
   const [docs, setDocs] = useState<MockDocument[]>([]);
   const [docErr, setDocErr] = useState('');
+  // v2: นำเข้าข้อมูลร้านจาก Marketplace (จำลอง) — ผูกการเชื่อมต่อหลังส่งคำขอ
+  const [importFor, setImportFor] = useState<Platform>();
+  const [imports, setImports] = useState<{ platform: Platform; archetype: Archetype }[]>([]);
   const [showDraftPrompt, setShowDraftPrompt] = useState(!!draft);
   const [result, setResult] = useState<{ appId: string; merchantId: string; flagged: boolean }>();
 
@@ -135,10 +142,25 @@ export default function RegisterShopWizard() {
       channels: v.channels as { type: ChannelType; handle: string }[],
       documents: docs,
     });
+    if (imports.length) attachImportedMarketplaces(merchant.id, imports);
     saveDraft(op.id, undefined);
     setResult({ appId: app.id, merchantId: merchant.id, flagged: !!merchant.identityFlag });
     setStep(6);
     toast.success('ส่งคำขอลงทะเบียนแล้ว', app.id);
+  };
+
+  /** นำเข้าข้อมูลร้าน (จำลอง): เติมชื่อร้าน หมวด รายละเอียด และช่องทางขาย — ผู้ใช้แก้ไขต่อได้ */
+  const importShop = (archetype: Archetype) => {
+    if (!importFor) return;
+    const p = mockShopProfile(op.id, importFor);
+    setValue('shopName', p.shopName, { shouldValidate: true });
+    setValue('category', p.category, { shouldValidate: true });
+    setValue('description', p.description, { shouldValidate: true });
+    const list = getValues('channels').filter((c) => c.handle.trim());
+    if (!list.some((c) => c.handle === p.handle)) setValue('channels', [...list, { type: 'marketplace', handle: p.handle }]);
+    setImports((xs) => [...xs.filter((x) => x.platform !== importFor), { platform: importFor, archetype }]);
+    toast.success(`นำเข้าข้อมูลจาก ${PLATFORMS[importFor].label} แล้ว`, 'ตรวจสอบและแก้ไขข้อมูลได้ก่อนส่งคำขอ');
+    setImportFor(undefined);
   };
 
   // สำหรับการนำเสนอ: เติมข้อมูลตัวอย่างครบทุกขั้น แล้วไปขั้นตรวจสอบข้อมูล (ยังต้องติ๊กยืนยันและกดส่งเอง)
@@ -213,6 +235,7 @@ export default function RegisterShopWizard() {
     <div className="mx-auto max-w-2xl">
       <PageHeader title="ลงทะเบียนร้านค้า" subtitle="ข้อมูลจะใช้เพื่อการตรวจสอบในระบบสาธิตเท่านั้น" back={{ to: '/m', label: 'หน้าหลัก' }} />
       <Stepper steps={STEPS} current={step} />
+      {importFor && <ConsentModal open mode="import" platform={importFor} defaultArchetype="growing_ok" onCancel={() => setImportFor(undefined)} onConfirm={({ archetype }) => importShop(archetype)} />}
       {step < 5 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-secondary/40 bg-secondary-50/50 px-3 py-2">
           <p className="flex items-center gap-1.5 text-sm text-secondary">
@@ -287,6 +310,17 @@ export default function RegisterShopWizard() {
 
         {step === 2 && (
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-primary/30 bg-primary-50/50 p-3 sm:col-span-2">
+              <p className="text-sm font-medium text-ink">นำเข้าข้อมูลร้านจาก Marketplace (จำลอง)</p>
+              <p className="text-xs text-ink-soft">เติมข้อมูลร้านอัตโนมัติและใช้ข้อมูลการขายประกอบการประเมินความน่าเชื่อถือ — ยังไม่มีการเชื่อมต่อ API จริง ข้อมูลเป็นข้อมูลสมมติ</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {PLATFORM_LIST.map((pl) => (
+                  <Button key={pl} size="sm" variant="outline" icon={imports.some((x) => x.platform === pl) ? CheckCircle2 : Download} onClick={() => setImportFor(pl)}>
+                    {imports.some((x) => x.platform === pl) ? `นำเข้าจาก ${PLATFORMS[pl].label} แล้ว` : `นำเข้าจาก ${PLATFORMS[pl].label}`}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <Field label="ชื่อร้านค้า" required error={err('shopName')} className="sm:col-span-2">
               <Input placeholder="ชื่อที่ใช้บนช่องทางขาย" invalid={!!errors.shopName} {...register('shopName')} />
             </Field>

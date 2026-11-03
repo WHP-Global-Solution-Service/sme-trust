@@ -59,6 +59,11 @@ import AIAssistantHome from '@/features/ai-assistant/pages/AIAssistantHome';
 import AdvertisingChecker from '@/features/ai-assistant/pages/AdvertisingChecker';
 import ComplaintAssistant from '@/features/ai-assistant/pages/ComplaintAssistant';
 import AIHistory from '@/features/ai-assistant/pages/AIHistory';
+import MarketplacePage from '@/features/marketplace/pages/MarketplacePage';
+import MerchantAssessmentPage from '@/features/trust-assessment/pages/MerchantAssessmentPage';
+import OfficerAssessmentList from '@/features/trust-assessment/pages/OfficerAssessmentList';
+import OfficerAssessmentDetail from '@/features/trust-assessment/pages/OfficerAssessmentDetail';
+import AdminAssessmentModel from '@/features/trust-assessment/pages/AdminAssessmentModel';
 
 const gate = (allow: Role[], el: JSX.Element) => <RoleGate allow={allow}>{el}</RoleGate>;
 const M: Role[] = ['merchant'];
@@ -95,6 +100,8 @@ export function AppRoutes() {
         <Route path="/m/toolkit" element={gate(M, <ToolkitPage />)} />
         <Route path="/m/notifications" element={gate(M, <NotificationsPage />)} />
         <Route path="/m/ai" element={gate(M, <AIAssistantHome />)} />
+        <Route path="/m/marketplace" element={gate(M, <MarketplacePage />)} />
+        <Route path="/m/trust" element={gate(M, <MerchantAssessmentPage />)} />
         <Route path="/m/ai/ad-checker" element={gate(M, <AdvertisingChecker />)} />
         <Route path="/m/ai/complaint" element={gate(M, <ComplaintAssistant />)} />
         <Route path="/m/ai/history" element={gate(M, <AIHistory />)} />
@@ -122,6 +129,8 @@ export function AppRoutes() {
         <Route path="/o/warnings/new" element={gate(O, <NewWarningPage />)} />
         <Route path="/o/warnings/:id" element={gate(O, <OfficerWarningDetail />)} />
         <Route path="/o/corrective" element={gate(O, <OfficerWarnings corrective />)} />
+        <Route path="/o/assessments" element={gate(O, <OfficerAssessmentList />)} />
+        <Route path="/o/assessments/:id" element={gate(O, <OfficerAssessmentDetail />)} />
         <Route path="/o/risk" element={gate(O, <OfficerRiskList />)} />
         <Route path="/o/risk/:id" element={gate(O, <OfficerRiskDetail />)} />
         <Route path="/o/training" element={gate(O, <TrainingRecords />)} />
@@ -133,6 +142,7 @@ export function AppRoutes() {
         <Route path="/admin/accounts" element={gate(A, <AccountsPage />)} />
         <Route path="/admin/audit" element={gate(A, <AuditPage />)} />
         <Route path="/admin/data" element={gate(A, <DemoDataPage />)} />
+        <Route path="/admin/assessment-model" element={gate(A, <AdminAssessmentModel />)} />
 
         <Route path="/404" element={<NotFoundPage />} />
       </Route>
