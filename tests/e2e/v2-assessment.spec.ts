@@ -29,9 +29,9 @@ test('ร้านเชื่อมต่อ Lazada (จำลอง) → ป�
   await dlg.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
   await expect(dlg.getByText('คะแนนร้าน')).toBeVisible();
   expect((await store<Conn>(page, 'marketplace-connections')).find((c) => c.merchantId === 'M-005' && c.platform === 'lazada')!.status).toBe('pending_consent'); // Preview ยังไม่ดึงข้อมูล
-  await dlg.getByLabel(/จำลองการซิงก์ไม่สำเร็จ/).check();
+  await dlg.getByLabel('จำลอง: นำเข้าข้อมูลไม่สำเร็จ').check();
   await dlg.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
-  await expect(dlg.getByText('ซิงก์ไม่สำเร็จ').first()).toBeVisible();
+  await expect(dlg.getByText('นำเข้าข้อมูลไม่สำเร็จ (Import Failed)')).toBeVisible();
   await dlg.getByRole('button', { name: 'ลองซิงก์ใหม่' }).click();
   await expect(dlg.getByText('เชื่อมต่อสำเร็จ (Connection Success)')).toBeVisible();
   await dlg.getByRole('button', { name: 'ปิด', exact: true }).click();

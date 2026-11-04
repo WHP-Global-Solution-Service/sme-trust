@@ -15,11 +15,13 @@ npm install
 npm run dev        # เปิด http://localhost:5173
 npm run build      # Type-check (tsc -b) + Production build ไปที่ dist/
 npm run preview    # เปิดดู build
-npm test           # พิสูจน์อักษรไทย, Flow ข้ามบทบาท, AI Simulation, Demo Scenarios 8 เรื่อง + Full Journey, Workflow และ Render ทุกหน้า
+npm test           # พิสูจน์อักษรไทย, Flow ข้ามบทบาท, AI Simulation, Demo Scenarios 1–13 + Full Journey v1/v2, Workflow, Model Validation, P7 Regression และ Render ทุกหน้า
 npm run typecheck  # TypeScript (strict)
 npm run test:e2e   # E2E บน Chromium จริง (build + preview อัตโนมัติ) — ครั้งแรกอาจต้อง npx playwright install chromium
 npm run test:e2e:subpath  # E2E ภายใต้ /sme-trust/ (เหมือน GitHub Pages)
 npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop + iPhone + iPad — ครั้งแรกต้อง npx playwright install webkit
+npm run test:e2e:firefox  # E2E บน Firefox — ครั้งแรกต้อง npx playwright install firefox
+npm run test:e2e:pages    # จำลอง GitHub Pages แบบรวม: v1 (จาก main, อ่านอย่างเดียว) ที่ /sme-trust/ + v2 ที่ /sme-trust/v2/ (ไม่ Deploy)
 ```
 
 เริ่มนำเสนอ: เปิด **`/demo`** (หน้ารวม Demo Scenarios — ปุ่มบนหน้าแรก) → **Start Full Journey** (เรื่องต่อเนื่อง 1 → 8) หรือ **Start Demo** รายเรื่อง แล้วใช้ **Demo Controller** (แผงขวาบนเดสก์ท็อป / แถบล่างบนมือถือ) ไปทีละขั้น · ปุ่มถัดไปเปิดเมื่อทำขั้นนั้นเสร็จจริง · **Restart Scenario** เริ่มเรื่องเดิมใหม่ได้ทุกเมื่อ

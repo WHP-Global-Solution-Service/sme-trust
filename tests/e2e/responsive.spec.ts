@@ -50,6 +50,8 @@ for (const vp of VIEWPORTS) {
     await page.getByRole('button', { name: 'Start Demo' }).nth(7).click();
     await page.locator('[data-demo="next"]:visible').first().click();
     await expect(page).toHaveURL(/\/m\/complaints\/CMP-2569-0005$/);
+    // หน้าแยกไฟล์ (lazy) — รอให้เนื้อหาของหน้าแสดงก่อนวัดตำแหน่ง
+    await expect(page.locator('main').getByRole('button', { name: 'ส่งการตอบกลับ' })).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(300);
     const r = await page.evaluate(() => {

@@ -10,7 +10,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
-import type { Archetype, MarketplaceConnection } from "../types";
+import type { Archetype, FailKind, MarketplaceConnection } from "../types";
 import {
   ARCHETYPE_LABEL,
   CONSENT_SCOPES,
@@ -48,7 +48,7 @@ export function ConnectWizard({
   shopName: string;
   category: string;
   onClose: () => void;
-  onConfirm: (opts: { archetype: Archetype; simulateFailure: boolean }) => void;
+  onConfirm: (opts: { archetype: Archetype; failKind?: FailKind }) => void;
   onResync: () => void;
 }) {
   const imported =
@@ -56,7 +56,7 @@ export function ConnectWizard({
   const [step, setStep] = useState(0);
   const [agree, setAgree] = useState(false);
   const [archetype, setArchetype] = useState<Archetype>(connection.archetype);
-  const [fail, setFail] = useState(false);
+  const [fail, setFail] = useState<FailKind | "">("");
   const label = PLATFORMS[connection.platform].label;
   const current = imported ? 3 : step;
   const ref = useRef<HTMLElement>(null);
@@ -124,7 +124,7 @@ export function ConnectWizard({
         </Button>
         <Button
           icon={PlugZap}
-          onClick={() => onConfirm({ archetype, simulateFailure: fail })}
+          onClick={() => onConfirm({ archetype, failKind: fail || undefined })}
         >
           ยืนยันนำเข้าข้อมูล
         </Button>
@@ -283,15 +283,32 @@ export function ConnectWizard({
               <p className="text-xs text-ink-soft">
                 ระบบยังไม่ดึงข้อมูลจนกว่าจะกด "ยืนยันนำเข้าข้อมูล"
               </p>
-              <label className="flex items-center gap-2 rounded-xl border border-dashed border-secondary/40 bg-secondary-50/50 p-3 text-xs text-ink">
-                <input
-                  type="checkbox"
-                  checked={fail}
-                  onChange={(e) => setFail(e.target.checked)}
-                  className="h-4 w-4 accent-primary"
-                />
-                สำหรับการสาธิต: จำลองการซิงก์ไม่สำเร็จ (เพื่อแสดงการลองใหม่)
-              </label>
+              <fieldset className="rounded-xl border border-dashed border-secondary/40 bg-secondary-50/50 p-3 text-xs text-ink">
+                <legend className="px-1 font-semibold text-secondary">
+                  สำหรับการสาธิต: ผลการเชื่อมต่อ
+                </legend>
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {(
+                    [
+                      ["", "สำเร็จ (ค่าปกติ)"],
+                      ["connect", "จำลอง: เชื่อมต่อไม่สำเร็จ"],
+                      ["import", "จำลอง: นำเข้าข้อมูลไม่สำเร็จ"],
+                      ["sync", "จำลอง: ซิงก์ไม่สำเร็จ"],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <label key={k || "ok"} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="sim-result"
+                        checked={fail === k}
+                        onChange={() => setFail(k)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             </>
           )}
 
@@ -313,7 +330,16 @@ export function ConnectWizard({
                 </Alert>
               )}
               {connection.status === "sync_failed" && (
-                <Alert tone="error" title="ซิงก์ไม่สำเร็จ">
+                <Alert
+                  tone="error"
+                  title={
+                    connection.failKind === "connect"
+                      ? "เชื่อมต่อไม่สำเร็จ (Connection Failed)"
+                      : connection.failKind === "import"
+                        ? "นำเข้าข้อมูลไม่สำเร็จ (Import Failed)"
+                        : "ซิงก์ไม่สำเร็จ (Sync Failed)"
+                  }
+                >
                   {connection.failReason}
                 </Alert>
               )}

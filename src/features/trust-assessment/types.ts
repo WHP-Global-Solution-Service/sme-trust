@@ -55,6 +55,8 @@ export type Recommendation =
 
 export interface AssessmentResult {
   modelVersion: string;
+  /** ชุดน้ำหนักที่ใช้ตอนประเมิน (สำเนา — ไม่เปลี่ยนเมื่อผู้ดูแลระบบปรับน้ำหนักภายหลัง) */
+  weightSet?: { revision: number; at?: string };
   weights: Weights;
   computedAt: ISODate;
   /** คะแนน 0–100 — แสดงเฉพาะเจ้าหน้าที่/ผู้ดูแลระบบ (D2) */
@@ -66,6 +68,8 @@ export interface AssessmentResult {
   band: BandOrInsufficient;
   /** Band ที่ได้จากคะแนน (ใช้แสดงให้เจ้าหน้าที่แม้ข้อมูลไม่พอ) */
   scoreBand: Band;
+  /** เหตุผลที่ Band ถูกจำกัดไว้ที่ B แม้คะแนนถึง A (v2.1) — ผลประเมินเก่าที่บันทึกก่อน v2.1 ไม่มีค่านี้ */
+  bandCapReasons?: string[];
   insufficientReasons: string[];
   standing: Standing;
   standingReason?: string;

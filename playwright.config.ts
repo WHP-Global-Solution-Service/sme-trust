@@ -25,10 +25,12 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', testIgnore: /mobile\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    { name: 'chromium', testIgnore: /(mobile|pages)\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    // Firefox (Gecko ของ Playwright) — รันเมื่อติดตั้ง Browser แล้ว: npx playwright install firefox
+    { name: 'firefox', testIgnore: /(mobile|pages)\.spec\.ts/, timeout: 300_000, use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 900 } } },
     // Safari: ใช้ WebKit ของ Playwright (Engine เดียวกับ Safari) — ไม่ใช่ Safari บน macOS/iOS จริง
     // WebKit บน Windows ช้ากว่า Chromium มาก — ขยายเวลารอ (ไม่ได้ลดเงื่อนไขการตรวจ)
-    { name: 'webkit', testIgnore: /mobile\.spec\.ts/, timeout: 600_000, expect: { timeout: 30_000 }, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 }, actionTimeout: 45_000 } },
+    { name: 'webkit', testIgnore: /(mobile|pages)\.spec\.ts/, timeout: 600_000, expect: { timeout: 30_000 }, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 }, actionTimeout: 45_000 } },
     { name: 'iphone-safari', timeout: 600_000, expect: { timeout: 30_000 }, use: { ...devices['iPhone 13'], actionTimeout: 45_000 }, testMatch: /(mobile|responsive)\.spec\.ts/ },
     { name: 'ipad-safari', timeout: 600_000, expect: { timeout: 30_000 }, use: { ...devices['iPad (gen 7)'], actionTimeout: 45_000 }, testMatch: /mobile\.spec\.ts/ },
   ],

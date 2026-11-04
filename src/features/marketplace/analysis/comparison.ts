@@ -5,7 +5,7 @@
 import type { Listing, MarketplaceSnapshot, Review } from '../types';
 import { generateSnapshot } from '../services/generator';
 import { hashString } from '../services/prng';
-import { productRef } from '../data/catalog';
+import { productRef, productsOfCategory } from '../data/catalog';
 import { analyzePrices } from './price';
 import { analyzeSales } from './sales';
 import { analyzeReviews } from './reviews';
@@ -19,8 +19,15 @@ export const COMPARISON_CASES: { id: ComparisonCaseId; title: string; desc: stri
   { id: 'review_burst', title: 'คะแนนดี แต่รีวิวผิดธรรมชาติ', desc: 'รีวิว 5 ดาวจำนวนมากเกิดในไม่กี่วัน ข้อความสั้นและซ้ำกัน' },
 ];
 
-/** ใช้หมวดที่มีทั้งสินค้าความเสี่ยงสูงและปานกลาง เพื่อให้เห็นผลของ D9 ชัดเจน */
-export const COMPARISON_CATEGORY = 'ความงามและสุขภาพ';
+/**
+ * หมวดสินค้าของการเปรียบเทียบ (P7-F) — ใช้หมวดของร้านที่เลือกเป็นค่าเริ่มต้น และเปลี่ยนได้
+ * ทุกกรณีในการเปรียบเทียบหนึ่งครั้งใช้หมวดเดียวกัน จึงเทียบภายใต้ช่วงราคาอ้างอิงและความเสี่ยงของสินค้าชุดเดียวกัน
+ * หมวดที่ไม่มีในแคตตาล็อกใช้สินค้า "ของใช้ในบ้าน" แทน (ตาม productsOfCategory)
+ */
+export const DEFAULT_COMPARISON_CATEGORY = 'ความงามและสุขภาพ';
+
+/** หมวดที่ใช้สร้างรายการสินค้าจริง (หมวดที่ไม่มีในแคตตาล็อกจะใช้ของใช้ในบ้าน) */
+export const effectiveCategory = (category: string) => productsOfCategory(category)[0]?.category ?? category;
 
 const conn = (id: string, archetype: Parameters<typeof generateSnapshot>[0]['archetype']) => ({ id: `CMP-${id}`, platform: 'shopee' as const, seed: hashString(`comparison:${id}`), archetype });
 
@@ -44,27 +51,27 @@ function scaleDown(s: MarketplaceSnapshot, factor: number, keep: (r: Review) => 
   };
 }
 
-export function comparisonSnapshot(id: ComparisonCaseId): MarketplaceSnapshot {
+export function comparisonSnapshot(id: ComparisonCaseId, category: string = DEFAULT_COMPARISON_CATEGORY): MarketplaceSnapshot {
   switch (id) {
     case 'cheap_popular': {
-      const s = generateSnapshot(conn('A', 'established_good'), COMPARISON_CATEGORY);
+      const s = generateSnapshot(conn('A', 'established_good'), category);
       return { ...s, listings: s.listings.map((l) => withPrice(l, 0.42)) };
     }
     case 'premium_niche': {
-      const s = generateSnapshot(conn('B', 'established_good'), COMPARISON_CATEGORY);
+      const s = generateSnapshot(conn('B', 'established_good'), category);
       const total = s.monthlyOrders.reduce((a, b) => a + b, 0) || 1;
       const small = scaleDown(s, 72 / total, (r) => r.rating >= 4);
       return { ...small, listings: small.listings.map((l) => withPrice(l, 2.3)) };
     }
     case 'new_shop':
-      return generateSnapshot(conn('C', 'new_shop'), COMPARISON_CATEGORY);
+      return generateSnapshot(conn('C', 'new_shop'), category);
     case 'review_burst':
-      return generateSnapshot(conn('D', 'review_burst'), COMPARISON_CATEGORY);
+      return generateSnapshot(conn('D', 'review_burst'), category);
   }
 }
 
 /** ผลวิเคราะห์ของแต่ละกรณี — ใช้ฟังก์ชันวิเคราะห์ชุดเดียวกับการประเมินจริง */
-export function analyzeCase(id: ComparisonCaseId) {
-  const snap = comparisonSnapshot(id);
+export function analyzeCase(id: ComparisonCaseId, category: string = DEFAULT_COMPARISON_CATEGORY) {
+  const snap = comparisonSnapshot(id, category);
   return { snap, price: analyzePrices([snap]), sales: analyzeSales([snap]), reviews: analyzeReviews([snap]) };
 }

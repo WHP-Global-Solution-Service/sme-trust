@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { RotateCcw, Save, SlidersHorizontal } from 'lucide-react';
 import { toast } from '@/stores';
-import { useAssessmentConfigStore } from '@/stores/assessmentConfig';
+import { useAssessmentConfigStore, weightSetLabel } from '@/stores/assessmentConfig';
+import { fmtDate } from '@/utils/format';
 import { Alert, Button, Card, CardHeader, PageHeader } from '@/components/common/ui';
 import { COMPONENTS, MODEL_V2, validateWeights, type ComponentId, type Weights } from '../model';
 import { ASSESSMENT_DISCLAIMER } from '../labels';
@@ -11,6 +12,9 @@ const ids = Object.keys(COMPONENTS) as ComponentId[];
 /** โมเดลการประเมิน — ปรับน้ำหนักได้ และแสดงพารามิเตอร์ทั้งหมดอย่างโปร่งใส (D5) */
 export default function AdminAssessmentModel() {
   const saved = useAssessmentConfigStore((s) => s.weights);
+  const revision = useAssessmentConfigStore((s) => s.revision);
+  const updatedAt = useAssessmentConfigStore((s) => s.updatedAt);
+  const history = useAssessmentConfigStore((s) => s.history);
   const [draft, setDraft] = useState<Weights>(saved);
   const sum = ids.reduce((s, id) => s + (Number(draft[id]) || 0), 0);
   const error = validateWeights(draft);
@@ -21,7 +25,7 @@ export default function AdminAssessmentModel() {
     else toast.success('บันทึกน้ำหนักแล้ว', 'มีผลกับการประเมินครั้งถัดไป');
   };
   const reset = () => {
-    useAssessmentConfigStore.getState().reset();
+    useAssessmentConfigStore.getState().restoreDefault();
     setDraft({ ...MODEL_V2.weights });
     toast.success('คืนค่าน้ำหนักเริ่มต้นแล้ว');
   };
@@ -31,7 +35,24 @@ export default function AdminAssessmentModel() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <PageHeader title="โมเดลการประเมิน (Trust Assessment)" subtitle={`โมเดล ${MODEL_V2.version} — ค่าทั้งหมดเป็นค่าเริ่มต้นสำหรับการจำลอง`} icon={SlidersHorizontal} />
-      <Alert tone="info">การเปลี่ยนน้ำหนักมีผลกับการประเมินครั้งถัดไป ผลประเมินเดิมบันทึกน้ำหนักที่ใช้ไว้ทุกครั้ง และผลที่ใช้ข้อมูลเดิมจะแสดงว่า "ข้อมูลเปลี่ยนแปลง" ให้ประเมินใหม่</Alert>
+      <Alert tone="info">การเปลี่ยนน้ำหนักมีผลกับการประเมินครั้งถัดไป ผลประเมินเดิมบันทึกน้ำหนักและเลขชุดน้ำหนักที่ใช้ไว้ทุกครั้ง (ไม่ถูกแก้ย้อนหลัง) และผลที่ใช้ข้อมูลเดิมจะแสดงว่า "ข้อมูลเปลี่ยนแปลง" ให้ประเมินใหม่</Alert>
+
+      <Card className="p-4 text-sm sm:p-5" data-testid="weight-set">
+        <p className="font-semibold text-ink">
+          ใช้อยู่: {weightSetLabel({ revision, at: updatedAt })} · โมเดล {MODEL_V2.version}
+        </p>
+        <p className="text-xs text-ink-soft">{updatedAt ? `เริ่มใช้เมื่อ ${fmtDate(updatedAt, true)}` : 'ค่าเริ่มต้นของระบบ ใช้ตั้งแต่เริ่ม Demo'}</p>
+        {history.length > 1 && (
+          <ul className="mt-2 space-y-0.5 text-xs text-ink-soft" aria-label="ประวัติชุดน้ำหนัก">
+            {history.map((h) => (
+              <li key={h.revision}>
+                {weightSetLabel(h)} — {ids.map((id) => `${id} ${h.weights[id]}`).join(' / ')} · {h.note}
+                {h.at ? ` · ${fmtDate(h.at, true)}` : ''}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card>
         <CardHeader title="น้ำหนักองค์ประกอบ" subtitle="จำนวนเต็ม 0–100 ผลรวมต้องเท่ากับ 100" />
@@ -79,9 +100,9 @@ export default function AdminAssessmentModel() {
         <ol className="list-decimal space-y-1 p-4 pl-8 text-sm text-ink sm:p-5 sm:pl-10">
           <li>คำนวณคะแนน 0–100 ขององค์ประกอบที่มีข้อมูล — องค์ประกอบที่ไม่มีข้อมูล<b>ไม่ถูกนับเป็น 0</b> แต่กระจายน้ำหนักให้องค์ประกอบอื่น</li>
           <li>คะแนนตั้งต้น = Σ (คะแนนองค์ประกอบ × น้ำหนักที่ใช้ ÷ 100)</li>
-          <li>หักคะแนนตามสัญญาณที่ควรตรวจสอบ: ราคาต่ำผิดปกติในสินค้าความเสี่ยงสูง/กลาง −{P.priceWatch}, รีวิวกระจุกตัว −{P.reviewBurst}, ยอดขายพุ่ง −{P.salesSpike}, ข้อร้องเรียนเร่งด่วนที่ยังไม่ปิด −{P.seriousOpenComplaint}, สัญญาณหลายข้อร่วมกัน −{P.crossSignal}</li>
+          <li>หักคะแนนตามสัญญาณที่ควรตรวจสอบ: ราคาต่ำผิดปกติในสินค้าความเสี่ยงสูง/กลาง −{P.priceWatch}, รีวิวกระจุกตัว −{P.reviewBurst}, ยอดขายพุ่ง −{P.salesSpike}, ข้อร้องเรียนเร่งด่วนที่ยังไม่ปิด −{P.seriousOpenComplaint}, สัญญาณหลายข้อร่วมกัน −{P.crossSignal}, อัตราคืนสินค้าเกิน {Math.round(MODEL_V2.riskThresholds.returnRate * 100)}% −{P.highReturn}</li>
           <li>
-            Band: A ≥ {MODEL_V2.bands.A} (ต้องมีความเชื่อมั่นสูงและไม่มีสัญญาณที่ควรตรวจสอบ), B ≥ {MODEL_V2.bands.B}, C ≥ {MODEL_V2.bands.C}, D ต่ำกว่านั้น
+            Band: A ≥ {MODEL_V2.bands.A} (ต้องมีความเชื่อมั่นสูง ไม่มีสัญญาณที่ควรตรวจสอบ Coverage ≥ {MODEL_V2.bandA.minCoverage}% และข้อมูลระหว่างแพลตฟอร์มไม่ขัดแย้งกัน), B ≥ {MODEL_V2.bands.B}, C ≥ {MODEL_V2.bands.C}, D ต่ำกว่านั้น
           </li>
           <li>
             Insufficient Data เมื่อไม่มีการเชื่อมต่อที่ซิงก์แล้ว หรือคำสั่งซื้อ &lt; {MODEL_V2.minimums.orders}, รีวิว &lt; {MODEL_V2.minimums.reviews}, ข้อมูลการขาย &lt; {MODEL_V2.minimums.months} เดือน
@@ -90,7 +111,7 @@ export default function AdminAssessmentModel() {
             Data Coverage = ค่าเฉลี่ยถ่วงน้ำหนักของ: แพลตฟอร์ม (เป้า {MODEL_V2.coverage.platforms.target}), เดือน ({MODEL_V2.coverage.months.target}), รายการสินค้า ({MODEL_V2.coverage.listings.target}), คำสั่งซื้อ ({MODEL_V2.coverage.orders.target}), รีวิว ({MODEL_V2.coverage.reviews.target}), ข้อมูลในระบบ
           </li>
           <li>
-            Data Confidence เริ่มที่ 100 แล้วหัก: แหล่งเดียว −{K.singleSource}, ซิงก์เกิน {K.freshFullDays} วัน −{K.stalePartial} / เกิน {K.freshPartialDays} วัน −{K.staleFull}, คำสั่งซื้อน้อย −{K.smallOrders}, รีวิวน้อย −{K.smallReviews}, คะแนนต่างกันระหว่างแพลตฟอร์ม −{K.platformGap}, รีวิวกระจุกตัว −{K.reviewBurst} → สูง ≥ {K.high}, ปานกลาง ≥ {K.medium}
+            Data Confidence เริ่มที่ 100 แล้วหัก: แหล่งเดียว −{K.singleSource}, ซิงก์เกิน {K.freshFullDays} วัน −{K.stalePartial} / เกิน {K.freshPartialDays} วัน −{K.staleFull}, คำสั่งซื้อน้อย −{K.smallOrders} (ต่ำกว่าเป้าหมาย −{K.moderateOrders}), รีวิวน้อย −{K.smallReviews} (ต่ำกว่าเป้าหมาย −{K.moderateReviews}), คะแนนต่างกันระหว่างแพลตฟอร์ม −{K.platformGap}, รีวิวกระจุกตัว −{K.reviewBurst} → สูง ≥ {K.high}, ปานกลาง ≥ {K.medium}
           </li>
           <li>Standing (ระงับ/เพิกถอน/อยู่ระหว่างพิจารณาความเสี่ยง) แยกจาก Band และไม่ถูกคิดเป็นคะแนน — Standing ที่ไม่ปกติทำให้ใช้หรือขอ Badge ไม่ได้</li>
           <li>ผู้บริโภคเห็นเฉพาะ Band, Coverage, Confidence และคำอธิบาย — คะแนนตัวเลขเห็นเฉพาะเจ้าหน้าที่และผู้ดูแลระบบ</li>

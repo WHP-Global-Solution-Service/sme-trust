@@ -20,7 +20,9 @@ import { snapshotOf } from '../services/generator';
 import { analyzePrices } from '../analysis/price';
 import { analyzeSales } from '../analysis/sales';
 import { analyzeReviews } from '../analysis/reviews';
-import { analyzeCase, COMPARISON_CASES, type ComparisonCaseId } from '../analysis/comparison';
+import { analyzeCase, COMPARISON_CASES, effectiveCategory, type ComparisonCaseId } from '../analysis/comparison';
+import { productsOfCategory } from '../data/catalog';
+import { BUSINESS_CATEGORIES } from '@/constants/labels';
 import { MarketplaceDisclaimer } from '../components/MarketplaceParts';
 
 type Tab = 'price' | 'sales' | 'reviews' | 'risk' | 'compare' | 'summary';
@@ -90,7 +92,7 @@ export default function MarketplaceAnalysisPage() {
       ) : tab === 'risk' ? (
         <RiskSection a={a} conns={conns} />
       ) : tab === 'compare' ? (
-        <CompareSection merchantId={m.id} />
+        <CompareSection key={m.id} merchantId={m.id} shopCategory={m.category} />
       ) : (
         <SummarySection a={a} sources={sources} />
       )}
@@ -247,8 +249,11 @@ function RiskSection({ a, conns }: { a: A; conns: MarketplaceConnection[] }) {
 }
 
 /** เปรียบเทียบ 4 กรณีตัวอย่าง — ข้อมูลด้านตัวตนและการปฏิบัติตามใช้ของร้านปัจจุบัน ต่างกันเฉพาะข้อมูล Marketplace */
-function CompareSection({ merchantId }: { merchantId: string }) {
+function CompareSection({ merchantId, shopCategory }: { merchantId: string; shopCategory: string }) {
   const [sel, setSel] = useState<ComparisonCaseId>('cheap_popular');
+  const [category, setCategory] = useState(shopCategory);
+  const used = effectiveCategory(category);
+  const crossCategory = used !== effectiveCategory(shopCategory);
   const [touched, setTouched] = useState(false);
   useEffect(() => {
     if (touched) reportDemo('analysis.compare', true);
@@ -258,12 +263,12 @@ function CompareSection({ merchantId }: { merchantId: string }) {
     const base = buildAssessmentInput(merchantId, dataBundle(), new Date());
     const now = new Date().toISOString();
     return COMPARISON_CASES.map((c) => {
-      const r = analyzeCase(c.id);
+      const r = analyzeCase(c.id, category);
       const connection: MarketplaceConnection = { id: r.snap.connectionId, merchantId, platform: 'shopee', mockShopId: 'ตัวอย่าง', mockShopName: c.title, status: 'connected', scopes: [], archetype: 'established_good', seed: 0, createdAt: now, lastSyncAt: now };
       const result = base ? assessTrust({ ...base, marketplace: [{ connection, snapshot: r.snap }] }, currentModel()) : undefined;
       return { ...c, ...r, result };
     });
-  }, [merchantId]);
+  }, [merchantId, category]);
   const cur = rows.find((r) => r.id === sel)!;
   const priceText = (r: (typeof rows)[number]) => {
     const watch = r.price.findings.filter((f) => f.level === 'watch').length;
@@ -274,6 +279,31 @@ function CompareSection({ merchantId }: { merchantId: string }) {
 
   return (
     <div className="space-y-4">
+      <Card className="space-y-2 p-4 text-sm">
+        <label className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-ink">หมวดสินค้าที่ใช้เปรียบเทียบ</span>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 rounded-lg border border-line bg-white px-2" aria-label="หมวดสินค้าที่ใช้เปรียบเทียบ">
+            {BUSINESS_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+                {c === shopCategory ? ' (หมวดของร้านคุณ)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-ink-soft" data-testid="compare-category">
+          ทั้ง 4 กรณีใช้สินค้าหมวด <b>{used}</b>
+          {used !== category ? ` (ไม่มีข้อมูลสินค้าตัวอย่างของหมวด "${category}" จึงใช้หมวดนี้แทน)` : ''} และช่วงราคาอ้างอิงชุดเดียวกัน:{' '}
+          {productsOfCategory(category)
+            .map((p) => `${p.name} (${PRODUCT_RISK_LABEL[p.risk]})`)
+            .join(' · ')}
+        </p>
+        {crossCategory && (
+          <Alert tone="warning" title="เปรียบเทียบต่างหมวดกับร้านของคุณ">
+            หมวด "{used}" ใช้ช่วงราคาอ้างอิงและระดับความเสี่ยงของสินค้าคนละชุดกับหมวดของร้านคุณ ({effectiveCategory(shopCategory)}) — ใช้ดูหลักการเท่านั้น ไม่ควรนำ Band หรือผลวิเคราะห์ไปเทียบข้ามหมวดโดยตรง
+          </Alert>
+        )}
+      </Card>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="กรณีตัวอย่าง">
         {rows.map((r, i) => (
           <button

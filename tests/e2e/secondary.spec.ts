@@ -45,6 +45,8 @@ test.describe('ดาวน์โหลด / พิมพ์ / Export', () => {
     await open(page, '/m/training/CRS-01');
     await stubPrint(page);
     const cert = page.getByRole('button', { name: 'ดูใบรับรองการอบรม' });
+    // หน้าแยกไฟล์ (lazy) — รอให้หน้าแสดงปุ่มใดปุ่มหนึ่งก่อนตรวจเงื่อนไข
+    await expect(cert.or(page.getByRole('button', { name: 'พิมพ์ใบรับรอง' })).first()).toBeVisible();
     if (await cert.isVisible()) await cert.click();
     await page.getByRole('button', { name: 'พิมพ์ใบรับรอง' }).click();
     expect(await printed(page)).toBe(1);
@@ -163,6 +165,8 @@ test.describe('ผู้บริโภค / ผู้ประกอบกา�
   test('ทำเนียบร้านค้า: กรองหมวดและจังหวัด', async ({ page }) => {
     await as(page, {}, '/directory');
     const count = () => page.locator('main a[href*="/shop/"]').count();
+    // หน้าแยกไฟล์ (lazy) — รอให้รายการร้านแสดงก่อนนับ
+    await expect(page.locator('main a[href*="/shop/"]').first()).toBeVisible();
     const all = await count();
     await page.getByLabel('จังหวัด').selectOption('จันทบุรี');
     await expect.poll(count).toBeLessThan(all);

@@ -9,7 +9,7 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/ui';
 
 type Mode = 'continue' | 'jump';
-type Pending = { id: string; mode: Mode; issue?: ContinuityIssue; caseNote?: string };
+type Pending = { id: string; mode: Mode; issue?: ContinuityIssue; caseNote?: string; replayNote?: string };
 
 /**
  * เริ่ม Scenario ถัดไปในการสาธิตต่อเนื่อง — ไม่สลับข้อมูลแบบเงียบ:
@@ -26,7 +26,8 @@ export function useScenarioLauncher() {
   const launch = (id: string, mode: Mode = 'continue') => {
     const issue = continuityIssue(id);
     const caseNote = journeyMode ? findScenario(id)?.caseNote : undefined;
-    if (issue || caseNote) setPending({ id, mode, issue, caseNote });
+    const replayNote = findScenario(id)?.replayNote?.();
+    if (issue || caseNote || replayNote) setPending({ id, mode, issue, caseNote, replayNote });
     else run(id, mode);
   };
 
@@ -38,7 +39,7 @@ export function useScenarioLauncher() {
     <Modal
       open={!!pending}
       onClose={close}
-      title={pending?.issue ? `ข้อมูลสำหรับ Scenario ${sc && scenarioCode(sc)} ยังไม่ครบ` : `Scenario ${sc && scenarioCode(sc)} ใช้กรณีศึกษาแยก`}
+      title={pending?.issue ? `ข้อมูลสำหรับ Scenario ${sc && scenarioCode(sc)} ยังไม่ครบ` : pending?.replayNote ? `เริ่ม Scenario ${sc && scenarioCode(sc)} ใหม่` : `Scenario ${sc && scenarioCode(sc)} ใช้กรณีศึกษาแยก`}
       footer={
         pending?.issue ? (
           <>
@@ -58,7 +59,7 @@ export function useScenarioLauncher() {
               ยกเลิก
             </Button>
             <Button icon={ArrowRight} onClick={() => pending && (close(), run(pending.id, pending.mode))}>
-              เริ่ม Scenario {sc && scenarioCode(sc)}
+              {pending?.replayNote ? 'ล้างร้านเดิมและเริ่มใหม่' : `เริ่ม Scenario ${sc && scenarioCode(sc)}`}
             </Button>
           </>
         )
@@ -78,10 +79,20 @@ export function useScenarioLauncher() {
           </p>
         </div>
       ) : (
-        <p className="flex gap-2 rounded-xl bg-info-50 p-3 text-sm text-[#1d4ab8]">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          {pending?.caseNote}
-        </p>
+        <div className="space-y-2">
+          {pending?.replayNote && (
+            <p className="flex gap-2 rounded-xl bg-warning-50 p-3 text-sm text-[#7a4705]" data-testid="replay-note">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              {pending.replayNote}
+            </p>
+          )}
+          {pending?.caseNote && (
+            <p className="flex gap-2 rounded-xl bg-info-50 p-3 text-sm text-[#1d4ab8]">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              {pending.caseNote}
+            </p>
+          )}
+        </div>
       )}
     </Modal>
   );

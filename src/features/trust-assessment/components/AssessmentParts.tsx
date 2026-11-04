@@ -6,6 +6,7 @@ import { PRODUCT_RISK_LABEL } from '@/features/marketplace/data/catalog';
 import { Badge, Card, CardHeader, StatusBadge } from '@/components/common/ui';
 import { TimeBarChart } from '@/components/common/Charts';
 import { useAssessmentStore } from '@/stores';
+import { weightSetLabel } from '@/stores/assessmentConfig';
 import { fmtDate } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import { latestAssessment } from '@/stores/workflowsV2';
@@ -99,7 +100,7 @@ export function DataQuality({ result, detail }: { result: AssessmentResult; deta
 export function SourcesLine({ result }: { result: AssessmentResult }) {
   return (
     <p className="text-xs text-ink-soft">
-      แหล่งข้อมูล: ข้อมูลในระบบ{result.dataSources.map((p) => ` · ${PLATFORMS[p].label}`).join('')} · ประเมินเมื่อ {fmtDate(result.computedAt, true)} · โมเดล {result.modelVersion}
+      แหล่งข้อมูล: ข้อมูลในระบบ{result.dataSources.map((p) => ` · ${PLATFORMS[p].label}`).join('')} · ประเมินเมื่อ {fmtDate(result.computedAt, true)} · โมเดล {result.modelVersion} · {weightSetLabel(result.weightSet)}
     </p>
   );
 }
@@ -263,7 +264,8 @@ export function CalculationTable({ result }: { result: AssessmentResult }) {
       </table>
       <ul className="mt-2 space-y-0.5 text-xs text-ink-soft">
         <li>• น้ำหนักที่ใช้ = น้ำหนักที่ตั้ง ÷ ผลรวมน้ำหนักขององค์ประกอบที่มีข้อมูล × 100 (องค์ประกอบที่ไม่มีข้อมูลไม่ถูกนับเป็น 0)</li>
-        <li>• Band A ต้องมีความเชื่อมั่นของข้อมูลสูงและไม่มีสัญญาณที่ควรตรวจสอบ มิฉะนั้นสูงสุด B · Band ที่แสดง: {BAND_LABEL[result.band].label}</li>
+        <li>• Band A ต้องมีความเชื่อมั่นของข้อมูลสูง ไม่มีสัญญาณที่ควรตรวจสอบ ความครอบคลุมของข้อมูลเพียงพอ และข้อมูลแต่ละแพลตฟอร์มไม่ขัดแย้งกัน มิฉะนั้นสูงสุด B · Band ที่แสดง: {BAND_LABEL[result.band].label}</li>
+        {!!result.bandCapReasons?.length && <li>• จำกัดไว้ที่ Band B เพราะ: {result.bandCapReasons.join(' · ')}</li>}
         {result.insufficientReasons.length > 0 && <li>• Insufficient Data: {result.insufficientReasons.join(' · ')}</li>}
         <li>• Standing ({STANDING_LABEL[result.standing].label}) แยกจาก Band และไม่ถูกนำมาคิดเป็นคะแนน</li>
       </ul>

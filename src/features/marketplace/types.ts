@@ -3,6 +3,8 @@ import type { ISODate } from '@/types';
 
 export type Platform = 'shopee' | 'lazada';
 export type ConnectionStatus = 'pending_consent' | 'syncing' | 'connected' | 'sync_failed' | 'disconnected';
+/** จุดที่การเชื่อมต่อจำลองล้มเหลว */
+export type FailKind = 'connect' | 'import' | 'sync';
 export type ProductRisk = 'low' | 'medium' | 'high';
 
 /** โปรไฟล์ข้อมูลจำลองของร้าน — กำหนดลักษณะข้อมูลที่ Generator สร้าง */
@@ -24,6 +26,12 @@ export interface MarketplaceConnection {
   createdAt: ISODate;
   consentAt?: ISODate;
   lastSyncAt?: ISODate;
+  /** ที่มาของวันที่ซิงก์ล่าสุด (Source Context) — seed = ข้อมูลตัวอย่าง, sync = ผู้ใช้กดซิงก์ (จำลอง), simulated_age = Fixture จำลองอายุข้อมูล */
+  syncSource?: 'seed' | 'sync' | 'simulated_age';
+  /** ผลการซิงก์ล่าสุด (สำหรับ KPI Connection Success/Failed) */
+  syncCount?: number;
+  /** ประเภทความล้มเหลวที่จำลอง */
+  failKind?: FailKind;
   disconnectedAt?: ISODate;
   failReason?: string;
 }

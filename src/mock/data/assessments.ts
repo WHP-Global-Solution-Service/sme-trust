@@ -2,13 +2,13 @@ import type { TrustAssessment } from '@/features/trust-assessment/types';
 import { assessTrust } from '@/features/trust-assessment/engine';
 import { MODEL_V2 } from '@/features/trust-assessment/model';
 import { buildAssessmentInput, inputsKey, type DataBundle } from '@/features/trust-assessment/inputs';
-import { d } from './helpers';
+import { demoAnchor } from './helpers';
 
-/** ผลประเมินตัวอย่าง — คำนวณจาก Seed ด้วย Engine จริง ณ วันที่คงที่ (ผลเหมือนเดิมทุกครั้ง) */
-const AS_OF = d('2026-10-21');
+/** ผลประเมินตัวอย่าง — คำนวณจาก Seed ด้วย Engine จริง ณ วันเริ่ม Demo (ผลเหมือนเดิมตลอดวันเดียวกัน) */
 const PENDING = new Set(['M-006']);
 
-export function buildAssessments(data: DataBundle): TrustAssessment[] {
+export function buildAssessments(data: DataBundle, anchor: Date = demoAnchor()): TrustAssessment[] {
+  const AS_OF = anchor.toISOString();
   const ids = [...new Set(data.connections.map((c) => c.merchantId))].sort();
   return ids.flatMap((merchantId, i) => {
     const input = buildAssessmentInput(merchantId, data, new Date(AS_OF));
@@ -22,7 +22,7 @@ export function buildAssessments(data: DataBundle): TrustAssessment[] {
         status: pending ? 'pending_review' : 'draft',
         submittedAt: pending ? AS_OF : undefined,
         inputsKey: inputsKey(input, MODEL_V2.weights),
-        result: assessTrust(input, MODEL_V2),
+        result: assessTrust(input, { ...MODEL_V2, weightSet: { revision: 0 } }),
       } satisfies TrustAssessment,
     ];
   });

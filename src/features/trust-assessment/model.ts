@@ -14,7 +14,7 @@ export const COMPONENTS: Record<ComponentId, { label: string; en: string; source
 };
 
 export const MODEL_V2 = {
-  version: 'v2.0-sim',
+  version: 'v2.1-sim',
   weights: { C1: 25, C2: 25, C3: 20, C4: 10, C5: 20 } as Weights,
   /** คะแนนที่หักจากคะแนนรวมเมื่อพบสัญญาณความเสี่ยง (ไม่ใช่ข้อสรุปว่ากระทำผิด) */
   penalties: {
@@ -23,8 +23,17 @@ export const MODEL_V2 = {
     salesSpike: 5,
     seriousOpenComplaint: 10,
     crossSignal: 5,
+    /** อัตราคืนสินค้าสูงผิดปกติ (v2.1) */
+    highReturn: 5,
   },
+  /** เกณฑ์ของสัญญาณความเสี่ยงที่ไม่ได้มาจากการวิเคราะห์ราคา/รีวิว (v2.1) */
+  riskThresholds: { returnRate: 0.1 },
   bands: { A: 80, B: 65, C: 50 },
+  /**
+   * เงื่อนไขเพิ่มของ Band A (v2.1 — จากการตรวจสอบโมเดล P7-B): ร้านที่มีข้อมูลน้อยหรือข้อมูลขัดแย้งกัน
+   * ไม่ได้ Band A จากการกระจายน้ำหนักใหม่ แม้คะแนนจะสูง (สูงสุด B พร้อมเหตุผล)
+   */
+  bandA: { minCoverage: 70 },
   /** ข้อมูลขั้นต่ำก่อนให้ Band — ต่ำกว่านี้เป็น Insufficient Data (D6) */
   minimums: { orders: 30, reviews: 10, months: 3 },
   /** เป้าหมายของ Data Coverage และน้ำหนักของแต่ละมิติ (D7) */
@@ -45,6 +54,9 @@ export const MODEL_V2 = {
     singleSource: 15,
     smallOrders: 25,
     smallReviews: 15,
+    /** ตัวอย่างผ่านขั้นต่ำแล้วแต่ยังต่ำกว่าเป้าหมายของ Coverage (v2.1) — ตัวอย่างน้อยไม่แน่นอนกว่าตัวอย่างมาก */
+    moderateOrders: 10,
+    moderateReviews: 10,
     platformGap: 15,
     reviewBurst: 30,
     high: 75,
@@ -52,7 +64,7 @@ export const MODEL_V2 = {
   },
 } as const;
 
-export type Model = Omit<typeof MODEL_V2, 'weights'> & { weights: Weights };
+export type Model = Omit<typeof MODEL_V2, 'weights'> & { weights: Weights; weightSet?: { revision: number; at?: string } };
 
 export const modelWith = (weights: Weights): Model => ({ ...MODEL_V2, weights });
 

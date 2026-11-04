@@ -342,6 +342,24 @@ interface TrustFactor {
 - เส้นทาง 9B ใช้บัญชี OP-012 — ถ้าเล่นซ้ำระหว่าง Journey โดยไม่ Restart บัญชีจะมีร้านแล้ว (Restart Scenario คืนสภาพได้)
 - Executive Impact Summary เป็นตัวเลขจากข้อมูลสาธิตในเบราว์เซอร์ ไม่ใช่การคาดการณ์ผลกระทบจริง
 
+> สถานะหลัง P7: ข้อจำกัดเรื่องวันที่ซิงก์คงที่, Code-split, KPI v2, 404 ของ `/sme-trust/v2/`, E2E บน WebKit, หมวดของการเปรียบเทียบ และ 9B เล่นซ้ำ — **แก้แล้วใน P7** (ดูด้านล่าง)
+
+## P7 — Final QA, Trust Model Validation & Release Readiness
+
+| หัวข้อ | สิ่งที่ทำ | เอกสาร / Test |
+|---|---|---|
+| P7-A Journey Validation | หน้าจบ Scenario แตกแขนงตามผลจริง (อนุมัติ / ขอข้อมูลเพิ่ม / ไม่อนุมัติ / ส่งพิจารณาความเสี่ยง) · Scenario 13 ไม่แสดง Badge ว่าอนุมัติเมื่อผลไม่ใช่การอนุมัติ · Context ส่งต่อใบรับรองเฉพาะเมื่ออนุมัติ · จำลองเชื่อมต่อ/นำเข้า/ซิงก์ไม่สำเร็จแยกกัน | `tests/v2/p7.test.mts`, `tests/e2e/v2-p7.spec.ts` |
+| P7-B Model Validation | โปรไฟล์จำลอง 12 แบบ + ตรวจความเป็นธรรม 15 ข้อ → พบปัญหา 3 ข้อ แก้เป็นโมเดล **v2.1**: Band A ต้องมี Coverage ≥ 70% และข้อมูลไม่ขัดแย้ง (`bandCapReasons`), ตัวอย่างต่ำกว่าเป้าหมายลด Confidence, อัตราคืนสินค้า > 10% เป็นสัญญาณควรตรวจสอบ | `docs/assessment-validation.md`, `tests/v2/validation.test.mts` |
+| P7-C Configuration | ชุดน้ำหนักมีเลขชุด วันที่เริ่มใช้ และประวัติ · ผลประเมินบันทึก `weightSet` + สำเนาน้ำหนัก (ไม่ถูกแก้ย้อนหลัง) · ข้อมูลรุ่นก่อนใน localStorage ถูกย้ายเป็นชุด #1 (เดิมถูกทิ้ง) · Reset คืนชุดเริ่มต้น | `tests/v2/p7.test.mts` |
+| P7-D Data Freshness | วันที่ซิงก์และผลประเมินตัวอย่างสัมพัทธ์กับวันเริ่ม Demo · Mock Sync บันทึกที่มา (`syncSource`) และจำนวนครั้ง ไม่สร้างข้อมูลซ้ำ · Fixture จำลองอายุข้อมูล (ใหม่/31/91/180 วัน/ซิงก์ไม่สำเร็จ) · Data Confidence ปัจจุบันในหน้า Data Overview | `FreshnessCard`, `simulateDataAge` |
+| P7-E 9B Replay | `fixtureBranchClean` ล้างร้านของ OP-012 แบบ Idempotent · แจ้งชื่อร้านเดิมก่อนเริ่มใหม่ (`replayNote`) | E2E + Unit (เล่นซ้ำ 3 รอบ) |
+| P7-F Comparison | หมวดของการเปรียบเทียบ = หมวดของร้าน (เปลี่ยนได้) · คำเตือนเมื่อเทียบต่างหมวด · แสดงหมวดที่ใช้แทนเมื่อไม่มีสินค้าตัวอย่าง | E2E + Unit |
+| P7-G Dashboard v2 | `computeV2Stats` (Pure function จาก State) + ส่วน KPI v2 ใน Admin Dashboard (Dashboard v1 คงเดิม) | Unit: ตรงกับ State, เปลี่ยนตาม Scenario, Reset กลับค่าเริ่มต้น |
+| P7-H Performance | Route-based Code Splitting (`lazyPage`) + โหลดล่วงหน้าเมื่อเครื่องว่าง · Recharts แยก Chunk | `docs/performance-report.md` |
+| P7-I GitHub Pages | รวม v1+v2 ใน Artifact เดียว, 404 ส่งต่อ Deep link ของ v2, `restoreDeepLink`, localStorage Namespace `smetrust:v2:` | `docs/deployment-readiness.md`, `npm run test:e2e:pages` |
+| P7-J Cross-browser | Chromium + Firefox + WebKit, 375/768/1440 px | `docs/uat-report-v2.md` |
+| P7-K Security | ไม่มี Network call/Secrets/External URL/XSS sink · Dependency advisories บันทึกใน Known Issues | `docs/uat-report-v2.md` |
+
 ## ประเด็นที่ตัดสินใจแล้ว
 
 ดูตาราง **ข้อสรุปที่ตกลงแล้ว (D1–D10)** ด้านบน

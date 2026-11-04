@@ -7,6 +7,7 @@ import { fmtDate } from '@/utils/format';
 import { PLATFORMS } from '../data/platforms';
 import { snapshotOf } from '../services/generator';
 import { CONNECTION_STATUS, MarketplaceDisclaimer } from '../components/MarketplaceParts';
+import { FreshnessCard } from '../components/FreshnessCard';
 import { AvailabilityList, ListingTable, SnapshotMetrics, SourceLine } from '../components/SnapshotSummary';
 
 /** Marketplace Data Overview — ข้อมูลที่นำเข้าจากการเชื่อมต่อหนึ่งรายการ (ร้านค้าเห็นข้อมูลของตัวเองเท่านั้น) */
@@ -70,6 +71,7 @@ export default function MarketplaceDataPage() {
           </div>
         </dl>
       </Card>
+      {c.status !== 'pending_consent' && c.status !== 'disconnected' && <FreshnessCard connection={c} />}
       {snap ? (
         <>
           <Card>

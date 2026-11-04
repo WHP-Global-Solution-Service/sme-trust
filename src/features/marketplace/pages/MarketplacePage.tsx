@@ -7,7 +7,7 @@ import { useMyMerchants } from '@/hooks/useCurrent';
 import { completeSync, connectMarketplace, disconnectMarketplace, grantConsent, resyncMarketplace } from '@/stores/workflowsV2';
 import { Alert, Badge, Button, Card, CardHeader, LinkButton, PageHeader, StatusBadge } from '@/components/common/ui';
 import { fmtDate } from '@/utils/format';
-import type { Archetype, MarketplaceConnection, Platform } from '../types';
+import type { Archetype, FailKind, MarketplaceConnection, Platform } from '../types';
 import { ARCHETYPE_LABEL, PLATFORM_LIST, PLATFORMS } from '../data/platforms';
 import { snapshotOf } from '../services/generator';
 import { CONNECTION_STATUS, MarketplaceDisclaimer } from '../components/MarketplaceParts';
@@ -55,7 +55,7 @@ export default function MarketplacePage() {
   const all = useMarketplaceStore((s) => s.items);
   const [wizardFor, setWizardFor] = useState<string>();
   // จำลองการซิงก์ไม่สำเร็จ (ตั้งจากหน้า Preview) — เก็บตามรหัสการเชื่อมต่อ
-  const failSim = useRef<Record<string, boolean>>({});
+  const failSim = useRef<Record<string, FailKind | undefined>>({});
 
   const mine = all.filter((c) => c.merchantId === m?.id);
   const syncing = mine.filter((c) => c.status === 'syncing').map((c) => c.id).join(',');
@@ -66,8 +66,9 @@ export default function MarketplacePage() {
     const ids = syncing.split(',');
     const t = setTimeout(() => {
       ids.forEach((id) => {
-        const ok = !failSim.current[id];
-        completeSync(id, ok);
+        const kind = failSim.current[id];
+        const ok = !kind;
+        completeSync(id, ok, kind);
         delete failSim.current[id];
         const c = useMarketplaceStore.getState().items.find((x) => x.id === id);
         if (c) (ok ? toast.success : toast.error)(ok ? `ซิงก์ ${PLATFORMS[c.platform].label} สำเร็จ` : `ซิงก์ ${PLATFORMS[c.platform].label} ไม่สำเร็จ`, ok ? 'ประเมินความน่าเชื่อถือใหม่เพื่อใช้ข้อมูลล่าสุด' : 'กด "ซิงก์ใหม่" เพื่อลองอีกครั้ง');
@@ -95,9 +96,9 @@ export default function MarketplacePage() {
     setWizardFor(c.id);
   };
 
-  const confirmImport = ({ archetype, simulateFailure }: { archetype: Archetype; simulateFailure: boolean }) => {
+  const confirmImport = ({ archetype, failKind }: { archetype: Archetype; failKind?: FailKind }) => {
     if (!wizardConn) return;
-    failSim.current[wizardConn.id] = simulateFailure;
+    failSim.current[wizardConn.id] = failKind;
     grantConsent(wizardConn.id, archetype);
   };
 

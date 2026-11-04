@@ -9,7 +9,13 @@ export interface EntityState<T extends { id: string }> {
   reset: () => void;
 }
 
-export const STORAGE_PREFIX = 'smetrust:v1:';
+/**
+ * Namespace ของ localStorage
+ * - v2 ที่เผยแพร่ใต้ /<repo>/v2/ อยู่ Origin เดียวกับ v1 (github.io) จึงใช้ "smetrust:v2:" เพื่อไม่ให้ข้อมูลสาธิตของสองเวอร์ชันปนกัน
+ * - Base อื่น (เช่น "/" ตอนพัฒนา/ทดสอบ หรือ /sme-trust/) ใช้ "smetrust:v1:" ตามเดิม
+ */
+const BASE: string = (import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
+export const STORAGE_PREFIX = /\/v2\/$/.test(BASE) ? 'smetrust:v2:' : 'smetrust:v1:';
 
 /** Store มาตรฐานสำหรับข้อมูลแต่ละ Domain — เก็บใน localStorage และ reset กลับเป็น seed ได้ */
 export function createEntityStore<T extends { id: string }>(name: string, seed: () => T[]) {

@@ -9,16 +9,18 @@ import {
   useCertificationStore,
   useMarketplaceStore,
   useMerchantStore,
+  useNotificationStore,
   useOperatorStore,
   useSessionStore,
   useVerificationStore,
 } from '@/stores';
+import { seed } from '@/mock/data';
 import type { DemoCtx } from '@/stores/demo';
 import { attachImportedMarketplaces, decideAssessment, latestAssessment, runAssessment, submitAssessment } from '@/stores/workflowsV2';
 import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { BAND_LABEL, CONFIDENCE_LABEL, DECISION_LABEL, RECOMMENDATION_LABEL } from '@/features/trust-assessment/labels';
 import { currentCert } from '@/utils/trust';
-import type { ContinuityIssue, GateInput, ScenarioDef } from '@/demo/types';
+import type { ContinuityIssue, GateInput, ScenarioDef, ScenarioOutcome } from '@/demo/types';
 
 /** ร้านค้าตัวอย่างของ Demo v2 — ร้านกาแฟดอยสูง (Level 3 ผ่านเกณฑ์ v1 ของ Level 4) */
 export const V2_MERCHANT = 'M-005';
@@ -94,6 +96,34 @@ export function fixtureV2Decided(): DemoCtx {
   return { ...ctx, certId: certOf(V2_MERCHANT)?.id };
 }
 
+/** ร้านของบัญชีเส้นทางทางเลือก (OP-012) — ในข้อมูลตั้งต้นไม่มีร้าน */
+export const branchShops = () => useMerchantStore.getState().items.filter((m) => m.operatorId === BRANCH_OPERATOR);
+
+/**
+ * เตรียมเส้นทาง 9B ให้เริ่มได้ทุกครั้ง (Idempotent): ล้างร้านที่ OP-012 สร้างจากการเล่นครั้งก่อน
+ * พร้อมคำขอ ใบรับรอง ผลประเมิน การเชื่อมต่อ และการแจ้งเตือนที่เกี่ยวข้อง แล้วคืนบัญชี OP-012 เป็นค่าตั้งต้น
+ * ไม่กระทบร้านใน Scenario 9–13 (Audit Log เดิมยังอยู่เพื่อตรวจสอบย้อนหลัง)
+ */
+export function fixtureBranchClean() {
+  const shops = new Set(branchShops().map((m) => m.id));
+  const drop = <T extends { id: string }>(store: { getState: () => { items: T[]; remove: (id: string) => void } }, hit: (x: T) => boolean) => {
+    const st = store.getState();
+    st.items.filter(hit).forEach((x) => st.remove(x.id));
+  };
+  if (shops.size) {
+    drop(useVerificationStore, (a) => shops.has(a.merchantId));
+    drop(useCertificationStore, (c) => shops.has(c.merchantId));
+    drop(useAssessmentStore, (a) => shops.has(a.merchantId));
+    drop(useMarketplaceStore, (c) => shops.has(c.merchantId));
+    drop(useMerchantStore, (m) => shops.has(m.id));
+  }
+  const seedNotes = new Set(seed.notifications().map((n) => n.id));
+  drop(useNotificationStore, (n) => n.recipientRole === 'merchant' && n.recipientId === BRANCH_OPERATOR && !seedNotes.has(n.id));
+  const original = seed.operators().find((o) => o.id === BRANCH_OPERATOR);
+  if (original) useOperatorStore.getState().update(BRANCH_OPERATOR, original);
+  return shops.size;
+}
+
 // ---------- ความต่อเนื่องของ Full Journey v2 ----------
 const sampleShop = `ร้านตัวอย่าง "${'ร้านกาแฟดอยสูง'}" (${V2_MERCHANT})`;
 
@@ -123,6 +153,39 @@ const decidedIssue = (j: DemoCtx): ContinuityIssue | undefined =>
 
 const base = { consumerId: 'CS-001', officerId: 'OF-001' };
 const carryCtx = (j: DemoCtx): DemoCtx => ({ ...base, merchantId: j.merchantId, operatorId: j.operatorId, connectionId: j.connectionId, assessmentId: j.assessmentId, applicationId: j.applicationId, certId: j.certId });
+
+/** ผลการพิจารณาจริงของ Scenario 12 — ใช้ทั้งหน้าจบ Scenario 12 และคำอธิบายใน Scenario 13 */
+const decisionOf = (c: DemoCtx) => assessment(c.assessmentId)?.decision;
+const levelName = (lv?: number) => (lv ? TRUST_LEVELS[lv as 1 | 2 | 3 | 4].name : '-');
+
+/** สิ่งที่ผู้บริโภคเห็นตามผลจริง — ไม่แสดงว่าได้รับอนุมัติเมื่อเจ้าหน้าที่ขอข้อมูลเพิ่มหรือไม่อนุมัติ */
+export function decisionOutcome(c: DemoCtx): ScenarioOutcome | undefined {
+  const a = assessment(c.assessmentId);
+  if (!a) return undefined;
+  const d = a.decision;
+  const cert = certOf(c.merchantId);
+  const active = cert?.status === 'active';
+  const certLine = cert ? `ใบรับรองปัจจุบัน ${cert.id} ระดับ ${levelName(cert.level)} (${active ? 'ใช้งานได้' : cert.status})` : 'ร้านยังไม่มีใบรับรองที่ใช้งานได้';
+  const app = application(d?.applicationId ?? c.applicationId);
+  const appLine = app ? `คำขอ ${app.id}: ${REGISTRATION_STATUS[app.status].label}` : '';
+  const keepOld = active ? `ผู้บริโภคเห็นเฉพาะระดับเดิม (${levelName(cert!.level)}) — ไม่มี Badge ระดับใหม่` : 'ผู้บริโภคยังไม่เห็น Badge ของร้านนี้';
+  // 9B: เจ้าหน้าที่อาจตัดสินที่คำขอลงทะเบียนโดยตรง (Workflow v1) — แสดงตามสถานะคำขอจริง
+  if (!d && app?.status === 'need_info') return { kind: 'need_info', tone: 'warning', title: 'ขอข้อมูลเพิ่มเติม — ยังไม่อนุมัติ', facts: [appLine, certLine], consumerView: keepOld, next: 'ร้านส่งหลักฐานเพิ่มจากหน้า "ร้านของฉัน" แล้วเจ้าหน้าที่พิจารณาอีกครั้ง' };
+  if (!d && app?.status === 'rejected') return { kind: 'rejected', tone: 'error', title: 'ไม่อนุมัติคำขอ', facts: [appLine, certLine], consumerView: keepOld, next: 'ร้านปรับปรุงตามเหตุผลแล้วยื่นใหม่ได้' };
+  if (!d && app?.status === 'approved') return { kind: 'approved', tone: 'success', title: 'อนุมัติคำขอ', facts: [appLine, certLine], consumerView: active ? `ผู้บริโภคเห็น Badge ระดับ ${levelName(cert!.level)} — Badge ไม่ใช่การรับประกัน` : 'ผู้บริโภคเห็นร้านที่ลงทะเบียนแล้ว', next: 'ร้านเริ่มใช้งานได้ตามระดับที่ได้รับ' };
+  if (!d) return { kind: 'pending', tone: 'info', title: 'ยังรอเจ้าหน้าที่พิจารณา', facts: [`ผลประเมิน ${a.id}: ${BAND_LABEL[a.result.band].label}`, appLine, certLine].filter(Boolean), consumerView: keepOld, next: 'ให้เจ้าหน้าที่บันทึกผลการพิจารณาก่อน' };
+  const reason = `เหตุผลของเจ้าหน้าที่: ${d.reason}`;
+  switch (d.kind) {
+    case 'approved':
+      return { kind: 'approved', tone: 'success', title: `อนุมัติยกระดับเป็น ${levelName(d.level)}`, facts: [reason, appLine, d.certId ? `ออกใบรับรอง ${d.certId} ผ่าน Certification Workflow v1` : certLine].filter(Boolean), consumerView: `ผู้บริโภคเห็น Badge ระดับ ${levelName(d.level)} ที่ตรวจสอบได้ — Badge ไม่ใช่การรับประกัน`, next: 'ดำเนินการต่อ: ผู้บริโภคตรวจสอบร้านและ Badge ใหม่' };
+    case 'need_info':
+      return { kind: 'need_info', tone: 'warning', title: 'ขอข้อมูลเพิ่มเติม — ยังไม่อนุมัติ', facts: [reason, appLine, 'ไม่มีการออกใบรับรองใหม่', certLine].filter(Boolean), consumerView: `${keepOld} จนกว่าจะได้รับอนุมัติ`, next: 'ร้านส่งข้อมูลเพิ่มจากการแจ้งเตือน แล้วเจ้าหน้าที่พิจารณาอีกครั้ง — หรือดูมุมผู้บริโภคที่ยังไม่มี Badge ใหม่' };
+    case 'rejected':
+      return { kind: 'rejected', tone: 'error', title: 'ไม่อนุมัติการยกระดับ', facts: [reason, appLine, 'ไม่มีการออกใบรับรองใหม่', certLine].filter(Boolean), consumerView: active ? `${keepOld} — การไม่อนุมัติยกระดับไม่ได้เพิกถอนใบรับรองเดิม` : keepOld, next: 'ร้านปรับปรุงตามเหตุผลแล้วประเมินและยื่นใหม่ได้ — หรือดูมุมผู้บริโภคที่ยังไม่มี Badge ใหม่' };
+    case 'escalated':
+      return { kind: 'escalated', tone: 'warning', title: 'ส่งเรื่องพิจารณาความเสี่ยง', facts: [reason, d.riskCaseId ? `เปิดเรื่องพิจารณาความเสี่ยง ${d.riskCaseId}` : '', 'ไม่มีการออกใบรับรองใหม่', certLine].filter(Boolean), consumerView: `${keepOld} ระหว่างการพิจารณาความเสี่ยง`, next: 'ร้านชี้แจงผ่านเรื่องพิจารณาความเสี่ยง (Workflow v1)' };
+  }
+}
 
 const bandText = (c: DemoCtx) => {
   const a = assessment(c.assessmentId);
@@ -338,7 +401,8 @@ export const v2Scenarios: ScenarioDef[] = [
         gate: { check: (g) => assessment(g.ctx.assessmentId)?.status === 'decided', hint: 'เลือกผลการพิจารณา ระบุเหตุผล แล้วกด "บันทึกผลการพิจารณา"' },
         capture: (g) => {
           const d = assessment(g.ctx.assessmentId)?.decision;
-          return { certId: d?.certId ?? certOf(g.ctx.merchantId)?.id, applicationId: d?.applicationId ?? g.ctx.applicationId };
+          // ใบรับรองใหม่มีเฉพาะเมื่ออนุมัติ — กรณีอื่นอ้างใบรับรองเดิมของร้าน (ถ้ามี) เพื่อให้ผู้บริโภคตรวจสอบสถานะจริง
+          return { certId: d?.kind === 'approved' ? d.certId : certOf(g.ctx.merchantId)?.id, applicationId: d?.applicationId ?? g.ctx.applicationId };
         },
         nextLabel: 'ดูผลในมุมผู้ประกอบการ',
       },
@@ -353,6 +417,7 @@ export const v2Scenarios: ScenarioDef[] = [
         ? [`พิจารณา ${a!.id}: ${DECISION_LABEL[d.kind].label}${d.level ? ` Level ${d.level}` : ''} — ${d.reason}`, d.applicationId ? `คำขอ ${d.applicationId}: ${REGISTRATION_STATUS[application(d.applicationId)?.status ?? 'submitted'].label}` : '', d.kind === 'approved' && cert ? `ออกใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name} ผ่าน Certification Workflow v1` : 'ยังไม่มีการออกใบรับรองใหม่', d.overridesRecommendation ? 'ตัดสินต่างจากข้อเสนอของระบบ (บันทึกเหตุผลแล้ว)' : 'ผลการพิจารณาสอดคล้องกับข้อเสนอของระบบ', 'บันทึก Audit Log และแจ้งเตือนร้านค้า'].filter(Boolean)
         : ['ยังไม่มีผลการพิจารณาใน Scenario นี้'];
     },
+    outcome: decisionOutcome,
   },
 
   // ------------------------------------------------------------ 13
@@ -373,7 +438,20 @@ export const v2Scenarios: ScenarioDef[] = [
     continuity: decidedIssue,
     prepare: (j, carry) => (carry && !decidedIssue(j) ? carryCtx(j) : fixtureV2Decided()),
     steps: [
-      { id: 's13-badge', role: 'merchant', route: () => '/m/toolkit', title: 'Trust Badge', instruction: (c) => `ร้าน "${shopName(c)}" นำ Badge และ QR ไปแสดงบนช่องทางขาย — ต่อไปดูว่าผู้บริโภคตรวจสอบได้อย่างไร`, nextLabel: 'ดำเนินการต่อในมุมผู้บริโภค' },
+      {
+        id: 's13-badge',
+        role: 'merchant',
+        route: () => '/m/toolkit',
+        title: 'Trust Badge',
+        instruction: (c) => {
+          const d = decisionOf(c);
+          if (d?.kind === 'approved') return `ร้าน "${shopName(c)}" ได้รับอนุมัติ ${levelName(d.level)} — นำ Badge และ QR ไปแสดงบนช่องทางขาย แล้วดูว่าผู้บริโภคตรวจสอบได้อย่างไร`;
+          const cert = certOf(c.merchantId);
+          return `ผลการพิจารณา: ${d ? DECISION_LABEL[d.kind].label : 'ยังไม่พิจารณา'} — ยังไม่มี Badge ระดับใหม่ ${cert?.status === 'active' ? `ร้านแสดงได้เฉพาะ Badge ระดับเดิม (${levelName(cert.level)})` : 'และร้านยังไม่มี Badge ที่ใช้งานได้'}`;
+        },
+        tip: 'Badge ที่แสดงตรงกับสถานะใบรับรองจริงเสมอ — ไม่มี Badge จากคะแนนสูงหรือจากการยื่นคำขอ',
+        nextLabel: 'ดำเนินการต่อในมุมผู้บริโภค',
+      },
       { id: 's13-search', role: 'consumer', route: (c) => `/check?q=${encodeURIComponent(shopName(c))}`, transition: 'ร้านค้าแสดง Badge แล้ว เปลี่ยนเป็นมุมผู้บริโภคที่กำลังจะซื้อสินค้าจากร้านเดียวกัน', title: 'Consumer Search', instruction: 'ค้นหาร้านจากชื่อ — ไม่ต้องเข้าสู่ระบบ' },
       {
         id: 's13-qr',
@@ -387,7 +465,7 @@ export const v2Scenarios: ScenarioDef[] = [
       { id: 's13-assessment', role: 'consumer', route: (c) => `/shop/${c.merchantId}`, title: 'Trust Assessment Summary', instruction: 'Trust Band และเหตุผลที่เปิดเผยได้ — ไม่มีคะแนน 0–100' },
       { id: 's13-quality', role: 'consumer', route: (c) => `/shop/${c.merchantId}`, title: 'Data Coverage & Confidence', instruction: 'ความครอบคลุมและความเชื่อมั่นของข้อมูล ที่มาของข้อมูล และวันที่ประเมิน' },
       { id: 's13-channels', role: 'consumer', route: (c) => `/shop/${c.merchantId}`, title: 'Verified Sales Channels', instruction: 'ช่องทางขายเดิมที่ตรวจความเป็นเจ้าของแล้ว และร้านบน Marketplace (จำลอง) ที่เชื่อมต่อข้อมูล' },
-      { id: 's13-cert', role: 'consumer', route: (c) => (c.certId ? `/verify/${c.certId}` : `/shop/${c.merchantId}`), title: 'Certification Status', instruction: 'สถานะใบรับรองปัจจุบัน ระดับ และวันหมดอายุ — ตรงกับที่ร้านค้าและเจ้าหน้าที่เห็น' },
+      { id: 's13-cert', role: 'consumer', route: (c) => (c.certId ? `/verify/${c.certId}` : `/shop/${c.merchantId}`), title: 'Certification Status', instruction: (c) => { const d = decisionOf(c); return d && d.kind !== 'approved' ? `สถานะใบรับรองจริงของร้าน — ผลการพิจารณา "${DECISION_LABEL[d.kind].label}" จึงไม่มีระดับใหม่ ผู้บริโภคเห็นเฉพาะระดับเดิม` : 'สถานะใบรับรองปัจจุบัน ระดับ และวันหมดอายุ — ตรงกับที่ร้านค้าและเจ้าหน้าที่เห็น'; } },
       {
         id: 's13-preview',
         role: 'consumer',
@@ -400,8 +478,10 @@ export const v2Scenarios: ScenarioDef[] = [
     ],
     summary: (c) => {
       const cert = certOf(c.merchantId);
-      return [`ผู้บริโภคตรวจสอบร้าน "${shopName(c)}" (${c.merchantId})`, `ผลประเมินที่เปิดเผย: ${bandText(c)}`, cert ? `ใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name}` : 'ยังไม่มีใบรับรองที่ใช้งานได้', 'ไม่แสดงคะแนนภายในและข้อมูลส่วนตัวของเจ้าของร้าน · ไม่มีการเปลี่ยนข้อมูลธุรกิจ'];
+      const d = decisionOf(c);
+      return [`ผู้บริโภคตรวจสอบร้าน "${shopName(c)}" (${c.merchantId})`, `ผลประเมินที่เปิดเผย: ${bandText(c)}`, d && d.kind !== 'approved' ? `ผลการพิจารณา: ${DECISION_LABEL[d.kind].label} — ไม่มี Badge ระดับใหม่` : '', cert?.status === 'active' ? `ใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name}` : 'ยังไม่มีใบรับรองที่ใช้งานได้', 'ไม่แสดงคะแนนภายในและข้อมูลส่วนตัวของเจ้าของร้าน · ไม่มีการเปลี่ยนข้อมูลธุรกิจ'].filter(Boolean);
     },
+    outcome: decisionOutcome,
   },
 
   // ------------------------------------------------------------ 9B (ทางเลือก)
@@ -418,7 +498,14 @@ export const v2Scenarios: ScenarioDef[] = [
     duration: '≈ 6 นาที',
     caseNote: 'เส้นทางทางเลือกใช้บัญชีตัวอย่างที่ยังไม่มีร้าน (OP-012) แยกจากร้านใน Scenario 9–13 — ข้อมูลของ Journey v2 ยังอยู่ครบ',
     nextCta: 'กลับสู่ Demo v2',
-    prepare: () => ({ operatorId: BRANCH_OPERATOR, consumerId: 'CS-001', officerId: 'OF-001' }),
+    prepare: () => {
+      fixtureBranchClean();
+      return { operatorId: BRANCH_OPERATOR, consumerId: 'CS-001', officerId: 'OF-001' };
+    },
+    replayNote: () => {
+      const shops = branchShops();
+      return shops.length ? `บัญชีตัวอย่าง OP-012 มีร้าน ${shops.map((m) => `"${m.shopName}" (${m.id})`).join(', ')} จากการเล่นเส้นทางนี้ครั้งก่อน — เมื่อเริ่มใหม่ ระบบจะล้างร้านเดิมของบัญชีนี้ (รวมคำขอและผลประเมินของร้านนั้น) เพื่อไม่ให้มีร้านซ้ำ ข้อมูลของร้านใน Scenario 9–13 ไม่ถูกแตะ` : undefined;
+    },
     benefits: {
       sme: 'ร้านเล็กที่ไม่มีร้านบน Marketplace เริ่มต้นได้ทันที และรู้ว่าต้องเพิ่มหลักฐานอะไร',
       consumer: 'มีข้อมูลตัวตนที่ยืนยันแล้วของร้านจากช่องทางอื่น แทนที่จะไม่มีข้อมูลเลย',
@@ -488,6 +575,7 @@ export const v2Scenarios: ScenarioDef[] = [
         ? [`ร้าน "${m.shopName}" (${m.id}) ลงทะเบียนด้วยตนเอง — ไม่มีบัญชี Marketplace`, a ? `ผลประเมิน ${a.id}: ${BAND_LABEL[a.result.band].label} (ไม่ใช่ผลลบ)` : '', app ? `คำขอ ${app.id}: ${REGISTRATION_STATUS[app.status].label}` : '', a?.decision ? `เจ้าหน้าที่: ${DECISION_LABEL[a.decision.kind].label} — ${a.decision.reason}` : ''].filter(Boolean)
         : ['ยังไม่ได้ลงทะเบียนร้านในเส้นทางนี้'];
     },
+    outcome: decisionOutcome,
   },
 ];
 

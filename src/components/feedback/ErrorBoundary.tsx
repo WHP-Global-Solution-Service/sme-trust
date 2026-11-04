@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { appPath } from '@/utils/appUrl';
+import { STORAGE_PREFIX } from '@/stores/createEntityStore';
 
 /**
  * กันจอขาวเมื่อเกิด Error ระหว่าง Render — แสดงข้อความและทางเลือกรีเซ็ตข้อมูลสาธิต
@@ -20,7 +21,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error?: 
   private resetData = () => {
     try {
       Object.keys(localStorage)
-        .filter((k) => k.startsWith('smetrust:'))
+        .filter((k) => k.startsWith(STORAGE_PREFIX))
         .forEach((k) => localStorage.removeItem(k));
     } catch {
       /* ไม่มีสิทธิ์เข้าถึง storage */

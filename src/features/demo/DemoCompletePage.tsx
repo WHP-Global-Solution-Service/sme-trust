@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, ChevronLeft, Database, GitBranch, LayoutGrid, Repeat, Trophy } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, Database, GitBranch, Info, LayoutGrid, Repeat, Trophy, XCircle } from 'lucide-react';
 import { confirmDialog } from '@/stores';
 import { useDemoStore } from '@/stores/demo';
 import { findScenario, journeyScenarios, scenarioCode, trackOf } from '@/mock/scenarios';
@@ -37,6 +37,12 @@ export default function DemoCompletePage() {
       ? { label: track === 'v2' ? 'ดูสรุปผลกระทบ (Executive Impact Summary)' : 'ดูสรุปภาพรวม SME Trust Platform', icon: Trophy, run: () => nav(summaryPath) }
       : { label: sc.nextCta ?? 'Continue Next Scenario', icon: ArrowRight, run: () => launch(nextId!) };
   const isActive = d.activeScenario === sc.id;
+  // ผลลัพธ์จริงของ Scenario (เช่น อนุมัติ / ขอข้อมูลเพิ่ม / ไม่อนุมัติ) — หน้าจบแสดงตามผลจริงเสมอ
+  const outcome = done ? sc.outcome?.(ctx) : undefined;
+  const tone = outcome?.tone ?? 'success';
+  const HeadIcon = tone === 'error' ? XCircle : tone === 'warning' ? AlertTriangle : tone === 'info' ? Info : CheckCircle2;
+  const toneCls = { success: 'border-success/30 text-success', warning: 'border-warning/40 text-warning', error: 'border-error/40 text-error', info: 'border-info/30 text-info' }[tone];
+  if (outcome && outcome.kind !== 'approved' && !resume && !isLast && !sc.branch) primary.label = `ดูมุมผู้บริโภค: ยังไม่มี Badge ใหม่ (Scenario ${scenarioCode(findScenario(nextId)!)})`;
 
   const replay = async () => {
     const r = await confirmDialog({
@@ -52,8 +58,8 @@ export default function DemoCompletePage() {
   return (
     <DemoFrame menu>
       <main className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6">
-        <section className="rounded-card border border-success/30 bg-white p-6 text-center shadow-card">
-          <CheckCircle2 className="mx-auto h-14 w-14 text-success" />
+        <section className={cn('rounded-card border bg-white p-6 text-center shadow-card', toneCls.split(' ')[0])} data-outcome={outcome?.kind ?? (done ? 'completed' : 'incomplete')}>
+          <HeadIcon className={cn('mx-auto h-14 w-14', toneCls.split(' ')[1])} />
           <p className="mt-2 text-sm text-ink-soft">
             {position}
             {d.journeyMode && (d.journeyTrack === 'v2' ? ' · Full Journey v2' : ' · Full Journey')}
@@ -62,8 +68,30 @@ export default function DemoCompletePage() {
           <div className="mt-2 flex justify-center">
             <Badge tone={done ? 'success' : 'warning'}>{done ? 'Completed' : 'ยังไม่จบ Scenario นี้'}</Badge>
           </div>
+          {outcome && (
+            <p className={cn('mt-3 text-lg font-semibold', toneCls.split(' ')[1])} role="status">
+              ผลลัพธ์: {outcome.title}
+            </p>
+          )}
           <p className="mx-auto mt-4 max-w-2xl text-[15px] italic text-ink">“{sc.keyMessage}”</p>
         </section>
+
+        {outcome && (
+          <section className={cn('rounded-card border bg-white p-5 shadow-card', toneCls.split(' ')[0])} aria-label="ผลลัพธ์ของ Scenario">
+            <h2 className="mb-2 font-semibold text-ink">ผลลัพธ์จริงของการพิจารณา</h2>
+            <ul className="space-y-1 text-sm text-ink">
+              {outcome.facts.map((f) => (
+                <li key={f}>• {f}</li>
+              ))}
+            </ul>
+            <p className="mt-3 rounded-lg bg-bg px-3 py-2 text-sm text-ink">
+              <b>สิ่งที่ผู้บริโภคเห็น:</b> {outcome.consumerView}
+            </p>
+            <p className="mt-2 text-sm text-ink-soft">
+              <b>ขั้นต่อไป:</b> {outcome.next}
+            </p>
+          </section>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2">
           <section className="rounded-card border border-line bg-white p-5 shadow-card">
@@ -117,7 +145,7 @@ export default function DemoCompletePage() {
             </Button>
           )}
           <Button size="lg" variant="outline" icon={Repeat} onClick={replay}>
-            Replay Scenario
+            {outcome && outcome.kind !== 'approved' && outcome.kind !== 'pending' ? 'Replay Scenario เพื่อเลือกผลอื่น' : 'Replay Scenario'}
           </Button>
           <Button size="lg" variant="ghost" icon={LayoutGrid} onClick={() => nav('/demo')}>
             Back to Demo Menu

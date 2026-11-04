@@ -3,7 +3,7 @@
  * ทุกการเปลี่ยนแปลงบันทึก Audit และแจ้งเตือนผู้เกี่ยวข้องเหมือน Workflow v1
  * ไม่มีการออก Badge, ลดระดับ หรือระงับอัตโนมัติจากผลประเมิน (D3)
  */
-import type { MarketplaceConnection, Platform, Archetype } from '@/features/marketplace/types';
+import type { MarketplaceConnection, Platform, Archetype, FailKind } from '@/features/marketplace/types';
 import type { OfficerDecisionKind, TrustAssessment } from '@/features/trust-assessment/types';
 import { CONSENT_SCOPES, PLATFORMS } from '@/features/marketplace/data/platforms';
 import { productsOfCategory } from '@/features/marketplace/data/catalog';
@@ -76,17 +76,29 @@ export function grantConsent(connectionId: string, archetype?: Archetype) {
   audit('ให้ความยินยอมเชื่อมต่อ Marketplace (จำลอง)', connectionId, PLATFORMS[c.platform].label);
 }
 
-/** ผลการซิงก์ (จำลอง) — ok=false จำลองการซิงก์ล้มเหลว */
-export function completeSync(connectionId: string, ok = true) {
+/** ข้อความเมื่อการเชื่อมต่อจำลองล้มเหลวแต่ละจุด */
+export const FAIL_REASON: Record<FailKind, string> = {
+  connect: 'เชื่อมต่อ Marketplace ไม่สำเร็จ (จำลอง) — แพลตฟอร์มไม่ตอบรับคำขอเชื่อมต่อ กด "ซิงก์ใหม่" เพื่อลองอีกครั้ง',
+  import: 'นำเข้าข้อมูลไม่สำเร็จ (จำลอง) — ข้อมูลร้านค้าที่ได้รับไม่ครบ กด "ซิงก์ใหม่" เพื่อลองอีกครั้ง',
+  sync: 'การเชื่อมต่อหมดเวลา (จำลอง) — กด "ซิงก์ใหม่" เพื่อลองอีกครั้ง',
+};
+const FAIL_TITLE: Record<FailKind, string> = { connect: 'เชื่อมต่อ Marketplace ไม่สำเร็จ', import: 'นำเข้าข้อมูล Marketplace ไม่สำเร็จ', sync: 'ซิงก์ข้อมูล Marketplace ไม่สำเร็จ' };
+
+/**
+ * ผลการซิงก์ (จำลอง) — ok=false จำลองความล้มเหลว (เชื่อมต่อ/นำเข้า/ซิงก์)
+ * ซิงก์สำเร็จ: อัปเดตวันที่ซิงก์และที่มา (Source Context) โดยใช้รหัสการเชื่อมต่อและ Seed เดิม — ไม่สร้างข้อมูลซ้ำ
+ */
+export function completeSync(connectionId: string, ok = true, failKind: FailKind = 'sync') {
   const c = conn(connectionId);
   if (!c) return;
+  const syncCount = (c.syncCount ?? 0) + 1;
   if (ok) {
-    mk().update(connectionId, { status: 'connected', lastSyncAt: nowISO(), failReason: undefined });
+    mk().update(connectionId, { status: 'connected', lastSyncAt: nowISO(), syncSource: 'sync', syncCount, failReason: undefined, failKind: undefined });
     audit('ซิงก์ข้อมูล Marketplace (จำลอง)', connectionId, PLATFORMS[c.platform].label);
     notifyMerchant(c.merchantId, `ซิงก์ข้อมูล ${PLATFORMS[c.platform].label} สำเร็จ`, 'ประเมินความน่าเชื่อถือใหม่เพื่อใช้ข้อมูลล่าสุด', '/m/trust', 'success');
   } else {
-    mk().update(connectionId, { status: 'sync_failed', failReason: 'การเชื่อมต่อหมดเวลา (จำลอง) — กด "ซิงก์ใหม่" เพื่อลองอีกครั้ง' });
-    audit('ซิงก์ข้อมูล Marketplace ไม่สำเร็จ (จำลอง)', connectionId, PLATFORMS[c.platform].label);
+    mk().update(connectionId, { status: 'sync_failed', syncCount, failKind, failReason: FAIL_REASON[failKind] });
+    audit(`${FAIL_TITLE[failKind]} (จำลอง)`, connectionId, PLATFORMS[c.platform].label);
   }
 }
 
@@ -94,6 +106,25 @@ export function resyncMarketplace(connectionId: string) {
   const c = conn(connectionId);
   if (!c || c.status === 'disconnected' || c.status === 'pending_consent') return;
   mk().update(connectionId, { status: 'syncing', failReason: undefined });
+}
+
+/** Fixture จำลองอายุข้อมูล (P7-D) — ใช้สาธิตผลของข้อมูลเก่าต่อ Data Confidence เท่านั้น */
+export type DataAgePreset = 'fresh' | 'd30' | 'd90' | 'stale' | 'sync_failed';
+export const DATA_AGE_PRESETS: Record<DataAgePreset, { label: string; days?: number; desc: string }> = {
+  fresh: { label: 'ข้อมูลใหม่', days: 0, desc: 'ซิงก์วันนี้ — Confidence ไม่ถูกหักเรื่องอายุข้อมูล' },
+  d30: { label: 'ข้อมูลเกิน 30 วัน', days: 31, desc: 'ซิงก์ล่าสุด 31 วันก่อน — หักความเชื่อมั่นบางส่วน' },
+  d90: { label: 'ข้อมูลเกิน 90 วัน', days: 91, desc: 'ซิงก์ล่าสุด 91 วันก่อน — หักความเชื่อมั่นเต็มจำนวน' },
+  stale: { label: 'ข้อมูลหมดอายุ (180 วัน)', days: 180, desc: 'ไม่ได้ซิงก์ครึ่งปี — ข้อมูลไม่สะท้อนปัจจุบัน' },
+  sync_failed: { label: 'ซิงก์ไม่สำเร็จ', desc: 'การซิงก์ล่าสุดล้มเหลว — ข้อมูลจากแพลตฟอร์มนี้ไม่ถูกใช้ประเมินจนกว่าจะซิงก์สำเร็จ' },
+};
+
+export function simulateDataAge(connectionId: string, preset: DataAgePreset) {
+  const c = conn(connectionId);
+  if (!c || c.status === 'disconnected' || c.status === 'pending_consent') return;
+  const p = DATA_AGE_PRESETS[preset];
+  if (preset === 'sync_failed') completeSync(connectionId, false, 'sync');
+  else mk().update(connectionId, { status: 'connected', lastSyncAt: new Date(Date.now() - p.days! * 86_400_000).toISOString(), syncSource: 'simulated_age', failReason: undefined, failKind: undefined });
+  audit('จำลองอายุข้อมูล Marketplace (สำหรับการสาธิต)', connectionId, p.label);
 }
 
 /** ยกเลิกการเชื่อมต่อ — ข้อมูลจากแพลตฟอร์มนี้จะไม่ถูกใช้ประเมินอีก */

@@ -6,7 +6,8 @@ import { consumers, officers, operators } from './people';
 import { courses, enrollments } from './training';
 import { riskCases, warnings } from './warnings';
 import { aiHistory } from './aiHistory';
-import { marketplaceConnections } from './marketplace';
+import { buildMarketplaceConnections } from './marketplace';
+import { demoAnchor } from './helpers';
 import { buildAssessments } from './assessments';
 
 export { DEMO_PIN } from './people';
@@ -28,7 +29,7 @@ export const seed = {
   audit: () => clone(auditLog),
   aiHistory: () => clone(aiHistory),
   // ---- v2 ----
-  marketplaceConnections: () => clone(marketplaceConnections),
+  marketplaceConnections: () => buildMarketplaceConnections(demoAnchor()),
   assessments: () =>
     buildAssessments({
       operators: clone(operators),
@@ -38,6 +39,6 @@ export const seed = {
       warnings: clone(warnings),
       risks: clone(riskCases),
       enrollments: clone(enrollments),
-      connections: clone(marketplaceConnections),
-    }),
+      connections: buildMarketplaceConnections(demoAnchor()),
+    }, demoAnchor()),
 };

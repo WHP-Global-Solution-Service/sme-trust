@@ -83,9 +83,9 @@ export default function DemoV2SummaryPage() {
           </div>
           <Card className="mt-3">
             <CardHeader title="ผลประเมินล่าสุดของแต่ละร้าน" subtitle="Insufficient Data ไม่ใช่ผลลบ · สถานะการรับรอง (ระงับ/เพิกถอน) แยกจาก Band" />
-            <ul className="grid gap-2 p-4 sm:grid-cols-5">
+            <ul className="grid gap-2 p-4 md:grid-cols-3 lg:grid-cols-5">
               {BANDS.map((b) => (
-                <li key={b} className="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2 sm:flex-col sm:items-start">
+                <li key={b} className="flex min-w-0 items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2 md:flex-col md:items-start">
                   <StatusBadge map={BAND_LABEL} value={b} />
                   <span className="text-lg font-bold text-ink">{byBand[b]} ร้าน</span>
                 </li>

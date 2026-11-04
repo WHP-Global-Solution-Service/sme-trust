@@ -143,6 +143,7 @@ export function assessTrust(input: AssessmentInput, model: Model = MODEL_V2): As
   const watchPrices = analysis.price.findings.filter((f) => f.level === 'watch');
   if (watchPrices.length) riskFactors.push(factor({ id: 'risk.price', component: 'risk', label: 'ราคาต่ำกว่าช่วงอ้างอิงมากในสินค้าความเสี่ยงสูง/กลาง — ควรตรวจสอบเพิ่มเติม', value: watchPrices.map((w) => w.productName).join(', '), impact: -P.priceWatch, evidence: watchPrices.flatMap((w) => [w.detail, ...w.mitigations.map((m) => `หลักฐานสนับสนุน: ${m}`)]), source: 'marketplace', improve: 'แสดงที่มา/ใบรับรองผลิตภัณฑ์ หรือชี้แจงเหตุผลของราคา' }));
   if (rv.burst) riskFactors.push(factor({ id: 'risk.review-burst', component: 'risk', label: 'รีวิวกระจุกตัวผิดธรรมชาติ — ควรตรวจสอบเพิ่มเติม', value: `${rv.burst.count} รีวิวใน 7 วัน (${Math.round(rv.burst.share * 100)}% ของตัวอย่าง)`, impact: -P.reviewBurst, evidence: analysis.reviews.findings.find((f) => f.id === 'review-burst')?.evidence ?? [], source: 'marketplace', improve: 'ไม่จูงใจให้รีวิวด้วยของแถมหรือส่วนลด' }));
+  if (snaps.length && s.returnRate > model.riskThresholds.returnRate) riskFactors.push(factor({ id: 'risk.high-return', component: 'risk', label: `อัตราคืนสินค้าสูงกว่า ${Math.round(model.riskThresholds.returnRate * 100)}% — ควรตรวจสอบเพิ่มเติม`, value: pct(s.returnRate), impact: -P.highReturn, evidence: [`อัตราคืนสินค้า ${pct(s.returnRate)} จาก ${s.totalOrders.toLocaleString('th-TH')} คำสั่งซื้อ`], source: 'marketplace', improve: 'ตรวจคุณภาพและรายละเอียดสินค้าให้ตรงกับประกาศขาย' }));
   if (s.spike) riskFactors.push(factor({ id: 'risk.sales-spike', component: 'risk', label: 'ยอดขายพุ่งผิดปกติ — ควรตรวจสอบเพิ่มเติม', value: `เดือนล่าสุดสูงกว่าปกติ ${s.spike.factor} เท่า`, impact: -P.salesSpike, evidence: [`คำสั่งซื้อรายเดือน: ${s.monthlyOrders.join(', ')}`], source: 'marketplace' }));
   const mine = input.complaints.filter((c) => c.merchantId === input.merchant.id);
   const seriousOpen = mine.filter((c) => c.screening.priority === 'urgent' && !['resolved', 'closed'].includes(c.status));
@@ -192,7 +193,9 @@ export function assessTrust(input: AssessmentInput, model: Model = MODEL_V2): As
   if (oldest > K.freshPartialDays) minus(K.staleFull, `ข้อมูลซิงก์ล่าสุดนานกว่า ${K.freshPartialDays} วัน`);
   else if (oldest > K.freshFullDays) minus(K.stalePartial, `ข้อมูลซิงก์ล่าสุดนานกว่า ${K.freshFullDays} วัน`);
   if (snaps.length && s.totalOrders < M.orders) minus(K.smallOrders, `ตัวอย่างคำสั่งซื้อน้อย (${s.totalOrders})`);
+  else if (snaps.length && s.totalOrders < C.orders.target) minus(K.moderateOrders, `คำสั่งซื้อ ${s.totalOrders} รายการ ยังต่ำกว่าเป้าหมาย ${C.orders.target} — ผลยังไม่แน่นอนเท่าร้านที่มีตัวอย่างมาก`);
   if (snaps.length && rv.totalReviews < M.reviews) minus(K.smallReviews, `ตัวอย่างรีวิวน้อย (${rv.totalReviews})`);
+  else if (snaps.length && rv.totalReviews < C.reviews.target) minus(K.moderateReviews, `รีวิว ${rv.totalReviews} รายการ ยังต่ำกว่าเป้าหมาย ${C.reviews.target} — คะแนนดาวยังไม่แน่นอนเท่าร้านที่มีรีวิวมาก`);
   if (rv.platformGap !== null && rv.platformGap >= 0.8) minus(K.platformGap, `คะแนนรีวิวต่างกันระหว่างแพลตฟอร์ม ${rv.platformGap.toFixed(1)} ดาว`);
   if (rv.burst) minus(K.reviewBurst, 'พบรีวิวกระจุกตัวผิดธรรมชาติ — ข้อมูลรีวิวอาจไม่สะท้อนความจริง');
   conf = clamp(conf);
@@ -202,7 +205,15 @@ export function assessTrust(input: AssessmentInput, model: Model = MODEL_V2): As
   // Band — A ต้องมีความเชื่อมั่นสูงและไม่มีสัญญาณที่ควรตรวจสอบ (มิฉะนั้นสูงสุด B)
   const scoreBand = bandOf(score, model);
   const insufficient = insufficientReasons.length > 0;
-  const band = insufficient ? 'insufficient' : scoreBand === 'A' && (confidenceLevel !== 'high' || riskFactors.length > 0) ? 'B' : scoreBand;
+  // Band A ต้องผ่านทุกเงื่อนไข — มิฉะนั้นสูงสุด B พร้อมเหตุผล (อธิบายได้ว่าทำไมได้ Band นั้น)
+  const bandCapReasons: string[] = [];
+  if (!insufficient && scoreBand === 'A') {
+    if (confidenceLevel !== 'high') bandCapReasons.push(`ความเชื่อมั่นของข้อมูลยังไม่สูง (${conf})`);
+    if (riskFactors.length) bandCapReasons.push(`มีสัญญาณที่ควรตรวจสอบ ${riskFactors.length} รายการ`);
+    if (coveragePercent < model.bandA.minCoverage) bandCapReasons.push(`ความครอบคลุมของข้อมูล ${coveragePercent}% ต่ำกว่า ${model.bandA.minCoverage}%`);
+    if (rv.platformGap !== null && rv.platformGap >= 0.8) bandCapReasons.push('ข้อมูลรีวิวระหว่างแพลตฟอร์มขัดแย้งกัน');
+  }
+  const band = insufficient ? 'insufficient' : bandCapReasons.length ? 'B' : scoreBand;
 
   const { standing, reason: standingReason } = standingOf(input);
 
@@ -231,6 +242,7 @@ export function assessTrust(input: AssessmentInput, model: Model = MODEL_V2): As
   return {
     modelVersion: model.version,
     weights: { ...model.weights },
+    weightSet: model.weightSet ? { ...model.weightSet } : undefined,
     computedAt: input.asOf.toISOString(),
     score,
     baseScore: r1(baseScore),
@@ -239,6 +251,7 @@ export function assessTrust(input: AssessmentInput, model: Model = MODEL_V2): As
     riskFactors,
     band,
     scoreBand,
+    bandCapReasons,
     insufficientReasons,
     standing,
     standingReason,
