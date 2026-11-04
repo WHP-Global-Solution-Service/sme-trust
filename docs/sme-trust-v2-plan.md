@@ -363,3 +363,10 @@ interface TrustFactor {
 ## ประเด็นที่ตัดสินใจแล้ว
 
 ดูตาราง **ข้อสรุปที่ตกลงแล้ว (D1–D10)** ด้านบน
+
+## Release — v2 แทน v1 ที่ `/sme-trust/` (เปลี่ยนแนวทาง D4)
+
+- D4 เดิม (เผยแพร่ v2 ที่ `/sme-trust/v2/` คู่กับ v1) **ยกเลิก** — v2 เผยแพร่แทน v1 ที่ URL เดิม ผ่านการ Merge `sme-trustv.2` → `main` (Workflow Deploy จาก `main` เท่านั้น)
+- เตรียมแล้ว: Workflow (TypeScript Check / Tests / ตรวจ Build Output / Deploy เฉพาะ `main`), localStorage `smetrust:v2:*`, ลบกลไก `/v2/` (`pages-combine`, `build:v2`, `restoreDeepLink`), E2E เว็บไซต์เดียว, Test runner ข้ามแพลตฟอร์ม (`scripts/run-tests.mjs`), Tag `v1-before-sme-trust-v2` (ในเครื่อง)
+- ยังไม่ Push / Merge / Deploy — ขั้นตอนและ Rollback: `docs/release-v2-pages.md`
+

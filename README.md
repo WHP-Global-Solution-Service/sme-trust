@@ -21,7 +21,7 @@ npm run test:e2e   # E2E บน Chromium จริง (build + preview อัต
 npm run test:e2e:subpath  # E2E ภายใต้ /sme-trust/ (เหมือน GitHub Pages)
 npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop + iPhone + iPad — ครั้งแรกต้อง npx playwright install webkit
 npm run test:e2e:firefox  # E2E บน Firefox — ครั้งแรกต้อง npx playwright install firefox
-npm run test:e2e:pages    # จำลอง GitHub Pages แบบรวม: v1 (จาก main, อ่านอย่างเดียว) ที่ /sme-trust/ + v2 ที่ /sme-trust/v2/ (ไม่ Deploy)
+npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/sme-trust/) + จำลอง GitHub Pages (404.html) + E2E (ไม่ Deploy)
 ```
 
 เริ่มนำเสนอ: เปิด **`/demo`** (หน้ารวม Demo Scenarios — ปุ่มบนหน้าแรก) → **Start Full Journey** (เรื่องต่อเนื่อง 1 → 8) หรือ **Start Demo** รายเรื่อง แล้วใช้ **Demo Controller** (แผงขวาบนเดสก์ท็อป / แถบล่างบนมือถือ) ไปทีละขั้น · ปุ่มถัดไปเปิดเมื่อทำขั้นนั้นเสร็จจริง · **Restart Scenario** เริ่มเรื่องเดิมใหม่ได้ทุกเมื่อ
@@ -30,7 +30,7 @@ npm run test:e2e:pages    # จำลอง GitHub Pages แบบรวม: v1 
 
 ## Deploy บน GitHub Pages
 
-มี Workflow ที่ `.github/workflows/deploy-pages.yml` (Push ที่ `main` → Build → Deploy) ตั้งค่า Repository: **Settings → Pages → Source: GitHub Actions**
+มี Workflow ที่ `.github/workflows/deploy-pages.yml` (Push ที่ `main` → TypeScript Check → Tests → Build → Deploy) — v2 เผยแพร่แทน v1 ที่ URL เดิม `/sme-trust/` เมื่อ Merge เข้า `main` (ขั้นตอนและ Rollback: [docs/release-v2-pages.md](docs/release-v2-pages.md)) ตั้งค่า Repository: **Settings → Pages → Source: GitHub Actions**
 
 - Build ด้วย `VITE_BASE=/<ชื่อ repo>/` — Router, ลิงก์ QR/ใบรับรอง และ Device Preview ใช้ Base Path นี้อัตโนมัติ
 - `postbuild` คัดลอก `index.html` เป็น `404.html` เพื่อให้ลิงก์ตรง (เช่น `/verify/...`) เปิดได้บน GitHub Pages
@@ -53,7 +53,6 @@ npm run test:e2e:pages    # จำลอง GitHub Pages แบบรวม: v1 
 - เชื่อมต่อ **Shopee (จำลอง) / Lazada (จำลอง)** — ยังไม่มีการเชื่อมต่อ API จริง ข้อมูลการขายสร้างแบบ Deterministic ในเบราว์เซอร์
 - วิเคราะห์ราคา ยอดขาย รีวิว → **Trust Assessment** (Band A–D / Insufficient Data, Data Coverage, Data Confidence, คำอธิบายทุกปัจจัย)
 - ผู้บริโภคไม่เห็นคะแนนตัวเลข · Standing (ระงับ/เพิกถอน) แยกจาก Band · ยกระดับ Level 3–4 ผ่าน Officer Review และเกณฑ์ v1 เท่านั้น
-- `npm run build:v2` — Build สำหรับเผยแพร่ที่ `/sme-trust/v2/` ในอนาคต (`dist-v2/`)
 - **Demo v2** — Scenario 9–13 (เชื่อมข้อมูล → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ), เส้นทางทางเลือก 9B สำหรับร้านที่ไม่มี Marketplace, Full Journey v2 แยกจาก v1 และ Executive Impact Summary (`/demo/v2/summary`)
 
 ## เทคโนโลยี

@@ -38,82 +38,21 @@ npm run test:e2e:safari                    # E2E บน WebKit (Safari) Desktop 
 
 ---
 
-# SME Trust v2 — ความพร้อมเผยแพร่ที่ `/sme-trust/v2/` (P7-I)
+# SME Trust v2 — เผยแพร่แทน v1 ที่ URL เดิม `/sme-trust/`
 
-สถานะ: **พร้อมเผยแพร่หลังได้รับอนุญาต — ยังไม่ได้ Deploy** (ไม่มีการ Push/Merge/Deploy ในรอบนี้ และ Branch `main` ไม่ถูกแก้ไข)
+สถานะ: **เตรียม Release เสร็จ รอคำสั่งอนุมัติ — ยังไม่ได้ Push / Merge / Deploy** · ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)
 
-Prototype นี้เป็น Frontend Only — **ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)**
-
-## โครงสร้างที่ต้องการ
+แนวทาง (เปลี่ยนจาก P7-I ที่เตรียมโครงสร้าง `/sme-trust/v2/` + v1 ใน Artifact เดียว):
 
 ```
-https://<owner>.github.io/sme-trust/      → v1 (Build จาก main, base /sme-trust/)
-https://<owner>.github.io/sme-trust/v2/   → v2 (Build จาก sme-trustv.2, base /sme-trust/v2/)
+https://<owner>.github.io/sme-trust/   → SME Trust v2 (รวม Scenario 1–13) — Build จาก main หลัง Merge sme-trustv.2
 ```
 
-GitHub Pages มี 1 Site ต่อ Repository และใช้ `404.html` **ไฟล์เดียวที่ราก** — v1 และ v2 จึงต้องอยู่ใน Pages Artifact เดียวกัน
+- ไม่มี `/sme-trust/v2/` และไม่มี Combined Artifact — ลบ `scripts/pages-combine.mjs`, `build:v2`, `restoreDeepLink` (`__p`) แล้ว
+- Workflow เดียว `deploy-pages.yml` Deploy จาก `main` เท่านั้น: TypeScript Check → `npm test` → Build (`VITE_BASE=/<repo>/`) → ตรวจ Build Output → Upload Artifact → Deploy
+- Deep link / Refresh: `404.html` = สำเนา `index.html` (เหมือน v1)
+- localStorage: v2 ใช้ `smetrust:v2:*` ทุก Base — ข้อมูลเก่าของผู้ที่เคยเปิด v1 (`smetrust:v1:*`) ไม่ถูกโหลดและไม่ถูกลบ
+- ตรวจในเครื่อง: `npm run test:e2e:pages` (Build แบบเดียวกับ Workflow → เซิร์ฟเวอร์จำลอง GitHub Pages → E2E 3 เบราว์เซอร์)
+- จุดย้อนกลับ: Tag `v1-before-sme-trust-v2` → `4027c04` (สร้างในเครื่อง ยังไม่ Push)
 
-## กลไกที่เตรียมไว้
-
-| รายการ | ไฟล์ | การทำงาน |
-|---|---|---|
-| รวม Build | `scripts/pages-combine.mjs` | คัดลอก Build ของ v2 ไปที่ `<site>/v2/` และสร้าง `<site>/404.html` = หน้าแอป v1 + สคริปต์สั้นที่ส่ง Deep link ของ `/sme-trust/v2/...` ไปยัง `/sme-trust/v2/?__p=<path>` (Deep link ของ v1 ทำงานเหมือนเดิม) |
-| คืนเส้นทางใน v2 | `src/utils/appUrl.ts` → `restoreDeepLink()` (เรียกใน `main.tsx` ก่อน Render) | อ่าน `__p` แล้ว `history.replaceState` กลับเป็นเส้นทางเดิม (รวม Query/Hash) · รับเฉพาะ path ภายใน (ปฏิเสธ `//`, `\` และ URL ภายนอก) |
-| แยกข้อมูลในเบราว์เซอร์ | `src/stores/createEntityStore.ts` | v2 ที่ base `/…/v2/` ใช้ localStorage Namespace `smetrust:v2:` — v1 และ v2 อยู่ Origin เดียวกันแต่ข้อมูลสาธิตไม่ปนกัน · ปุ่มกู้คืนเมื่อเกิด Error ล้างเฉพาะ Namespace ของตัวเอง |
-| Standalone | `npm run build:v2` | `dist-v2/` พร้อม `404.html` (สำเนา index) สำหรับเผยแพร่ v2 เป็น Site แยก |
-| ตรวจในเครื่อง | `npm run test:e2e:pages` → `scripts/e2e-pages.mjs` + `playwright.pages.config.ts` | ดึงซอร์ส `main` ด้วย `git archive` (อ่านอย่างเดียว) → Build v1 → Build v2 → รวมเป็น `.pages/site` → เซิร์ฟเวอร์จำลอง GitHub Pages (`scripts/pages-preview.mjs`: ไม่พบไฟล์ → `/sme-trust/404.html` สถานะ 404) → E2E |
-
-## ผลการตรวจ (ในเครื่อง — ไม่ใช่ GitHub Pages จริง)
-
-| รายการ | Chromium | Firefox | WebKit |
-|---|---|---|---|
-| v1 ที่ `/sme-trust/`, v2 ที่ `/sme-trust/v2/` — Asset ของแต่ละเวอร์ชันโหลดจาก path ของตัวเองครบ | ✅ | ✅ | ✅ |
-| Deep link + Refresh ของ v2: Merchant Dashboard, Marketplace Connection, Marketplace Analysis (มี Query), Trust Assessment, Officer Review, Consumer Verification, Demo Selector, Executive Summary | ✅ | ✅ | ✅ |
-| Deep link ของ v1 (`/sme-trust/verify`) ยังเปิดแอป v1 | ✅ | ✅ | ✅ |
-| localStorage ของ v1/v2 แยกกัน (v2 เขียนเฉพาะ `smetrust:v2:*`, v1 ไม่เห็น Journey v2) | ✅ | ✅ | ✅ |
-| Build: root (`/`), `/sme-trust/` (v1 จาก main) และ `/sme-trust/v2/` | ✅ | | |
-
-## ร่าง Workflow สำหรับเผยแพร่ v1 + v2 (ยังไม่เปิดใช้)
-
-ไม่ได้เพิ่มเป็นไฟล์ใน `.github/workflows/` เพื่อไม่ให้เกิดการ Deploy โดยไม่ได้ตั้งใจ — ใช้แทน `deploy-pages.yml` เดิมเมื่อได้รับอนุญาตให้เผยแพร่ v2
-
-```yaml
-name: Deploy v1 + v2 to GitHub Pages
-on:
-  workflow_dispatch:
-permissions: { contents: read, pages: write, id-token: write }
-concurrency: { group: pages, cancel-in-progress: true }
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: main, path: v1 }
-      - uses: actions/checkout@v4
-        with: { ref: sme-trustv.2, path: v2 }
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci && npm test && npm run build
-        working-directory: v1
-        env: { VITE_BASE: '/${{ github.event.repository.name }}/' }
-      - run: npm ci && npm test && npx vite build --base "/${{ github.event.repository.name }}/v2/" --outDir dist-v2 --emptyOutDir
-        working-directory: v2
-      - run: node v2/scripts/pages-combine.mjs v1/dist v2/dist-v2 "/${{ github.event.repository.name }}/" v2
-      - uses: actions/upload-pages-artifact@v3
-        with: { path: v1/dist }
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment: { name: github-pages, url: '${{ steps.deployment.outputs.page_url }}' }
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
-```
-
-## Checklist ก่อนเผยแพร่ (เมื่อได้รับอนุญาต)
-
-1. ยืนยันว่าเผยแพร่ v2 ร่วมกับ v1 ที่ `/sme-trust/v2/` (หรือแยก Repository/Site)
-2. นำ Workflow ด้านบนไปใช้แทน `deploy-pages.yml` บน Branch ที่ GitHub Pages ใช้
-3. รันในเครื่อง: `npm test && npm run test:e2e && npm run test:e2e:firefox && npm run test:e2e:safari && npm run test:e2e:pages`
-4. หลัง Deploy: เปิด Deep link ของ v2 อย่างน้อย 3 หน้า, Refresh ระหว่าง Journey v2 และเปิด v1 เพื่อยืนยันว่าข้อมูลไม่ปนกัน
-5. ข้อจำกัดที่ยังอยู่: KI-03 / KI-V2-03 (HTTP 404 ของ Deep link ครั้งแรก) — ดู `docs/known-issues.md`
+รายละเอียด Preflight, ผลทดสอบ, ขั้นตอนเผยแพร่, การตรวจเว็บจริง และ Rollback Plan: **[release-v2-pages.md](release-v2-pages.md)**

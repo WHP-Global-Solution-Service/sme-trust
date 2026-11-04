@@ -10,12 +10,14 @@ export interface EntityState<T extends { id: string }> {
 }
 
 /**
- * Namespace ของ localStorage
- * - v2 ที่เผยแพร่ใต้ /<repo>/v2/ อยู่ Origin เดียวกับ v1 (github.io) จึงใช้ "smetrust:v2:" เพื่อไม่ให้ข้อมูลสาธิตของสองเวอร์ชันปนกัน
- * - Base อื่น (เช่น "/" ตอนพัฒนา/ทดสอบ หรือ /sme-trust/) ใช้ "smetrust:v1:" ตามเดิม
+ * Namespace ของ localStorage สำหรับ SME Trust v2 (ทุก Base path)
+ * - v2 เผยแพร่แทน v1 ที่ URL เดิม (/sme-trust/) — ผู้ที่เคยเปิด v1 มีข้อมูลสาธิตรูปแบบเก่าใต้ "smetrust:v1:"
+ *   v2 จึงใช้ Namespace ใหม่ เพื่อไม่โหลดข้อมูลรูปแบบเก่า (ขาดข้อมูลตัวอย่างของ v2) เข้ามา
+ * - ไม่ลบคีย์ของ v1 — หาก Rollback กลับเป็น v1 ข้อมูลสาธิตเดิมของผู้ใช้ยังอยู่ครบ
  */
-const BASE: string = (import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
-export const STORAGE_PREFIX = /\/v2\/$/.test(BASE) ? 'smetrust:v2:' : 'smetrust:v1:';
+export const STORAGE_PREFIX = 'smetrust:v2:';
+/** Namespace ที่ v1 ใช้ (อ่านอย่างเดียวในการทดสอบ — v2 ไม่โหลดและไม่ลบ) */
+export const LEGACY_V1_PREFIX = 'smetrust:v1:';
 
 /** Store มาตรฐานสำหรับข้อมูลแต่ละ Domain — เก็บใน localStorage และ reset กลับเป็น seed ได้ */
 export function createEntityStore<T extends { id: string }>(name: string, seed: () => T[]) {

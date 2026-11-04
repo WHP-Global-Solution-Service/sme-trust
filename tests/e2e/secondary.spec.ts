@@ -4,7 +4,7 @@ import { confirm, expect, fresh, open, store, test } from './helpers';
 /** ปุ่มรอง: ดาวน์โหลด/พิมพ์/Export, การจัดการใบรับรอง, เข้าสู่ระบบ, การแจ้งเตือน, ตัวกรอง และจำลองหน้าจอ */
 async function as(page: Page, session: Record<string, unknown>, path: string) {
   await fresh(page);
-  await page.evaluate((s) => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { role: 'consumer', consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...s }, version: 1 })), session);
+  await page.evaluate((s) => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { role: 'consumer', consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...s }, version: 1 })), session);
   await open(page, path);
 }
 const merchant = (operatorId: string) => ({ role: 'merchant', operatorId, merchantLoggedIn: true });
@@ -114,7 +114,7 @@ test.describe('งานเจ้าหน้าที่', () => {
     await page.getByRole('button', { name: 'ขอเอกสารเพิ่มเติม' }).click();
     await confirm(page, 'กรุณาแนบใบอนุญาตผลิตอาหารฉบับล่าสุด');
     expect((await store<{ id: string; status: string }>(page, 'applications')).find((a) => a.id === 'APP-2569-0002')!.status).toBe('need_info');
-    await page.evaluate(() => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-002', merchantLoggedIn: true, shopDrafts: {} }, version: 1 })));
+    await page.evaluate(() => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-002', merchantLoggedIn: true, shopDrafts: {} }, version: 1 })));
     await open(page, '/m/shop');
     await expect(page.getByText('กรุณาแนบใบอนุญาตผลิตอาหารฉบับล่าสุด').first()).toBeVisible();
   });

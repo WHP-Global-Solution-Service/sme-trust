@@ -4,7 +4,7 @@ import { expect, fresh, open, store, test } from './helpers';
 /** เข้าสู่ระบบผู้ประกอบการตัวอย่าง (OP-003 สวยใสคอสเมติก) ผ่าน Session จำลอง */
 async function asMerchant(page: Page, path: string) {
   await fresh(page);
-  await page.evaluate(() => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-003', merchantLoggedIn: true, consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {} }, version: 1 })));
+  await page.evaluate(() => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-003', merchantLoggedIn: true, consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {} }, version: 1 })));
   await open(page, path);
 }
 
@@ -76,7 +76,7 @@ test.describe('AI-02 Complaint Resolution Assistant', () => {
     // ข้อความที่พิมพ์เองนำไปใส่เคสไม่ได้ (ต้องเลือกเคสจาก Complaint Center)
     const insert = page.getByRole('button', { name: 'นำร่างไปใส่ช่องตอบกลับเคส' });
     if (await insert.count()) await expect(insert).toBeDisabled();
-    const persisted = await page.evaluate(() => localStorage.getItem('smetrust:v1:ai-workspace') ?? '');
+    const persisted = await page.evaluate(() => localStorage.getItem('smetrust:v2:ai-workspace') ?? '');
     expect(persisted).not.toContain('ลิปเฉด 03');
   });
 

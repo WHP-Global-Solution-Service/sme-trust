@@ -218,7 +218,7 @@ const seedFns: Record<string, () => unknown[]> = {
   notifications: MOCK.seed.notifications, audit: MOCK.seed.audit,
 };
 keys.forEach((k, i) => {
-  const raw = storage[`smetrust:v1:${k}`];
+  const raw = storage[`smetrust:v2:${k}`];
   const current = JSON.stringify(stores[i].getState().items);
   if (!raw) {
     // persist เขียนเมื่อ Store เปลี่ยนครั้งแรก — ถ้ายังไม่เคยเขียน State ต้องเท่ากับ Seed (โหลดใหม่จะได้ Seed เหมือนเดิม)
@@ -234,10 +234,10 @@ for (const st of stores) st.setState({ items: [] });
 Object.assign(storage, snapshot);
 await Promise.all(stores.map((st) => (st as any).persist.rehydrate()));
 check(merchant(shop.id)?.registrationStatus === 'approved' && complaint(cmp.id)?.status === 'resolved' && cert(shop.id)?.status === 'active', 'Rehydrate จาก localStorage ได้ข้อมูลล่าสุดครบ (ร้าน, เคส, ใบรับรอง)');
-const sess = JSON.parse(storage['smetrust:v1:session']);
+const sess = JSON.parse(storage['smetrust:v2:session']);
 check(sess.state.demoPanelOpen === undefined && 'role' in sess.state, 'Session บันทึกบทบาท แต่ไม่บันทึกสถานะเปิด Demo Panel');
 S.useSessionStore.getState().saveDraft(op.id, { step: 3, data: { shopName: 'ฉบับร่าง' }, savedAt: new Date().toISOString() });
-check(JSON.parse(storage['smetrust:v1:session']).state.shopDrafts[op.id]?.step === 3, 'ฉบับร่างร้านค้าถูกบันทึก');
+check(JSON.parse(storage['smetrust:v2:session']).state.shopDrafts[op.id]?.step === 3, 'ฉบับร่างร้านค้าถูกบันทึก');
 integrity(' Rehydrate');
 
 // ---------------------------------------------------------------- dashboard
@@ -269,7 +269,7 @@ describe('10. Reset Demo Data → ทุก Store กลับสู่ข้อ
 W.resetAllDemoData();
 keys.forEach((key, i) => {
   const same = JSON.stringify(stores[i].getState().items) === JSON.stringify(seedFns[key]());
-  const persisted = JSON.stringify(JSON.parse(storage[`smetrust:v1:${key}`]).state.items) === JSON.stringify(seedFns[key]());
+  const persisted = JSON.stringify(JSON.parse(storage[`smetrust:v2:${key}`]).state.items) === JSON.stringify(seedFns[key]());
   check(same && persisted, `${key}: State และ localStorage ตรงกับ Seed ทุกไบต์`);
 });
 const ss = S.useSessionStore.getState();

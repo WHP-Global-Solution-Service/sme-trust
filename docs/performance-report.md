@@ -13,7 +13,7 @@
 | Recharts | อยู่ในไฟล์หลัก | อยู่ในไฟล์หลัก | แยกเป็น `Charts-*.js` 375,375 B — โหลดเฉพาะหน้าที่มีกราฟ |
 | CSS | 44 kB | 44.19 kB | 44.30 kB |
 
-Build `/sme-trust/v2/` (`npm run build:v2`) ได้ขนาดเท่ากัน (initial 691,400 B · gzip 181,413 B)
+Build `/sme-trust/v2/` (P7) ได้ขนาดเท่ากัน (initial 691,400 B · gzip 181,413 B) — ภายหลังเปลี่ยนเป็นเผยแพร่ที่ `/sme-trust/` (Release) และลบ `build:v2` แล้ว · Build `/sme-trust/` สำหรับ Release: ไฟล์หลัก 547.71 kB · gzip 181.23 kB (Vite)
 
 ## สิ่งที่ทำ
 

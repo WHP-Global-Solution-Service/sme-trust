@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E โครงสร้าง GitHub Pages แบบรวม: v1 ที่ /sme-trust/ และ v2 ที่ /sme-trust/v2/
- * เตรียมไฟล์ด้วย `node scripts/e2e-pages.mjs` (Build v1 จาก main แบบอ่านอย่างเดียว + Build v2 + รวม) — ไม่มีการ Deploy
+ * E2E เว็บไซต์ GitHub Pages: SME Trust v2 ที่ /sme-trust/ (แทน v1 ที่ URL เดิม)
+ * เตรียมไฟล์ด้วย `node scripts/e2e-pages.mjs` (Build แบบเดียวกับ Workflow) — ไม่มีการ Deploy
  * เซิร์ฟเวอร์จำลองพฤติกรรม GitHub Pages: ไม่พบไฟล์ → /sme-trust/404.html (HTTP 404)
  */
 const port = 4320;

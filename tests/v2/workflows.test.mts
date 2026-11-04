@@ -108,7 +108,7 @@ describe('Configuration และ Reset');
 check(useAssessmentConfigStore.getState().setWeights({ C1: 40, C2: 20, C3: 10, C4: 10, C5: 20 }) === undefined, 'บันทึกน้ำหนักใหม่ที่ถูกต้องได้');
 check(!!useAssessmentConfigStore.getState().setWeights({ C1: 60, C2: 20, C3: 10, C4: 10, C5: 20 }) && useAssessmentConfigStore.getState().weights.C1 === 40, 'น้ำหนักผลรวม ≠ 100 → ไม่บันทึก');
 check(V2.runAssessment('M-005')!.result.weights.C1 === 40, 'ประเมินใหม่ใช้น้ำหนักที่ตั้งไว้');
-storage['smetrust:v1:assessment-config'] = JSON.stringify({ state: { weights: { C1: 99, C2: 1, C3: 1, C4: 1, C5: 1 } }, version: 1 });
+storage['smetrust:v2:assessment-config'] = JSON.stringify({ state: { weights: { C1: 99, C2: 1, C3: 1, C4: 1, C5: 1 } }, version: 1 });
 await (useAssessmentConfigStore as unknown as { persist: { rehydrate: () => Promise<void> } }).persist.rehydrate();
 check(useAssessmentConfigStore.getState().weights.C1 !== 99 && !validateWeights(useAssessmentConfigStore.getState().weights), 'ค่าที่บันทึกไว้ผิดรูปแบบ → ไม่นำมาใช้ (คงค่าที่ถูกต้อง)');
 useAssessmentConfigStore.getState().setWeights({ C1: 40, C2: 20, C3: 10, C4: 10, C5: 20 });

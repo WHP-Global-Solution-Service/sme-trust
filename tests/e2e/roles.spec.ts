@@ -56,7 +56,7 @@ test('Base path: ลิงก์ภายในทุกหน้าและล
   if (browserName === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const base = new URL(baseURL!).pathname; // "/" หรือ "/sme-trust/"
   await fresh(page);
-  await page.evaluate(() => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-001', merchantLoggedIn: true, consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {} }, version: 1 })));
+  await page.evaluate(() => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-001', merchantLoggedIn: true, consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {} }, version: 1 })));
   for (const path of ['/m', '/m/toolkit', '/verify/SMT-2569-000101', '/shop/M-001', '/demo']) {
     await open(page, path);
     // รอเนื้อหาหลักของหน้า (เสถียรกว่ารอ networkidle เมื่อรันหลาย Worker)

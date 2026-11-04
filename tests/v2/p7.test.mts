@@ -153,7 +153,7 @@ check(cfg().revision === 2 && cfg().weights.C1 === 25 && cfg().history.length ==
 check(view('/admin/assessment-model', { role: 'admin' }).includes('ชุดน้ำหนัก #2'), '  หน้าโมเดลแสดงชุดที่ใช้อยู่และวันที่');
 W.resetAllDemoData();
 check(cfg().revision === 0 && cfg().history.length === 1, 'Reset Demo Data → ชุดน้ำหนักเริ่มต้น');
-storage['smetrust:v1:assessment-config'] = JSON.stringify({ state: { weights: { C1: 30, C2: 20, C3: 20, C4: 10, C5: 20 } }, version: 1 });
+storage['smetrust:v2:assessment-config'] = JSON.stringify({ state: { weights: { C1: 30, C2: 20, C3: 20, C4: 10, C5: 20 } }, version: 1 });
 await (useAssessmentConfigStore as unknown as { persist: { rehydrate: () => Promise<void> } }).persist.rehydrate();
 check(cfg().weights.C1 === 30 && cfg().revision === 1, 'Persistence: ข้อมูลรุ่นก่อน (มีแต่น้ำหนัก) → อ่านเป็นชุด #1');
 W.resetAllDemoData();
@@ -272,16 +272,30 @@ W.resetAllDemoData();
 check(JSON.stringify(stats()) === JSON.stringify(base), 'Reset Demo Data → KPI กลับค่าเริ่มต้น');
 
 // ================================================================ P7-I
-describe('P7-I — Deep link จาก 404.html ของ GitHub Pages');
-const { restoreDeepLink } = await import('@/utils/appUrl');
-const hist = () => {
-  const h = { state: null as unknown, url: '', replaceState: (_s: unknown, _t: string, u: string) => void (h.url = u) };
-  return h;
-};
-const h1 = hist();
-check(restoreDeepLink({ search: '?__p=' + encodeURIComponent('/m/marketplace/analysis?tab=compare'), hash: '#top' }, h1) === '/m/marketplace/analysis?tab=compare#top' && h1.url === '/m/marketplace/analysis?tab=compare#top', 'คืนเส้นทาง พร้อม Query และ Hash');
-const h2 = hist();
-check(restoreDeepLink({ search: '?__p=' + encodeURIComponent('//evil.example/x'), hash: '' }, h2) === '/' && restoreDeepLink({ search: '?__p=https%3A%2F%2Fevil.example', hash: '' }, hist()) === '/', 'ไม่รับปลายทางภายนอก (กัน Open Redirect)');
-check(restoreDeepLink({ search: '?tab=x', hash: '' }, hist()) === undefined, 'ไม่มีพารามิเตอร์ → ไม่เปลี่ยน URL');
+describe('Release — v2 แทน v1 ที่ /sme-trust/: Namespace ของ localStorage');
+const { STORAGE_PREFIX, LEGACY_V1_PREFIX } = await import('@/stores/createEntityStore');
+check(STORAGE_PREFIX === 'smetrust:v2:' && LEGACY_V1_PREFIX === 'smetrust:v1:', 'v2 ใช้ smetrust:v2: ทุก Base path (ไม่ชนกับข้อมูลเก่าของ v1)');
+const persistedKeys = Object.keys(storage).filter((k) => k.startsWith('smetrust:'));
+check(persistedKeys.length > 0 && persistedKeys.every((k) => k.startsWith(STORAGE_PREFIX) || k.startsWith(LEGACY_V1_PREFIX)), `ทุกคีย์ที่ v2 เขียนอยู่ใต้ ${STORAGE_PREFIX} (${persistedKeys.filter((k) => k.startsWith(STORAGE_PREFIX)).length} คีย์)`);
+const appUrlSrc = (await import('node:fs')).readFileSync(new URL('../../src/utils/appUrl.ts', import.meta.url), 'utf8');
+const mainSrc = (await import('node:fs')).readFileSync(new URL('../../src/main.tsx', import.meta.url), 'utf8');
+check(!/__p|replaceState/.test(appUrlSrc + mainSrc), 'ไม่มีการเขียน URL ใหม่ตอนเริ่มแอป (404.html = index.html เปิดเส้นทางเดิมโดยตรง)');
+
+describe('Release — โหลดไฟล์หน้าแบบลองซ้ำ (Firefox ยกเลิก Dynamic import ระหว่างเปลี่ยนหน้า / เครือข่ายสะดุด)');
+const { withRetry, RETRY_DELAYS_MS } = await import('@/routes/lazyPage');
+const waits: number[] = [];
+const fakeWait = (ms: number) => (waits.push(ms), Promise.resolve());
+let calls = 0;
+const flaky = () => (++calls === 1 ? Promise.reject(new Error('chunk aborted')) : Promise.resolve('page'));
+check((await withRetry(flaky, RETRY_DELAYS_MS, fakeWait)) === 'page' && calls === 2 && waits.join() === '500', 'ล้มเหลวครั้งแรก → รอ 500ms แล้วโหลดสำเร็จ');
+calls = 0;
+waits.length = 0;
+const original = new Error('chunk missing');
+let thrown: unknown;
+await withRetry(() => (++calls, Promise.reject(original)), RETRY_DELAYS_MS, fakeWait).catch((e) => (thrown = e));
+check(thrown === original && calls === 3 && waits.join() === '500,1500', 'ล้มเหลวทุกครั้ง → ลองทั้งหมด 3 ครั้ง แล้วส่ง Error เดิมให้ ErrorBoundary (ไม่ซ่อนปัญหา)');
+calls = 0;
+waits.length = 0;
+check((await withRetry(() => (++calls, Promise.resolve(1)), RETRY_DELAYS_MS, fakeWait)) === 1 && calls === 1 && waits.length === 0, 'โหลดสำเร็จครั้งแรก → ไม่รอและไม่โหลดซ้ำ');
 
 finish();

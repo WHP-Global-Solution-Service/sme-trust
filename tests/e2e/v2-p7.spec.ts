@@ -15,7 +15,7 @@ type Conn = { id: string; merchantId: string; status: string; syncSource?: strin
 /** ตั้งบทบาทผ่าน Session Store (เหมือนการเลือกบัญชีตัวอย่าง) แล้วเปิดหน้า */
 async function asRole(page: Page, session: Record<string, string | boolean>, path: string) {
   await page.evaluate((s) => {
-    const key = 'smetrust:v1:session';
+    const key = 'smetrust:v2:session';
     const cur = JSON.parse(localStorage.getItem(key) ?? '{"state":{},"version":1}');
     localStorage.setItem(key, JSON.stringify({ ...cur, state: { ...cur.state, ...s } }));
   }, session);

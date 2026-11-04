@@ -6,7 +6,7 @@ type Conn = { merchantId: string; platform: string; status: string };
 type Assessment = { id: string; merchantId: string; status: string; result: { score: number; band: string }; decision?: { kind: string } };
 
 const session = (page: Page, s: Record<string, unknown>) =>
-  page.evaluate((x) => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...x }, version: 1 })), s);
+  page.evaluate((x) => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...x }, version: 1 })), s);
 const main = (page: Page) => page.locator('main');
 
 test('ร้านเชื่อมต่อ Lazada (จำลอง) → ประเมิน → ส่งพิจารณา → เจ้าหน้าที่ตัดสิน → ผู้บริโภคเห็น Band โดยไม่มีคะแนน', async ({ page }) => {
@@ -127,7 +127,7 @@ test('ผู้ดูแลระบบปรับน้ำหนักโม�
   await expect(main(page).getByRole('button', { name: 'บันทึกน้ำหนัก' })).toBeDisabled();
   await main(page).getByLabel('น้ำหนัก C2').fill('10');
   await main(page).getByRole('button', { name: 'บันทึกน้ำหนัก' }).click();
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v1:assessment-config')!).state.weights);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v2:assessment-config')!).state.weights);
   expect(saved).toMatchObject({ C1: 40, C2: 10 });
   await main(page).getByRole('button', { name: /คืนค่าเริ่มต้น/ }).click();
   await expect(main(page).getByLabel('น้ำหนัก C1')).toHaveValue('25');
@@ -138,5 +138,5 @@ test('ผู้ดูแลระบบปรับน้ำหนักโม�
   await open(page, '/admin/data');
   await page.getByRole('button', { name: 'Reset Demo Data' }).click();
   await confirm(page, undefined, 'รีเซ็ต');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v1:assessment-config')!).state.weights.C1)).toBe(25);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v2:assessment-config')!).state.weights.C1)).toBe(25);
 });

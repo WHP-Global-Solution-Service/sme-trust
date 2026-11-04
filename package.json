@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "test": "tsx tests/thai.test.mts && tsx tests/flows.test.mts && tsx tests/ai.test.mts && tsx tests/scenarios.test.mts && tsx tests/workflows.test.mts && tsx tests/v2/marketplace.test.mts && tsx tests/v2/assessment.test.mts && tsx tests/v2/workflows.test.mts && tsx tests/v2/ui.test.mts && tsx tests/v2/scenarios.test.mts && tsx tests/v2/validation.test.mts && tsx tests/v2/p7.test.mts && tsx tests/render.test.mts",
+    "test": "node scripts/run-tests.mjs",
     "test:flows": "tsx tests/flows.test.mts",
     "test:scenarios": "tsx tests/scenarios.test.mts",
     "test:e2e": "playwright test --project=chromium",
@@ -16,8 +16,7 @@
     "test:e2e:subpath": "node scripts/e2e-subpath.mjs",
     "test:e2e:firefox": "playwright test --project=firefox --workers=2",
     "test:e2e:pages": "node scripts/e2e-pages.mjs",
-    "postbuild": "node -e \"require('fs').copyFileSync('dist/index.html','dist/404.html')\"",
-    "build:v2": "tsc -b && vite build --base /sme-trust/v2/ --outDir dist-v2 --emptyOutDir && node -e \"require('fs').copyFileSync('dist-v2/index.html','dist-v2/404.html')\""
+    "postbuild": "node -e \"require('fs').copyFileSync('dist/index.html','dist/404.html')\""
   },
   "dependencies": {
     "@fontsource/noto-sans-thai": "^5.1.0",

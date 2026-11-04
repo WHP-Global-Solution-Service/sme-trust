@@ -31,7 +31,7 @@ for (const vp of VIEWPORTS) {
     await fresh(page);
     const over: string[] = [];
     for (const [path, session] of PAGES) {
-      await page.evaluate((s) => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { role: 'consumer', consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...s }, version: 1 })), session);
+      await page.evaluate((s) => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { role: 'consumer', consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...s }, version: 1 })), session);
       await open(page, path);
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(300);
