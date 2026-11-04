@@ -127,6 +127,10 @@ export interface VerificationApplication {
   infoRequest?: string;
   rejectReason?: string;
   timeline: TimelineEvent[];
+  /** v2: รหัสฉบับร่างที่ใช้ส่งคำขอ — ส่งซ้ำแล้วได้คำขอเดิม (ไม่สร้างซ้ำ) */
+  sourceDraftId?: string;
+  /** v2: บันทึกการนำเข้าข้อมูลจาก Marketplace (จำลอง) ที่ใช้เติมแบบฟอร์ม */
+  importId?: string;
 }
 
 // ----- การรับรอง -----

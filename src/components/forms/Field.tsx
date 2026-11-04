@@ -2,12 +2,15 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAt
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
-export function Field({ label, error, hint, required, children, className }: { label: string; error?: string; hint?: ReactNode; required?: boolean; children: ReactNode; className?: string }) {
+export function Field({ label, error, hint, required, children, className, extra }: { label: string; error?: string; hint?: ReactNode; required?: boolean; children: ReactNode; className?: string; extra?: ReactNode }) {
   return (
     <label className={cn('block', className)}>
-      <span className="mb-1.5 block text-sm font-medium text-ink">
-        {label}
-        {required && <span className="ml-0.5 text-secondary">*</span>}
+      <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-ink">
+        <span>
+          {label}
+          {required && <span className="ml-0.5 text-secondary">*</span>}
+        </span>
+        {extra}
       </span>
       {children}
       {hint && !error && <span className="mt-1 block text-xs text-ink-soft">{hint}</span>}

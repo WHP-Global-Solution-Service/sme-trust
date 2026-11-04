@@ -19,6 +19,8 @@ export const operators: Operator[] = [
   { id: 'OP-011', mockIdentityId: 'MID-L2A8-85', name: 'ธีรวัฒน์ หนังแท้', phone: '0810000011', email: 'teerawat@demo.local', province: 'ภูเก็ต', kycStatus: 'none', demoPin: DEMO_PIN, createdAt: d('2026-10-15') },
   // ยืนยันตัวตนแล้วแต่ยังไม่ลงทะเบียนร้าน — ใช้เริ่ม Scenario 2
   { id: 'OP-012', mockIdentityId: 'MID-M3B9-40', name: 'ปิยนุช เริ่มขาย', phone: '0810000012', email: 'piyanuch@demo.local', province: 'สงขลา', kycStatus: 'verified', kycVerifiedAt: d('2026-10-18'), demoPin: DEMO_PIN, createdAt: d('2026-10-18') },
+  // บัญชีตัวอย่างของเส้นทางสมัครร้านใหม่ด้วย Auto-Fill (Scenario 9A) — ยืนยันตัวตนแล้ว ยังไม่มีร้านใน SME Trust แต่มีร้านบน Marketplace (จำลอง)
+  { id: 'OP-013', mockIdentityId: 'MID-N4C1-52', name: 'สุดารัตน์ ขายดี', phone: '0810000013', email: 'sudarat@demo.local', province: 'ขอนแก่น', kycStatus: 'verified', kycVerifiedAt: d('2026-10-20'), demoPin: DEMO_PIN, createdAt: d('2026-10-20') },
 ];
 
 export const consumers: Consumer[] = [

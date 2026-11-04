@@ -7,6 +7,7 @@ import { REGISTRATION_STATUS, TRUST_LEVELS } from '@/constants/labels';
 import {
   useAssessmentStore,
   useCertificationStore,
+  useImportRecordStore,
   useMarketplaceStore,
   useMerchantStore,
   useNotificationStore,
@@ -16,7 +17,7 @@ import {
 } from '@/stores';
 import { seed } from '@/mock/data';
 import type { DemoCtx } from '@/stores/demo';
-import { attachImportedMarketplaces, decideAssessment, latestAssessment, runAssessment, submitAssessment } from '@/stores/workflowsV2';
+import { attachImportedMarketplaces, decideAssessment, importFlowKey, latestAssessment, profileDraftKey, runAssessment, submitAssessment } from '@/stores/workflowsV2';
 import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { BAND_LABEL, CONFIDENCE_LABEL, DECISION_LABEL, RECOMMENDATION_LABEL } from '@/features/trust-assessment/labels';
 import { currentCert } from '@/utils/trust';
@@ -27,6 +28,8 @@ export const V2_MERCHANT = 'M-005';
 export const V2_OPERATOR = 'OP-005';
 /** บัญชีตัวอย่างของเส้นทางทางเลือก — ยืนยันตัวตนแล้ว ยังไม่มีร้าน และไม่มีบัญชี Marketplace */
 export const BRANCH_OPERATOR = 'OP-012';
+/** บัญชีตัวอย่างของเส้นทางสมัครร้านใหม่ด้วย Auto-Fill (9A) — ยืนยันตัวตนแล้ว ยังไม่มีร้านใน SME Trust แต่มีร้านบน Marketplace (จำลอง) */
+export const NEW_SHOP_OPERATOR = 'OP-013';
 
 // ---------- ตัวช่วยอ่านข้อมูล (อ่านอย่างเดียว) ----------
 const merchant = (id?: string) => useMerchantStore.getState().items.find((m) => m.id === id);
@@ -58,13 +61,35 @@ const newAssessment = (g: GateInput) => {
 
 const connected = (id?: string) => connection(id)?.status === 'connected';
 
+/** บันทึกการนำเข้า/อัปเดตโปรไฟล์ที่เกิดระหว่างการสาธิตครั้งนี้ (Scenario 9 / 9A) */
+const newImport = (g: GateInput, operatorId?: string) =>
+  useImportRecordStore
+    .getState()
+    .items.filter((r) => (operatorId ? r.operatorId === operatorId : r.merchantId === g.ctx.merchantId) && r.createdAt >= g.startedAt)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
+const importRecord = (id?: string) => useImportRecordStore.getState().items.find((r) => r.id === id);
+
 // ---------- Fixtures (Idempotent — เรียกซ้ำได้ผลเดิม) ----------
 /** ร้านตัวอย่างกลับเป็น "ยังไม่เชื่อมต่อ Marketplace และยังไม่มีผลประเมิน" */
 export function fixtureV2Clean(merchantId = V2_MERCHANT) {
   const mk = useMarketplaceStore.getState();
-  mk.items.filter((c) => c.merchantId === merchantId).forEach((c) => mk.remove(c.id));
+  const session = useSessionStore.getState();
+  mk.items
+    .filter((c) => c.merchantId === merchantId)
+    .forEach((c) => {
+      session.saveDraft(profileDraftKey(c.id), undefined);
+      mk.remove(c.id);
+    });
   const as = useAssessmentStore.getState();
   as.items.filter((a) => a.merchantId === merchantId).forEach((a) => as.remove(a.id));
+  // Scenario 9: ล้างบันทึกการนำเข้าและคืนโปรไฟล์ร้านเป็นข้อมูลตั้งต้น (เล่นซ้ำแล้วไม่ซ้อนการอัปเดต) — ใบรับรองไม่ถูกแตะ
+  const im = useImportRecordStore.getState();
+  im.items.filter((r) => r.merchantId === merchantId).forEach((r) => im.remove(r.id));
+  const original = seed.merchants().find((m) => m.id === merchantId);
+  if (original) {
+    const { shopName, description, category, phone, email, province, district, address } = original;
+    useMerchantStore.getState().update(merchantId, { shopName, description, category, phone, email, province, district, address });
+  }
 }
 
 /** เชื่อมต่อ Shopee (จำลอง) แบบร้านขายดีให้เรียบร้อยแล้ว (ใช้เมื่อเริ่ม Scenario 10–11 แบบเดี่ยว) */
@@ -96,16 +121,16 @@ export function fixtureV2Decided(): DemoCtx {
   return { ...ctx, certId: certOf(V2_MERCHANT)?.id };
 }
 
-/** ร้านของบัญชีเส้นทางทางเลือก (OP-012) — ในข้อมูลตั้งต้นไม่มีร้าน */
-export const branchShops = () => useMerchantStore.getState().items.filter((m) => m.operatorId === BRANCH_OPERATOR);
+/** ร้านของบัญชีเส้นทางทางเลือก (OP-012 / OP-013) — ในข้อมูลตั้งต้นไม่มีร้าน */
+export const branchShops = (operatorId = BRANCH_OPERATOR) => useMerchantStore.getState().items.filter((m) => m.operatorId === operatorId);
 
 /**
  * เตรียมเส้นทาง 9B ให้เริ่มได้ทุกครั้ง (Idempotent): ล้างร้านที่ OP-012 สร้างจากการเล่นครั้งก่อน
  * พร้อมคำขอ ใบรับรอง ผลประเมิน การเชื่อมต่อ และการแจ้งเตือนที่เกี่ยวข้อง แล้วคืนบัญชี OP-012 เป็นค่าตั้งต้น
  * ไม่กระทบร้านใน Scenario 9–13 (Audit Log เดิมยังอยู่เพื่อตรวจสอบย้อนหลัง)
  */
-export function fixtureBranchClean() {
-  const shops = new Set(branchShops().map((m) => m.id));
+export function fixtureBranchClean(operatorId = BRANCH_OPERATOR) {
+  const shops = new Set(branchShops(operatorId).map((m) => m.id));
   const drop = <T extends { id: string }>(store: { getState: () => { items: T[]; remove: (id: string) => void } }, hit: (x: T) => boolean) => {
     const st = store.getState();
     st.items.filter(hit).forEach((x) => st.remove(x.id));
@@ -117,10 +142,15 @@ export function fixtureBranchClean() {
     drop(useMarketplaceStore, (c) => shops.has(c.merchantId));
     drop(useMerchantStore, (m) => shops.has(m.id));
   }
+  drop(useImportRecordStore, (r) => r.operatorId === operatorId);
+  // ฉบับร่างการสมัครและขั้นตอนเชื่อมบัญชีของบัญชีนี้ — เริ่มใหม่จากหน้าแรกของแบบฟอร์ม
+  const session = useSessionStore.getState();
+  session.saveDraft(operatorId, undefined);
+  session.saveDraft(importFlowKey(operatorId), undefined);
   const seedNotes = new Set(seed.notifications().map((n) => n.id));
-  drop(useNotificationStore, (n) => n.recipientRole === 'merchant' && n.recipientId === BRANCH_OPERATOR && !seedNotes.has(n.id));
-  const original = seed.operators().find((o) => o.id === BRANCH_OPERATOR);
-  if (original) useOperatorStore.getState().update(BRANCH_OPERATOR, original);
+  drop(useNotificationStore, (n) => n.recipientRole === 'merchant' && n.recipientId === operatorId && !seedNotes.has(n.id));
+  const original = seed.operators().find((o) => o.id === operatorId);
+  if (original) useOperatorStore.getState().update(operatorId, original);
   return shops.size;
 }
 
@@ -152,7 +182,7 @@ const decidedIssue = (j: DemoCtx): ContinuityIssue | undefined =>
     : { message: 'เจ้าหน้าที่ยังไม่ได้พิจารณาผลประเมินจาก Scenario 12', fixScenario: 's12', fallbackLabel: `${sampleShop} ที่เจ้าหน้าที่พิจารณาแล้ว` };
 
 const base = { consumerId: 'CS-001', officerId: 'OF-001' };
-const carryCtx = (j: DemoCtx): DemoCtx => ({ ...base, merchantId: j.merchantId, operatorId: j.operatorId, connectionId: j.connectionId, assessmentId: j.assessmentId, applicationId: j.applicationId, certId: j.certId });
+const carryCtx = (j: DemoCtx): DemoCtx => ({ ...base, merchantId: j.merchantId, operatorId: j.operatorId, connectionId: j.connectionId, importId: j.importId, assessmentId: j.assessmentId, applicationId: j.applicationId, certId: j.certId });
 
 /** ผลการพิจารณาจริงของ Scenario 12 — ใช้ทั้งหน้าจบ Scenario 12 และคำอธิบายใน Scenario 13 */
 const decisionOf = (c: DemoCtx) => assessment(c.assessmentId)?.decision;
@@ -198,13 +228,14 @@ export const v2Scenarios: ScenarioDef[] = [
     id: 's9',
     no: 9,
     track: 'v2',
-    title: 'เชื่อมข้อมูลร้านค้าออนไลน์',
-    objective: 'ร้านค้าให้ความยินยอม (จำลอง) เลือกร้านบน Shopee หรือ Lazada (จำลอง) ตรวจตัวอย่างข้อมูลก่อนนำเข้า แล้วเห็นภาพรวมข้อมูลที่ใช้ประเมิน',
-    keyMessage: 'ร้านค้านำประวัติการขายที่มีอยู่แล้วมาใช้สร้างความน่าเชื่อถือได้ โดยร้านเป็นผู้ยินยอมและเห็นข้อมูลก่อนเสมอ',
+    title: 'เชื่อมข้อมูลร้านค้าออนไลน์และเติมโปรไฟล์อัตโนมัติ',
+    objective: 'ร้านเดิมให้ความยินยอม (จำลอง) เลือกร้านบน Shopee หรือ Lazada (จำลอง) ตรวจตัวอย่างข้อมูลก่อนนำเข้า แล้วใช้ข้อมูลที่นำเข้าเติมโปรไฟล์ร้านอัตโนมัติ ตรวจ/แก้ไข และยืนยันการอัปเดต — ไม่ใช่การสมัครร้านใหม่',
+    keyMessage: 'ร้านค้านำประวัติการขายที่มีอยู่แล้วมาใช้สร้างความน่าเชื่อถือ และลดการกรอกข้อมูลซ้ำ โดยร้านเป็นผู้ยินยอม เห็นข้อมูลก่อน และยืนยันเองเสมอ',
     audience: ['merchant'],
-    duration: '≈ 4 นาที',
+    duration: '≈ 5 นาที',
+    caseNote: 'ร้านกาแฟดอยสูง (M-005) ลงทะเบียนและได้รับ Level 3 อยู่แล้ว — Scenario นี้อัปเดตข้อมูลร้านเดิม ไม่สร้างร้านหรือคำขอลงทะเบียนใหม่ และใบรับรองเดิมไม่เปลี่ยน · ร้านใหม่ที่ต้องการสมัครด้วย Auto-Fill ดูเส้นทาง 9A',
     benefits: {
-      sme: 'ไม่ต้องกรอกยอดขายหรือส่งเอกสารเพิ่ม ใช้ประวัติจากช่องทางที่ขายอยู่แล้ว',
+      sme: 'ไม่ต้องกรอกยอดขายหรือข้อมูลร้านซ้ำ ใช้ประวัติจากช่องทางที่ขายอยู่แล้ว และแก้ไขได้ก่อนยืนยัน',
       consumer: 'ผลประเมินอ้างอิงพฤติกรรมการขายจริงของร้าน ไม่ใช่เพียงข้อมูลที่ร้านแจ้งเอง',
       ocpb: 'ได้ข้อมูลประกอบการตรวจสอบที่เป็นระบบ โดยร้านยินยอมและขอบเขตข้อมูลชัดเจน',
     },
@@ -213,7 +244,7 @@ export const v2Scenarios: ScenarioDef[] = [
       fixtureV2Clean();
       return { ...base, merchantId: V2_MERCHANT, operatorId: V2_OPERATOR };
     },
-    exports: (c) => ({ merchantId: c.merchantId, operatorId: c.operatorId, connectionId: c.connectionId }),
+    exports: (c) => ({ merchantId: c.merchantId, operatorId: c.operatorId, connectionId: c.connectionId, importId: c.importId }),
     steps: [
       { id: 's9-home', role: 'merchant', route: () => '/m', title: 'หน้าหลักผู้ประกอบการ', instruction: (c) => `ร้าน "${shopName(c)}" ได้รับการรับรองแล้ว และขายบน Marketplace ด้วย — ต่อไปนำข้อมูลการขายเข้ามาประกอบการประเมิน`, tip: 'ระบบสาธิตไม่เชื่อมต่อ Shopee หรือ Lazada จริง ข้อมูลทั้งหมดสร้างขึ้นในเบราว์เซอร์', nextLabel: 'ไปที่ Marketplace Connection' },
       {
@@ -261,12 +292,51 @@ export const v2Scenarios: ScenarioDef[] = [
         gate: { check: (g) => connected(newConnection(g)?.id), hint: 'รอให้ซิงก์สำเร็จ (ถ้าล้มเหลว กด "ลองซิงก์ใหม่")' },
         capture: (g) => ({ connectionId: newConnection(g)?.id }),
       },
+      {
+        id: 's9-autofill',
+        role: 'merchant',
+        route: (c) => `/m/marketplace/profile/${c.connectionId}`,
+        title: 'Auto-Fill โปรไฟล์ร้านเดิม',
+        instruction: (c) => `ระบบเติมโปรไฟล์ร้าน "${shopName(c)}" จากข้อมูลที่นำเข้า — ดูสรุป "นำเข้าสำเร็จ / ต้องกรอกเพิ่ม / ข้อมูลที่แก้ไข" ป้ายที่มาของแต่ละช่อง และข้อมูลต้นฉบับ (อ่านอย่างเดียว)`,
+        tip: 'เป็นการอัปเดตร้านเดิม ไม่ใช่การสมัครร้านใหม่ — ใบรับรอง Level 3 เดิมไม่เปลี่ยน',
+        gate: { check: (g) => num(g, 'profile.loaded') >= 1, hint: 'รอให้หน้าเติมข้อมูลโปรไฟล์โหลด' },
+      },
+      {
+        id: 's9-edit',
+        role: 'merchant',
+        route: (c) => `/m/marketplace/profile/${c.connectionId}`,
+        title: 'ตรวจและแก้ไขข้อมูลหลัง Auto-Fill',
+        instruction: 'แก้ "คำอธิบายธุรกิจ" อย่างน้อย 1 จุด เช่น เพิ่มเวลาเปิดรับคำสั่งซื้อ — ป้ายเปลี่ยนเป็น "ผู้สมัครแก้ไข" และตารางแสดงต้นฉบับให้เทียบ',
+        tip: 'การแก้ข้อมูลในแบบฟอร์มไม่เปลี่ยนคะแนน รีวิว ยอดขาย หรือผลประเมินต้นฉบับ',
+        gate: { check: (g) => num(g, 'profile.edited') >= 1, hint: 'แก้ไขช่องข้อมูลอย่างน้อย 1 ช่อง' },
+      },
+      {
+        id: 's9-confirm',
+        role: 'merchant',
+        route: (c) => `/m/marketplace/profile/${c.connectionId}`,
+        title: 'ยืนยันการอัปเดตข้อมูลร้าน',
+        instruction: 'ตรวจตารางเทียบข้อมูลเดิม / ข้อมูลจาก Marketplace / ข้อมูลที่ส่ง ติ๊กยืนยัน แล้วกด "ยืนยันการอัปเดตข้อมูลร้าน"',
+        tip: 'ระบบไม่บันทึกอัตโนมัติ — ชื่อร้านหรือหมวดที่ผูกกับใบรับรอง ถ้าแก้จะรอเจ้าหน้าที่ตรวจ',
+        gate: { check: (g) => !!newImport(g), hint: 'ติ๊กยืนยันแล้วกด "ยืนยันการอัปเดตข้อมูลร้าน"' },
+        capture: (g) => ({ importId: newImport(g)?.id }),
+      },
       { id: 's9-overview', role: 'merchant', route: (c) => `/m/marketplace/data/${c.connectionId}`, title: 'Marketplace Data Overview', instruction: (c) => `ภาพรวมข้อมูลจาก ${platformOf(c)}: Shop ID จำลอง สินค้า ราคา คะแนน รีวิว ยอดขาย วันที่อัปเดต และข้อมูลที่มี/ไม่มี`, tip: 'ข้อมูลผู้ซื้อไม่ถูกนำเข้า — ใช้เฉพาะข้อมูลระดับร้านค้า', nextLabel: 'จบ Scenario และดูสรุป' },
     ],
     summary: (c) => {
       const x = connection(c.connectionId);
       return x
-        ? [`ร้าน "${shopName(c)}" (${c.merchantId}) เชื่อมต่อ ${PLATFORMS[x.platform].label} — ${x.id} · Shop ID จำลอง ${x.mockShopId}`, `ร้านให้ความยินยอม ${x.scopes.length} ขอบเขตข้อมูล และซิงก์สำเร็จ`, 'บันทึก Audit Log และแจ้งเตือนร้านค้า', 'ไม่มีการเรียก API จริง — ข้อมูลสร้างแบบ Deterministic ในเบราว์เซอร์']
+        ? [
+            `ร้าน "${shopName(c)}" (${c.merchantId}) เชื่อมต่อ ${PLATFORMS[x.platform].label} — ${x.id} · Shop ID จำลอง ${x.mockShopId}`,
+            `ร้านให้ความยินยอม ${x.scopes.length} ขอบเขตข้อมูล และซิงก์สำเร็จ`,
+            ...(() => {
+              const r = importRecord(c.importId);
+              return r
+                ? [`อัปเดตโปรไฟล์ร้านเดิมจากข้อมูลที่นำเข้า (${r.id}): นำเข้า ${r.summary.imported} · แก้ไข ${r.summary.edited} · บันทึก ${r.applied.length} ช่อง${r.pending.length ? ` · รอตรวจสอบ ${r.pending.length} ช่อง` : ''}`, 'ไม่สร้างร้านหรือคำขอลงทะเบียนใหม่ และใบรับรองเดิมไม่เปลี่ยน']
+                : ['ยังไม่ได้ยืนยันการอัปเดตโปรไฟล์ร้าน'];
+            })(),
+            'บันทึก Audit Log และแจ้งเตือนร้านค้า',
+            'ไม่มีการเรียก API จริง — ข้อมูลสร้างแบบ Deterministic ในเบราว์เซอร์',
+          ]
         : ['ยังไม่ได้เชื่อมต่อ Marketplace ใน Scenario นี้'];
     },
   },
@@ -486,6 +556,123 @@ export const v2Scenarios: ScenarioDef[] = [
 
   // ------------------------------------------------------------ 9B (ทางเลือก)
   {
+    id: 's9a',
+    no: 9,
+    code: '9A',
+    track: 'v2',
+    branch: true,
+    title: 'ร้านใหม่ — สมัครด้วยข้อมูลจาก Marketplace (Auto-Fill)',
+    objective: 'ผู้ประกอบการที่ยังไม่มีร้านใน SME Trust แต่ขายบน Shopee/Lazada (จำลอง) เชื่อมบัญชี เลือกร้าน นำเข้าข้อมูล แล้วแบบฟอร์มลงทะเบียนถูกเติมอัตโนมัติ ตรวจ/แก้ไข กรอกส่วนที่ขาด และกดส่งคำขอเอง',
+    keyMessage: 'ร้านใหม่สมัครได้เร็วขึ้นโดยไม่ต้องกรอกข้อมูลซ้ำ — เริ่มที่ Level 1–2 ตามขั้นตอนปกติ และเจ้าหน้าที่เห็นต้นฉบับเทียบกับข้อมูลที่แก้ไข',
+    audience: ['merchant', 'officer'],
+    duration: '≈ 6 นาที',
+    caseNote: 'เส้นทางสมัครร้านใหม่ (ไม่ใช่การยกระดับร้านกาแฟดอยสูง M-005) — ใช้บัญชีตัวอย่าง OP-013 แยกจากร้านใน Scenario 9–13 · คำขอที่ได้คือคำขอลงทะเบียน (Level 2 เมื่ออนุมัติ) ไม่ได้ Level 3–4 อัตโนมัติ',
+    nextCta: 'กลับสู่ Demo v2',
+    prepare: () => {
+      fixtureBranchClean(NEW_SHOP_OPERATOR);
+      return { operatorId: NEW_SHOP_OPERATOR, consumerId: 'CS-001', officerId: 'OF-001' };
+    },
+    replayNote: () => {
+      const shops = branchShops(NEW_SHOP_OPERATOR);
+      return shops.length ? `บัญชีตัวอย่าง OP-013 มีร้าน ${shops.map((m) => `"${m.shopName}" (${m.id})`).join(', ')} จากการเล่นเส้นทางนี้ครั้งก่อน — เมื่อเริ่มใหม่ ระบบจะล้างร้าน คำขอ การเชื่อมต่อ และบันทึกการนำเข้าของบัญชีนี้ เพื่อไม่ให้มีร้านซ้ำ ข้อมูลของร้านใน Scenario 9–13 ไม่ถูกแตะ` : undefined;
+    },
+    benefits: {
+      sme: 'สมัครร้านได้ในไม่กี่ขั้น ใช้ข้อมูลร้านที่มีอยู่แล้ว และแก้ไขได้ก่อนส่ง',
+      consumer: 'ร้านใหม่มีข้อมูลการขายที่ตรวจสอบได้ตั้งแต่วันแรกที่ลงทะเบียน',
+      ocpb: 'เห็นข้อมูลต้นฉบับ ข้อมูลที่ผู้สมัครแก้ และช่องที่ขาด ในคำขอเดียว — ขอข้อมูลเพิ่มผ่าน Workflow เดิมได้',
+    },
+    steps: [
+      { id: 's9a-home', role: 'merchant', route: () => '/m', title: 'ผู้ประกอบการรายใหม่ที่ขายบน Marketplace', instruction: (c) => `บัญชี "${operator(c.operatorId)?.name}" ยืนยันตัวตนแล้ว (Level 1) ยังไม่มีร้านใน SME Trust แต่มีร้านบน Shopee/Lazada (จำลอง)`, tip: 'เส้นทางนี้เป็นการสมัครร้านใหม่ — แยกจากการอัปเดตร้านเดิมใน Scenario 9', nextLabel: 'ไปที่ลงทะเบียนร้านค้า' },
+      {
+        id: 's9a-entry',
+        role: 'merchant',
+        route: () => '/m/register-shop',
+        title: 'เลือกวิธีลงทะเบียน',
+        instruction: 'เลือก "A. เชื่อมต่อร้านค้าจาก Marketplace" (ตัวเลือก B คือลงทะเบียนด้วยตนเองสำหรับร้านที่ไม่ได้ใช้แพลตฟอร์มที่รองรับ — ดู 9B)',
+        gate: { check: (g) => num(g, 'reg.flow') >= 0, hint: 'กด "A. เชื่อมต่อร้านค้าจาก Marketplace"' },
+      },
+      {
+        id: 's9a-authorize',
+        role: 'merchant',
+        route: () => '/m/register-shop/marketplace',
+        title: 'เลือก Marketplace และอนุญาตเข้าถึง (จำลอง)',
+        instruction: 'เลือก Shopee (จำลอง) หรือ Lazada (จำลอง) กด "ถัดไป" อ่านขอบเขตข้อมูล ติ๊กอนุญาต แล้วกด "อนุญาต (จำลอง)"',
+        tip: 'ไม่ใช่หน้า Login ของแพลตฟอร์ม — ระบบไม่ขอและไม่เก็บรหัสผ่านหรือ Token',
+        gate: { check: (g) => num(g, 'reg.flow') >= 2, hint: 'ติ๊กอนุญาตแล้วกด "อนุญาต (จำลอง)"' },
+      },
+      {
+        id: 's9a-shop',
+        role: 'merchant',
+        route: () => '/m/register-shop/marketplace',
+        title: 'เลือกร้านในบัญชี',
+        instruction: 'เลือกร้านที่จะใช้สมัคร แล้วกด "ดูตัวอย่างข้อมูล"',
+        gate: { check: (g) => num(g, 'reg.flow') >= 3, hint: 'เลือกร้านแล้วกด "ดูตัวอย่างข้อมูล"' },
+      },
+      {
+        id: 's9a-import',
+        role: 'merchant',
+        route: () => '/m/register-shop/marketplace',
+        title: 'ตรวจข้อมูลก่อนนำเข้า',
+        instruction: 'ดูข้อมูลต้นฉบับ (Shop ID ลิงก์ร้าน คะแนน รีวิว ยอดขาย สินค้าและราคา) และรายการที่ต้องกรอกเพิ่ม แล้วกด "ยืนยันนำเข้าข้อมูล"',
+        tip: 'ยืนยันนำเข้าแล้วระบบเติมแบบฟอร์มเท่านั้น — ยังไม่ส่งคำขอ',
+        gate: { check: (g) => num(g, 'reg.imported') >= 1, hint: 'กด "ยืนยันนำเข้าข้อมูล"' },
+      },
+      {
+        id: 's9a-review',
+        role: 'merchant',
+        route: () => '/m/register-shop?from=import',
+        title: 'ทบทวนข้อมูลที่นำเข้า (Auto-Fill)',
+        instruction: 'แบบฟอร์มถูกเติมอัตโนมัติ — ดูสรุป "นำเข้าสำเร็จ / ต้องกรอกเพิ่ม / ข้อมูลที่แก้ไข" และป้ายที่มาของแต่ละช่อง แล้วแก้ "รายละเอียดสินค้าและบริการ" หรือชื่อร้านอย่างน้อย 1 จุด',
+        tip: 'ช่องที่แก้จะแสดงต้นฉบับให้เทียบ — ข้อมูลต้นฉบับด้านบนไม่เปลี่ยน',
+        gate: { check: (g) => num(g, 'reg.edited') >= 1, hint: 'แก้ไขช่องที่นำเข้าอย่างน้อย 1 ช่อง' },
+      },
+      {
+        id: 's9a-missing',
+        role: 'merchant',
+        route: () => '/m/register-shop?from=import',
+        title: 'กรอกข้อมูลที่ขาดและแนบเอกสาร',
+        instruction: 'กด "ใช้ข้อมูลติดต่อจากบัญชี" กรอกอำเภอ/เขต แล้วกด "ถัดไป" จนถึงขั้นเอกสาร แนบเอกสารจำลอง และไปขั้นตรวจสอบข้อมูล',
+        gate: { check: (g) => num(g, 'shop.step') >= 5, hint: 'ไปให้ถึงขั้น "ตรวจสอบข้อมูล"' },
+      },
+      {
+        id: 's9a-submit',
+        role: 'merchant',
+        route: () => '/m/register-shop?from=import',
+        title: 'ตรวจสอบและส่งคำขอด้วยตนเอง',
+        instruction: 'ดูตารางเทียบต้นฉบับกับข้อมูลที่ส่ง ติ๊กยืนยัน แล้วกด "ส่งคำขอ" — ระบบไม่ส่งอัตโนมัติ',
+        tip: 'ได้คำขอลงทะเบียนตามขั้นตอนปกติ (Level 2 เมื่ออนุมัติ) ไม่มีการออก Badge อัตโนมัติ',
+        gate: { check: (g) => !!newImport(g, NEW_SHOP_OPERATOR), hint: 'ติ๊กยืนยันแล้วกด "ส่งคำขอ"' },
+        capture: (g) => {
+          const r = newImport(g, NEW_SHOP_OPERATOR);
+          return { importId: r?.id, merchantId: r?.merchantId, applicationId: r?.applicationId, connectionId: r?.connectionId };
+        },
+      },
+      {
+        id: 's9a-officer',
+        role: 'officer',
+        route: (c) => `/o/applications/${c.applicationId}`,
+        transition: 'ร้านส่งคำขอแล้ว เจ้าหน้าที่เปิดคำขอลงทะเบียนเดียวกัน',
+        title: 'เจ้าหน้าที่เห็นต้นฉบับเทียบกับข้อมูลที่แก้ไข',
+        instruction: (c) => `คำขอ ${c.applicationId}: แหล่งข้อมูล สถานะการเชื่อมต่อ ช่องที่ผู้สมัครแก้ ช่องที่ขาด ผลประเมิน และการยืนยันตัวตน — ตรวจ อนุมัติ หรือขอข้อมูลเพิ่มตาม Workflow เดิม`,
+        tip: 'ชื่อร้านที่ต่างจากต้นฉบับมีป้าย "รอการตรวจสอบ"',
+        nextLabel: 'จบเส้นทางสมัครร้านใหม่',
+      },
+    ],
+    summary: (c) => {
+      const r = importRecord(c.importId);
+      const app = application(c.applicationId);
+      return r && app
+        ? [
+            `สมัครร้านใหม่ "${merchant(r.merchantId)?.shopName}" (${r.merchantId}) ด้วยข้อมูลจาก ${PLATFORMS[r.source.platform].label} — Shop ID จำลอง ${r.source.mockShopId}`,
+            `นำเข้า ${r.summary.imported} · ผู้สมัครแก้ไข ${r.summary.edited} · กรอกเอง ${r.summary.manual}${r.summary.verification ? ` · รอตรวจสอบ ${r.summary.verification}` : ''} (${r.id})`,
+            `คำขอลงทะเบียน ${app.id} — ${REGISTRATION_STATUS[app.status].label} (Level 2 เมื่ออนุมัติ ไม่มี Badge อัตโนมัติ)`,
+            `การเชื่อมต่อ ${r.connectionId} ใช้ข้อมูลต้นฉบับเดียวกับที่ผู้สมัครเห็นตอน Preview`,
+            'ไม่มีการเรียก API จริง ไม่รับรหัสผ่านหรือ Token',
+          ]
+        : ['ยังไม่ได้ส่งคำขอในเส้นทางนี้'];
+    },
+  },
+  {
     id: 's9b',
     no: 9,
     code: '9B',
@@ -577,6 +764,7 @@ export const v2Scenarios: ScenarioDef[] = [
     },
     outcome: decisionOutcome,
   },
+
 ];
 
 /** คำขอลงทะเบียนที่ส่งระหว่างเส้นทางทางเลือก */

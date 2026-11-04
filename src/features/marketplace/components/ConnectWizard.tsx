@@ -135,10 +135,17 @@ export function ConnectWizard({
           ปิด
         </Button>
         <LinkButton
+          variant="outline"
           to={`/m/marketplace/data/${connection.id}`}
-          icon={ChevronRight}
         >
           ดูภาพรวมข้อมูล
+        </LinkButton>
+        {/* Scenario 9: นำข้อมูลที่นำเข้าไปเติมโปรไฟล์ร้านเดิม (ตรวจ/แก้ไข แล้วยืนยันเอง) */}
+        <LinkButton
+          to={`/m/marketplace/profile/${connection.id}`}
+          icon={ChevronRight}
+        >
+          เติมข้อมูลโปรไฟล์ร้านอัตโนมัติ
         </LinkButton>
       </>
     ) : connection.status === "sync_failed" ? (

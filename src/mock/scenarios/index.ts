@@ -6,6 +6,7 @@ import {
   useMerchantStore,
   useOperatorStore,
   useRiskStore,
+  useSessionStore,
   useTrainingStore,
   useVerificationStore,
   useWarningStore,
@@ -149,7 +150,10 @@ export const scenarios: ScenarioDef[] = [
     continuity: accountIssue,
     prepare: (j, carry) => {
       const fromS1 = carry && !accountIssue(j);
-      return { operatorId: fromS1 ? j.operatorId : 'OP-012', officerId: 'OF-001', consumerId: 'CS-001' };
+      const operatorId = fromS1 ? j.operatorId! : 'OP-012';
+      // แบบฟอร์มบันทึกฉบับร่างอัตโนมัติ — เริ่ม/เล่นซ้ำ Scenario 2 จากหน้าแรกของแบบฟอร์มเสมอ
+      useSessionStore.getState().saveDraft(operatorId, undefined);
+      return { operatorId, officerId: 'OF-001', consumerId: 'CS-001' };
     },
     exports: (c) => ({ operatorId: c.operatorId, merchantId: c.merchantId, applicationId: c.applicationId, certId: c.certId }),
     steps: [
@@ -657,6 +661,7 @@ export const demoMerchantAccounts = [
   { operatorId: 'OP-003', label: 'Merchant C — Warning' },
   { operatorId: 'OP-004', label: 'Merchant D — Suspended' },
   { operatorId: 'OP-012', label: 'ผู้ประกอบการใหม่ — ยืนยันตัวตนแล้ว ยังไม่มีร้าน' },
+  { operatorId: 'OP-013', label: 'ผู้ประกอบการใหม่ — มีร้านบน Marketplace (จำลอง) ยังไม่มีร้านใน SME Trust' },
   { operatorId: 'OP-005', label: 'ร้านกาแฟดอยสูง — Trusted SME' },
   { operatorId: 'OP-007', label: 'ของเล่นไม้ลูกรัก — ใบรับรองหมดอายุ' },
   { operatorId: 'OP-008', label: 'เฮลท์ตี้ซัพพลีเมนต์ — ถูกเพิกถอน และเปิดร้านใหม่' },

@@ -37,6 +37,8 @@ const routes: [string, string, Record<string, unknown>][] = [
   ['/m/shop', 'merchant', { operatorId: 'OP-010', merchantLoggedIn: true }],
   ['/m/shop', 'merchant', { operatorId: 'OP-008', merchantLoggedIn: true }],
   ['/m/register-shop', 'merchant', { operatorId: 'OP-001', merchantLoggedIn: true }],
+  ['/m/register-shop/marketplace', 'merchant', { operatorId: 'OP-013', merchantLoggedIn: true }],
+  ['/m/marketplace/profile/MKC-001', 'merchant', { operatorId: 'OP-001', merchantLoggedIn: true }],
   ['/m/certification', 'merchant', { operatorId: 'OP-001', merchantLoggedIn: true }],
   ['/m/certification', 'merchant', { operatorId: 'OP-004', merchantLoggedIn: true }],
   ['/m/certification', 'merchant', { operatorId: 'OP-007', merchantLoggedIn: true }],

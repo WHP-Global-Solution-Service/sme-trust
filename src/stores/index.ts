@@ -14,6 +14,7 @@ import { seed } from '@/mock/data';
 import type { AiHistoryEntry } from '@/features/ai-assistant/types/ai.types';
 import type { MarketplaceConnection } from '@/features/marketplace/types';
 import type { TrustAssessment } from '@/features/trust-assessment/types';
+import type { MarketplaceImportRecord } from '@/features/marketplace/autofill';
 import { createEntityStore } from './createEntityStore';
 
 // ===== Domain stores (แหล่งข้อมูลเดียวของทุกหน้าจอ) =====
@@ -33,6 +34,8 @@ export const useAiHistoryStore = createEntityStore<AiHistoryEntry>('ai-history',
 export const useMarketplaceStore = createEntityStore<MarketplaceConnection>('marketplace-connections', seed.marketplaceConnections);
 /** v2: ผลประเมินความน่าเชื่อถือ (Trust Assessment) */
 export const useAssessmentStore = createEntityStore<TrustAssessment>('trust-assessments', seed.assessments);
+/** v2: บันทึกการนำเข้าข้อมูลร้านจาก Marketplace (จำลอง) — ต้นฉบับเทียบกับข้อมูลที่ผู้สมัครแก้ไข */
+export const useImportRecordStore = createEntityStore<MarketplaceImportRecord>('marketplace-imports', () => []);
 
 export const domainStores = [
   useOperatorStore,
@@ -48,6 +51,7 @@ export const domainStores = [
   useAiHistoryStore,
   useMarketplaceStore,
   useAssessmentStore,
+  useImportRecordStore,
 ];
 
 export { useSessionStore } from './session';

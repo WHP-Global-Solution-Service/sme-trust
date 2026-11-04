@@ -4,6 +4,8 @@
  * ไม่มีการออก Badge, ลดระดับ หรือระงับอัตโนมัติจากผลประเมิน (D3)
  */
 import type { MarketplaceConnection, Platform, Archetype, FailKind } from '@/features/marketplace/types';
+import type { Merchant } from '@/types';
+import { buildImportSource, fieldRows, FIELD_KEYS, FIELD_LABEL, newRegistrationRules, profileUpdateRules, summarize, type FieldValues, type ImportSource, type MarketplaceImportRecord } from '@/features/marketplace/autofill';
 import type { OfficerDecisionKind, TrustAssessment } from '@/features/trust-assessment/types';
 import { CONSENT_SCOPES, PLATFORMS } from '@/features/marketplace/data/platforms';
 import { productsOfCategory } from '@/features/marketplace/data/catalog';
@@ -21,6 +23,7 @@ import {
   useCertificationStore,
   useComplaintStore,
   useMarketplaceStore,
+  useImportRecordStore,
   useMerchantStore,
   useOperatorStore,
   useRiskStore,
@@ -30,7 +33,7 @@ import {
   useWarningStore,
 } from '.';
 import { currentModel } from './assessmentConfig';
-import { applyCertification, approveApplication, audit, currentActor, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, type WorkflowResult } from './workflows';
+import { applyCertification, approveApplication, audit, currentActor, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, submitShopRegistration, type ShopForm, type WorkflowResult } from './workflows';
 
 const mk = () => useMarketplaceStore.getState();
 const conn = (id: string) => mk().items.find((c) => c.id === id);
@@ -41,8 +44,16 @@ const merchantOf = (id: string) => useMerchantStore.getState().items.find((m) =>
 /** Seed ของข้อมูลจำลอง — ใช้แสดงตัวอย่างข้อมูลก่อนยืนยันนำเข้า (ได้ข้อมูลเดียวกับที่จะนำเข้าจริง) */
 export const seedFor = (merchantId: string, platform: Platform, archetype: Archetype, connectionId: string) => hashString(`${merchantId}:${platform}:${archetype}:${connectionId}`);
 
+/** ข้อมูลต้นฉบับที่ผู้ใช้เห็นตอน Preview — ใช้สร้างการเชื่อมต่อให้ได้ Snapshot เดียวกันทุกตัวเลข */
+export interface PinnedSource {
+  seed: number;
+  mockShopId: string;
+  mockShopName: string;
+  sourceCategory: string;
+}
+
 /** เริ่มเชื่อมต่อ — สร้างคำขอความยินยอม (ยังไม่ดึงข้อมูล) */
-export function connectMarketplace(merchantId: string, platform: Platform, archetype: Archetype = 'established_good'): MarketplaceConnection {
+export function connectMarketplace(merchantId: string, platform: Platform, archetype: Archetype = 'established_good', pinned?: PinnedSource): MarketplaceConnection {
   const existing = mk().items.find((c) => c.merchantId === merchantId && c.platform === platform && c.status !== 'disconnected');
   if (existing) return existing;
   const id = nextRef('MKC', mk().items.map((c) => c.id), 3);
@@ -50,13 +61,14 @@ export function connectMarketplace(merchantId: string, platform: Platform, arche
     id,
     merchantId,
     platform,
-    mockShopId: mockShopId(`${merchantId}:${id}`, platform),
-    mockShopName: `${merchantOf(merchantId)?.shopName ?? merchantId} (${PLATFORMS[platform].label})`,
+    mockShopId: pinned?.mockShopId ?? mockShopId(`${merchantId}:${id}`, platform),
+    mockShopName: pinned?.mockShopName ?? `${merchantOf(merchantId)?.shopName ?? merchantId} (${PLATFORMS[platform].label})`,
     status: 'pending_consent',
     scopes: [],
     archetype,
-    seed: seedFor(merchantId, platform, archetype, id),
+    seed: pinned?.seed ?? seedFor(merchantId, platform, archetype, id),
     createdAt: nowISO(),
+    ...(pinned ? { sourceCategory: pinned.sourceCategory } : {}),
   };
   mk().add(c);
   return c;
@@ -71,6 +83,8 @@ export function grantConsent(connectionId: string, archetype?: Archetype) {
     scopes: [...CONSENT_SCOPES],
     consentAt: nowISO(),
     failReason: undefined,
+    // บันทึกหมวดสินค้าต้นฉบับ ณ ตอนนำเข้า — แก้หมวดในโปรไฟล์ร้านภายหลังไม่เปลี่ยน Raw Source
+    sourceCategory: c.sourceCategory ?? merchantOf(c.merchantId)?.category,
     ...(archetype && archetype !== c.archetype ? { archetype, seed: seedFor(c.merchantId, c.platform, archetype, c.id) } : {}),
   });
   audit('ให้ความยินยอมเชื่อมต่อ Marketplace (จำลอง)', connectionId, PLATFORMS[c.platform].label);
@@ -132,6 +146,8 @@ export function disconnectMarketplace(connectionId: string) {
   const c = conn(connectionId);
   if (!c) return;
   mk().update(connectionId, { status: 'disconnected', disconnectedAt: nowISO() });
+  // ฉบับร่างอัปเดตโปรไฟล์จากการเชื่อมต่อนี้ใช้ต่อไม่ได้ (ไม่มีสิทธิ์เข้าถึงข้อมูลต้นฉบับแล้ว) — ข้อมูลที่ยืนยันบันทึกไปแล้วยังอยู่
+  useSessionStore.getState().saveDraft(profileDraftKey(connectionId), undefined);
   audit('ยกเลิกการเชื่อมต่อ Marketplace (จำลอง)', connectionId, PLATFORMS[c.platform].label);
 }
 
@@ -153,13 +169,141 @@ export function mockShopProfile(operatorId: string, platform: Platform) {
 }
 
 /** หลังส่งคำขอลงทะเบียน: สร้างการเชื่อมต่อจากแพลตฟอร์มที่ร้านนำเข้าข้อมูล (ร้านให้ความยินยอมแล้วตอนนำเข้า) */
-export function attachImportedMarketplaces(merchantId: string, imports: { platform: Platform; archetype: Archetype }[]) {
+export function attachImportedMarketplaces(merchantId: string, imports: { platform: Platform; archetype: Archetype; pinned?: PinnedSource }[]) {
   return imports.map((im) => {
-    const c = connectMarketplace(merchantId, im.platform, im.archetype);
-    grantConsent(c.id, im.archetype);
+    const c = connectMarketplace(merchantId, im.platform, im.archetype, im.pinned);
+    grantConsent(c.id);
     completeSync(c.id, true);
     return conn(c.id)!;
   });
+}
+
+// ================================================================ Marketplace-Assisted Registration / Auto-Fill
+
+/** คีย์ฉบับร่าง (ใน Session ของ v2): สมัครร้านใหม่ใช้รหัสผู้ประกอบการ, ขั้นตอนเชื่อมบัญชีและการอัปเดตโปรไฟล์ร้านเดิมแยกคีย์ */
+export const profileDraftKey = (connectionId: string) => `upd:${connectionId}`;
+export const importFlowKey = (operatorId: string) => `flow:${operatorId}`;
+
+const imp = () => useImportRecordStore.getState();
+const operatorName = (id: string) => useOperatorStore.getState().items.find((o) => o.id === id)?.name ?? id;
+
+/** ข้อมูลที่ลงทะเบียนไว้ของร้าน (ช่องที่แก้ไขได้) */
+export function registeredValues(m: Merchant): FieldValues {
+  return { shopName: m.shopName, description: m.description, category: m.category, phone: m.phone, email: m.email, province: m.province, district: m.district, address: m.address ?? '' };
+}
+
+/** Raw Source ของการเชื่อมต่อที่ซิงก์แล้ว (ร้านเดิม) — Snapshot เดียวกับที่ใช้ประเมิน */
+export function sourceOfConnection(c: MarketplaceConnection, m: Merchant): ImportSource {
+  return buildImportSource({
+    key: c.id,
+    platform: c.platform,
+    archetype: c.archetype,
+    seed: c.seed,
+    mockShopId: c.mockShopId,
+    shopName: m.shopName,
+    category: c.sourceCategory ?? m.category,
+    lastSyncAt: c.lastSyncAt,
+  });
+}
+
+export const importRecordsOf = (merchantId: string) =>
+  imp()
+    .items.filter((r) => r.merchantId === merchantId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+
+/**
+ * สมัครร้านใหม่ด้วยข้อมูลที่นำเข้า — ผู้ใช้กดส่งเองเท่านั้น (ไม่ Auto-Submit)
+ * - คำขอลงทะเบียนตาม Workflow v1 เดิม (Level 2 หลังอนุมัติ) · ไม่ออก Badge อัตโนมัติ
+ * - การเชื่อมต่อใช้ Seed/หมวดต้นฉบับเดียวกับที่ผู้ใช้เห็นตอน Preview → ประเมินจาก Raw Source
+ * - ส่งซ้ำจากฉบับร่างเดิมได้คำขอ/การเชื่อมต่อ/บันทึกเดิม
+ */
+export function submitMarketplaceRegistration(operatorId: string, form: ShopForm, draft: { draftId: string; source: ImportSource; juristic?: boolean }) {
+  const before = imp().items.find((r) => r.draftId === draft.draftId);
+  const { merchant, app, duplicate } = submitShopRegistration(operatorId, form, { draftId: draft.draftId });
+  if (duplicate && before) return { merchant, app, record: before, connection: conn(before.connectionId ?? ''), duplicate: true };
+  const src = draft.source;
+  const [connection] = attachImportedMarketplaces(merchant.id, [
+    { platform: src.platform, archetype: src.archetype, pinned: { seed: src.seed, mockShopId: src.mockShopId, mockShopName: src.shopName, sourceCategory: src.category } },
+  ]);
+  const submitted: FieldValues = { shopName: form.shopName, description: form.description, category: form.category, phone: form.phone, email: form.email, province: form.province, district: form.district, address: form.address ?? '' };
+  const rows = fieldRows(submitted, newRegistrationRules(src, !!draft.juristic));
+  const summary = summarize(rows);
+  const record: MarketplaceImportRecord = {
+    id: nextRef('IMP', imp().items.map((r) => r.id), 3),
+    mode: 'new_registration',
+    operatorId,
+    merchantId: merchant.id,
+    connectionId: connection?.id,
+    applicationId: app.id,
+    draftId: draft.draftId,
+    source: src,
+    submitted,
+    rows,
+    summary,
+    applied: FIELD_KEYS.filter((k) => submitted[k]),
+    pending: rows.filter((r) => r.status === 'verification_required').map((r) => r.key),
+    createdAt: nowISO(),
+  };
+  imp().add(record);
+  useVerificationStore.getState().update(app.id, (x) => ({
+    importId: record.id,
+    timeline: [
+      ...x.timeline,
+      {
+        id: `tl-${Date.now()}-imp`,
+        at: nowISO(),
+        actor: 'merchant',
+        actorName: operatorName(operatorId),
+        title: `เติมแบบฟอร์มจาก ${PLATFORMS[src.platform].label}`,
+        note: `นำเข้า ${summary.imported} · ผู้สมัครแก้ไข ${summary.edited} · กรอกเอง ${summary.manual}${summary.verification ? ` · รอตรวจสอบ ${summary.verification}` : ''} (${record.id})`,
+      },
+    ],
+  }));
+  audit('ลงทะเบียนร้านด้วยข้อมูลที่นำเข้าจาก Marketplace (จำลอง)', record.id, `${PLATFORMS[src.platform].label} · ${merchant.id}`);
+  return { merchant, app: useVerificationStore.getState().items.find((a) => a.id === app.id)!, record, connection, duplicate: false };
+}
+
+/**
+ * ร้านเดิมยืนยันอัปเดตโปรไฟล์จากข้อมูลที่นำเข้า (Scenario 9)
+ * - ไม่สร้างร้านหรือคำขอลงทะเบียนใหม่ และไม่แตะใบรับรองเดิม
+ * - คำอธิบาย/ช่องทางติดต่อ/ที่อยู่ บันทึกลงโปรไฟล์ทันที · ชื่อร้านและหมวดที่ผูกกับใบรับรองถ้าเปลี่ยน → รอเจ้าหน้าที่ตรวจ (ยังไม่เปลี่ยน)
+ * - ไม่เปลี่ยนข้อมูลต้นฉบับจาก Marketplace (คะแนน รีวิว ยอดขาย) และไม่เปลี่ยนผลประเมิน
+ */
+export function confirmProfileUpdate(connectionId: string, values: FieldValues, draftId: string): WorkflowResult & { record?: MarketplaceImportRecord; duplicate?: boolean } {
+  const done = imp().items.find((r) => r.draftId === draftId);
+  if (done) return { ok: true, record: done, duplicate: true };
+  const c = conn(connectionId);
+  const m = c && merchantOf(c.merchantId);
+  if (!c || !m) return { ok: false, error: 'ไม่พบการเชื่อมต่อหรือร้านค้า' };
+  if (c.status !== 'connected') return { ok: false, error: 'การเชื่อมต่อยังไม่พร้อม (ต้องซิงก์สำเร็จก่อน)' };
+  const registered = registeredValues(m);
+  const src = sourceOfConnection(c, m);
+  const rows = fieldRows(values, profileUpdateRules(src, registered));
+  const missing = rows.filter((r) => r.status === 'missing');
+  if (missing.length) return { ok: false, error: `กรุณากรอก: ${missing.map((r) => r.label).join(', ')}` };
+  const pending = rows.filter((r) => r.status === 'verification_required').map((r) => r.key);
+  const applied = FIELD_KEYS.filter((k) => !pending.includes(k) && values[k].trim() !== registered[k].trim());
+  if (applied.length) useMerchantStore.getState().update(m.id, Object.fromEntries(applied.map((k) => [k, values[k].trim()])) as Partial<Merchant>);
+  const record: MarketplaceImportRecord = {
+    id: nextRef('IMP', imp().items.map((r) => r.id), 3),
+    mode: 'profile_update',
+    operatorId: m.operatorId,
+    merchantId: m.id,
+    connectionId: c.id,
+    draftId,
+    source: src,
+    registered,
+    submitted: { ...values },
+    rows,
+    summary: summarize(rows),
+    applied,
+    pending,
+    createdAt: nowISO(),
+  };
+  imp().add(record);
+  audit('อัปเดตโปรไฟล์ร้านจากข้อมูลที่นำเข้า (จำลอง)', record.id, `${m.id} · บันทึก ${applied.length} ช่อง${pending.length ? ` · รอตรวจสอบ ${pending.length} ช่อง` : ''}`);
+  if (pending.length) notify('officer', 'OF-001', 'ร้านค้าขอเปลี่ยนข้อมูลที่ผูกกับใบรับรอง', `${m.shopName} (${m.id}): ${pending.map((k) => FIELD_LABEL[k]).join(', ')} — ตรวจได้ในหน้าผลประเมินของร้าน`, '/o/assessments', 'warning');
+  return { ok: true, record };
 }
 
 // ================================================================ Trust Assessment

@@ -13,6 +13,7 @@ import { ASSESSMENT_DISCLAIMER, ASSESSMENT_STATUS, BAND_LABEL, DECISION_LABEL, R
 import type { OfficerDecisionKind } from '../types';
 import { AnalysisPanels, BandBadge, CalculationTable, DataQuality, FactorList, SourcesLine, StandingBanner } from '../components/AssessmentParts';
 import { MarketplaceEvidence } from '../components/AssessmentSupportPanel';
+import { ImportReviewSection } from '@/features/marketplace/components/ImportReviewSection';
 
 const KINDS: OfficerDecisionKind[] = ['approved', 'need_info', 'rejected', 'escalated'];
 
@@ -56,6 +57,8 @@ export default function OfficerAssessmentDetail() {
       />
       <MarketplaceDisclaimer />
       {stale && latest?.id === a.id && <Alert tone="warning">ข้อมูลของร้านเปลี่ยนแปลงหลังการประเมินนี้ — ผลอาจไม่ตรงกับข้อมูลปัจจุบัน</Alert>}
+      {/* Scenario 9: ข้อมูลที่ร้านนำเข้าจาก Marketplace และแก้ไขก่อนยืนยัน (ต้นฉบับเทียบกับข้อมูลที่ส่ง) */}
+      <ImportReviewSection merchantId={m.id} />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
