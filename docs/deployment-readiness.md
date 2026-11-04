@@ -35,3 +35,24 @@ MSYS_NO_PATHCONV=1 VITE_BASE=/sme-trust/ npm run build   # Git Bash บน Windo
 npm run test:e2e:subpath                   # build + E2E ภายใต้ /sme-trust/ (Chromium)
 npm run test:e2e:safari                    # E2E บน WebKit (Safari) Desktop + iPhone + iPad
 ```
+
+---
+
+# SME Trust v2 — เผยแพร่แทน v1 ที่ URL เดิม `/sme-trust/`
+
+สถานะ: **เตรียม Release เสร็จ รอคำสั่งอนุมัติ — ยังไม่ได้ Push / Merge / Deploy** · ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)
+
+แนวทาง (เปลี่ยนจาก P7-I ที่เตรียมโครงสร้าง `/sme-trust/v2/` + v1 ใน Artifact เดียว):
+
+```
+https://<owner>.github.io/sme-trust/   → SME Trust v2 (รวม Scenario 1–13) — Build จาก main หลัง Merge sme-trustv.2
+```
+
+- ไม่มี `/sme-trust/v2/` และไม่มี Combined Artifact — ลบ `scripts/pages-combine.mjs`, `build:v2`, `restoreDeepLink` (`__p`) แล้ว
+- Workflow เดียว `deploy-pages.yml` Deploy จาก `main` เท่านั้น: TypeScript Check → `npm test` → Build (`VITE_BASE=/<repo>/`) → ตรวจ Build Output → Upload Artifact → Deploy
+- Deep link / Refresh: `404.html` = สำเนา `index.html` (เหมือน v1)
+- localStorage: v2 ใช้ `smetrust:v2:*` ทุก Base — ข้อมูลเก่าของผู้ที่เคยเปิด v1 (`smetrust:v1:*`) ไม่ถูกโหลดและไม่ถูกลบ
+- ตรวจในเครื่อง: `npm run test:e2e:pages` (Build แบบเดียวกับ Workflow → เซิร์ฟเวอร์จำลอง GitHub Pages → E2E 3 เบราว์เซอร์)
+- จุดย้อนกลับ: Tag `v1-before-sme-trust-v2` → `4027c04` (สร้างในเครื่อง ยังไม่ Push)
+
+รายละเอียด Preflight, ผลทดสอบ, ขั้นตอนเผยแพร่, การตรวจเว็บจริง และ Rollback Plan: **[release-v2-pages.md](release-v2-pages.md)**

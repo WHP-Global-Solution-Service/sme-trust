@@ -16,6 +16,9 @@ export interface DemoCtx {
   riskCaseId?: string;
   consumerId?: string;
   officerId?: string;
+  /** v2: การเชื่อมต่อ Marketplace (จำลอง) และผลประเมินที่ใช้ต่อเนื่องใน Scenario 9–13 */
+  connectionId?: string;
+  assessmentId?: string;
   /** แจ้งเมื่อใช้ข้อมูลตัวอย่างแทนข้อมูลจาก Scenario ก่อนหน้า (แสดงในตัวควบคุมการสาธิต) */
   notice?: string;
 }
@@ -24,6 +27,8 @@ export type ScenarioStatus = 'idle' | 'running' | 'paused' | 'completed';
 
 interface DemoState {
   journeyMode: boolean;
+  /** Full Journey ชุดใด — v1 (Scenario 1–8) หรือ v2 (Scenario 9–13) */
+  journeyTrack: 'v1' | 'v2';
   activeScenario?: string;
   stepIndex: number;
   status: ScenarioStatus;
@@ -32,6 +37,8 @@ interface DemoState {
   journey: DemoCtx;
   /** IDs ที่ Scenario ปัจจุบันใช้ (currentMerchantId, currentComplaintId, …) */
   current: DemoCtx;
+  /** บริบทตอนเริ่ม Scenario ปัจจุบัน — Restart ใช้คู่กับ Snapshot (ไม่เรียก Fixture ซ้ำ) */
+  startCtx?: DemoCtx;
   /** บริบทของแต่ละ Scenario ที่จบแล้ว (ใช้แสดงหน้าสรุปย้อนหลัง) */
   results: Record<string, DemoCtx>;
   /** เวลาเริ่ม Scenario ปัจจุบัน — ใช้ตรวจว่ารายการถูกสร้างระหว่างการสาธิต */
@@ -48,6 +55,7 @@ interface DemoState {
 
 const initial = {
   journeyMode: false,
+  journeyTrack: 'v1' as 'v1' | 'v2',
   activeScenario: undefined,
   stepIndex: 0,
   status: 'idle' as ScenarioStatus,

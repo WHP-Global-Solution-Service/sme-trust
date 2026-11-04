@@ -1,64 +1,75 @@
+import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { lazyPage } from './lazyPage';
+import { PageLoading } from './PageLoading';
 import { AppShell, RoleGate } from '@/components/layout/AppShell';
 import type { Role } from '@/types';
 
 import WelcomePage from '@/features/onboarding/WelcomePage';
-import RegisterPage from '@/features/onboarding/RegisterPage';
-import LoginPage from '@/features/auth/LoginPage';
-import KycPage from '@/features/onboarding/KycPage';
+const RegisterPage = lazyPage(() => import('@/features/onboarding/RegisterPage'));
+const LoginPage = lazyPage(() => import('@/features/auth/LoginPage'));
+const KycPage = lazyPage(() => import('@/features/onboarding/KycPage'));
 
-import MerchantHome from '@/features/merchants/MerchantHome';
-import ShopPage from '@/features/merchants/ShopPage';
-import RegisterShopWizard from '@/features/merchants/RegisterShopWizard';
-import ToolkitPage from '@/features/merchants/ToolkitPage';
-import NotificationsPage from '@/features/merchants/NotificationsPage';
-import MerchantCertPage from '@/features/certification/MerchantCertPage';
-import PassportPage from '@/features/passport/PassportPage';
-import MerchantComplaints from '@/features/resolution/MerchantComplaints';
-import MerchantComplaintDetail from '@/features/resolution/MerchantComplaintDetail';
-import MerchantWarnings from '@/features/warnings/MerchantWarnings';
-import MerchantWarningDetail from '@/features/warnings/MerchantWarningDetail';
-import MerchantReview from '@/features/risk/MerchantReview';
-import TrainingCenter from '@/features/training/TrainingCenter';
-import CoursePage from '@/features/training/CoursePage';
+const MerchantHome = lazyPage(() => import('@/features/merchants/MerchantHome'));
+const ShopPage = lazyPage(() => import('@/features/merchants/ShopPage'));
+const RegisterShopWizard = lazyPage(() => import('@/features/merchants/RegisterShopWizard'));
+const ToolkitPage = lazyPage(() => import('@/features/merchants/ToolkitPage'));
+const NotificationsPage = lazyPage(() => import('@/features/merchants/NotificationsPage'));
+const MerchantCertPage = lazyPage(() => import('@/features/certification/MerchantCertPage'));
+const PassportPage = lazyPage(() => import('@/features/passport/PassportPage'));
+const MerchantComplaints = lazyPage(() => import('@/features/resolution/MerchantComplaints'));
+const MerchantComplaintDetail = lazyPage(() => import('@/features/resolution/MerchantComplaintDetail'));
+const MerchantWarnings = lazyPage(() => import('@/features/warnings/MerchantWarnings'));
+const MerchantWarningDetail = lazyPage(() => import('@/features/warnings/MerchantWarningDetail'));
+const MerchantReview = lazyPage(() => import('@/features/risk/MerchantReview'));
+const TrainingCenter = lazyPage(() => import('@/features/training/TrainingCenter'));
+const CoursePage = lazyPage(() => import('@/features/training/CoursePage'));
 
-import CheckPage from '@/features/consumers/CheckPage';
-import DirectoryPage from '@/features/consumers/DirectoryPage';
-import ShopPublicPage from '@/features/consumers/ShopPublicPage';
-import VerifyPage from '@/features/consumers/VerifyPage';
-import CertVerifyPage from '@/features/consumers/CertVerifyPage';
-import ReportWizard from '@/features/complaints/ReportWizard';
-import ConsumerCases from '@/features/complaints/ConsumerCases';
-import ConsumerCaseDetail from '@/features/complaints/ConsumerCaseDetail';
+const CheckPage = lazyPage(() => import('@/features/consumers/CheckPage'));
+const DirectoryPage = lazyPage(() => import('@/features/consumers/DirectoryPage'));
+const ShopPublicPage = lazyPage(() => import('@/features/consumers/ShopPublicPage'));
+const VerifyPage = lazyPage(() => import('@/features/consumers/VerifyPage'));
+const CertVerifyPage = lazyPage(() => import('@/features/consumers/CertVerifyPage'));
+const ReportWizard = lazyPage(() => import('@/features/complaints/ReportWizard'));
+const ConsumerCases = lazyPage(() => import('@/features/complaints/ConsumerCases'));
+const ConsumerCaseDetail = lazyPage(() => import('@/features/complaints/ConsumerCaseDetail'));
 
-import OfficerDashboard from '@/features/officer/OfficerDashboard';
-import OfficerApplications from '@/features/verification/OfficerApplications';
-import ApplicationDetail from '@/features/verification/ApplicationDetail';
-import ChannelVerification from '@/features/verification/ChannelVerification';
-import OfficerCertification from '@/features/certification/OfficerCertification';
-import OfficerComplaints from '@/features/complaints/OfficerComplaints';
-import OfficerComplaintDetail from '@/features/complaints/OfficerComplaintDetail';
-import OfficerWarnings from '@/features/warnings/OfficerWarnings';
-import OfficerWarningDetail from '@/features/warnings/OfficerWarningDetail';
-import NewWarningPage from '@/features/warnings/NewWarningPage';
-import OfficerRiskList from '@/features/risk/OfficerRiskList';
-import OfficerRiskDetail from '@/features/risk/OfficerRiskDetail';
-import TrainingRecords from '@/features/officer/TrainingRecords';
-import ReportsPage from '@/features/officer/ReportsPage';
+const OfficerDashboard = lazyPage(() => import('@/features/officer/OfficerDashboard'));
+const OfficerApplications = lazyPage(() => import('@/features/verification/OfficerApplications'));
+const ApplicationDetail = lazyPage(() => import('@/features/verification/ApplicationDetail'));
+const ChannelVerification = lazyPage(() => import('@/features/verification/ChannelVerification'));
+const OfficerCertification = lazyPage(() => import('@/features/certification/OfficerCertification'));
+const OfficerComplaints = lazyPage(() => import('@/features/complaints/OfficerComplaints'));
+const OfficerComplaintDetail = lazyPage(() => import('@/features/complaints/OfficerComplaintDetail'));
+const OfficerWarnings = lazyPage(() => import('@/features/warnings/OfficerWarnings'));
+const OfficerWarningDetail = lazyPage(() => import('@/features/warnings/OfficerWarningDetail'));
+const NewWarningPage = lazyPage(() => import('@/features/warnings/NewWarningPage'));
+const OfficerRiskList = lazyPage(() => import('@/features/risk/OfficerRiskList'));
+const OfficerRiskDetail = lazyPage(() => import('@/features/risk/OfficerRiskDetail'));
+const TrainingRecords = lazyPage(() => import('@/features/officer/TrainingRecords'));
+const ReportsPage = lazyPage(() => import('@/features/officer/ReportsPage'));
 
-import AdminDashboard from '@/features/admin/AdminDashboard';
-import AccountsPage from '@/features/admin/AccountsPage';
-import AuditPage from '@/features/admin/AuditPage';
-import DemoDataPage from '@/features/admin/DemoDataPage';
+const AdminDashboard = lazyPage(() => import('@/features/admin/AdminDashboard'));
+const AccountsPage = lazyPage(() => import('@/features/admin/AccountsPage'));
+const AuditPage = lazyPage(() => import('@/features/admin/AuditPage'));
+const DemoDataPage = lazyPage(() => import('@/features/admin/DemoDataPage'));
 import NotFoundPage from '@/features/onboarding/NotFoundPage';
-import DevicePreview from '@/features/preview/DevicePreview';
-import DemoScenariosPage from '@/features/demo/DemoScenariosPage';
-import DemoCompletePage from '@/features/demo/DemoCompletePage';
-import DemoOverviewPage from '@/features/demo/DemoOverviewPage';
-import AIAssistantHome from '@/features/ai-assistant/pages/AIAssistantHome';
-import AdvertisingChecker from '@/features/ai-assistant/pages/AdvertisingChecker';
-import ComplaintAssistant from '@/features/ai-assistant/pages/ComplaintAssistant';
-import AIHistory from '@/features/ai-assistant/pages/AIHistory';
+const DevicePreview = lazyPage(() => import('@/features/preview/DevicePreview'));
+const DemoScenariosPage = lazyPage(() => import('@/features/demo/DemoScenariosPage'));
+const DemoCompletePage = lazyPage(() => import('@/features/demo/DemoCompletePage'));
+const DemoOverviewPage = lazyPage(() => import('@/features/demo/DemoOverviewPage'));
+const DemoV2SummaryPage = lazyPage(() => import('@/features/demo/DemoV2SummaryPage'));
+const AIAssistantHome = lazyPage(() => import('@/features/ai-assistant/pages/AIAssistantHome'));
+const AdvertisingChecker = lazyPage(() => import('@/features/ai-assistant/pages/AdvertisingChecker'));
+const ComplaintAssistant = lazyPage(() => import('@/features/ai-assistant/pages/ComplaintAssistant'));
+const AIHistory = lazyPage(() => import('@/features/ai-assistant/pages/AIHistory'));
+const MarketplacePage = lazyPage(() => import('@/features/marketplace/pages/MarketplacePage'));
+const MarketplaceDataPage = lazyPage(() => import('@/features/marketplace/pages/MarketplaceDataPage'));
+const MarketplaceAnalysisPage = lazyPage(() => import('@/features/marketplace/pages/MarketplaceAnalysisPage'));
+const MerchantAssessmentPage = lazyPage(() => import('@/features/trust-assessment/pages/MerchantAssessmentPage'));
+const OfficerAssessmentList = lazyPage(() => import('@/features/trust-assessment/pages/OfficerAssessmentList'));
+const OfficerAssessmentDetail = lazyPage(() => import('@/features/trust-assessment/pages/OfficerAssessmentDetail'));
+const AdminAssessmentModel = lazyPage(() => import('@/features/trust-assessment/pages/AdminAssessmentModel'));
 
 const gate = (allow: Role[], el: JSX.Element) => <RoleGate allow={allow}>{el}</RoleGate>;
 const M: Role[] = ['merchant'];
@@ -68,6 +79,7 @@ const A: Role[] = ['admin'];
 
 export function AppRoutes() {
   return (
+    <Suspense fallback={<PageLoading />}>
     <Routes>
       <Route path="/" element={<WelcomePage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -76,6 +88,7 @@ export function AppRoutes() {
       <Route path="/demo" element={<DemoScenariosPage />} />
       <Route path="/demo/complete/:id" element={<DemoCompletePage />} />
       <Route path="/demo/overview" element={<DemoOverviewPage />} />
+      <Route path="/demo/v2/summary" element={<DemoV2SummaryPage />} />
 
       <Route element={<AppShell />}>
         {/* Merchant */}
@@ -95,6 +108,10 @@ export function AppRoutes() {
         <Route path="/m/toolkit" element={gate(M, <ToolkitPage />)} />
         <Route path="/m/notifications" element={gate(M, <NotificationsPage />)} />
         <Route path="/m/ai" element={gate(M, <AIAssistantHome />)} />
+        <Route path="/m/marketplace" element={gate(M, <MarketplacePage />)} />
+        <Route path="/m/marketplace/data/:id" element={gate(M, <MarketplaceDataPage />)} />
+        <Route path="/m/marketplace/analysis" element={gate(M, <MarketplaceAnalysisPage />)} />
+        <Route path="/m/trust" element={gate(M, <MerchantAssessmentPage />)} />
         <Route path="/m/ai/ad-checker" element={gate(M, <AdvertisingChecker />)} />
         <Route path="/m/ai/complaint" element={gate(M, <ComplaintAssistant />)} />
         <Route path="/m/ai/history" element={gate(M, <AIHistory />)} />
@@ -122,6 +139,8 @@ export function AppRoutes() {
         <Route path="/o/warnings/new" element={gate(O, <NewWarningPage />)} />
         <Route path="/o/warnings/:id" element={gate(O, <OfficerWarningDetail />)} />
         <Route path="/o/corrective" element={gate(O, <OfficerWarnings corrective />)} />
+        <Route path="/o/assessments" element={gate(O, <OfficerAssessmentList />)} />
+        <Route path="/o/assessments/:id" element={gate(O, <OfficerAssessmentDetail />)} />
         <Route path="/o/risk" element={gate(O, <OfficerRiskList />)} />
         <Route path="/o/risk/:id" element={gate(O, <OfficerRiskDetail />)} />
         <Route path="/o/training" element={gate(O, <TrainingRecords />)} />
@@ -133,10 +152,12 @@ export function AppRoutes() {
         <Route path="/admin/accounts" element={gate(A, <AccountsPage />)} />
         <Route path="/admin/audit" element={gate(A, <AuditPage />)} />
         <Route path="/admin/data" element={gate(A, <DemoDataPage />)} />
+        <Route path="/admin/assessment-model" element={gate(A, <AdminAssessmentModel />)} />
 
         <Route path="/404" element={<NotFoundPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
+    </Suspense>
   );
 }

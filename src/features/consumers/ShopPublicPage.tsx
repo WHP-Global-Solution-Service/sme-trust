@@ -8,6 +8,8 @@ import { isPublicMerchant } from '@/utils/trust';
 import { Alert, Card, CardHeader, InfoRow, LinkButton, PageHeader, StatusBadge } from '@/components/common/ui';
 import { DemoLabel, TrustSeal, VerdictPanel } from '@/components/common/Trust';
 import { ChannelButtons, NotFoundExplain } from './shared';
+import { PublicAssessmentCard } from '@/features/trust-assessment/components/AssessmentParts';
+import { PublicMarketplaceChannels } from '@/features/marketplace/components/PublicMarketplaceChannels';
 
 /** Merchant Detail (Public) — ไม่แสดงข้อมูลผู้ร้องเรียนหรือหลักฐานส่วนตัว */
 export default function ShopPublicPage() {
@@ -30,6 +32,7 @@ export default function ShopPublicPage() {
       <div className="grid gap-4 md:grid-cols-[1fr_280px]">
         <div className="space-y-4">
           <VerdictPanel verdict={verdict} />
+          <PublicAssessmentCard merchantId={m.id} />
           <Card>
             <CardHeader title="ข้อมูลร้านค้า" />
             <dl className="divide-y divide-line px-4 sm:px-5">
@@ -66,6 +69,7 @@ export default function ShopPublicPage() {
               <ChannelButtons channels={m.channels} shopName={m.shopName} certId={cert?.id} usable={verdict.usable} level={level} />
             </div>
           </Card>
+          <PublicMarketplaceChannels merchant={m} />
           <Alert tone="neutral" icon={Lock}>
             หน้าสาธารณะไม่แสดงข้อมูลผู้ร้องเรียน หลักฐานส่วนตัว หรือข้อกล่าวหาที่ยังไม่ได้ข้อสรุป
           </Alert>

@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, Suspense } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { PageLoading } from '@/routes/PageLoading';
 import { Bell, FlaskConical, LogOut, Menu, Lock, MonitorSmartphone, X } from 'lucide-react';
 import { getLastDevice, isEmbedded, previewUrl } from '@/utils/devicePreview';
 import type { Role } from '@/types';
@@ -140,7 +141,9 @@ export function AppShell() {
           </header>
 
           <main className={cn('mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 lg:pb-12', demoActive ? 'pb-48' : 'pb-28')}>
-            <Outlet />
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>

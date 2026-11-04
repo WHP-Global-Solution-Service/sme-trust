@@ -34,7 +34,7 @@ test('Role Switcher: สลับบทบาทแล้วเห็นข้�
   expect((await store<{ id: string }>(page, 'certifications')).some((c) => c.id === cert.id)).toBe(true);
 });
 
-test('Reset Demo Data: กลับเป็นข้อมูลตัวอย่างทุก Store และ Reload แล้วยังเป็นข้อมูลเริ่มต้น', async ({ page }) => {
+test('Reset Demo Data: กลับเป็นข้อมูลตัวอย่างทุก Store และ Reload แล้วยังเป็นข้อมูลเริ่มต้น', async ({ page, baseURL }) => {
   await fresh(page);
   await switchRole(page, 'เจ้าหน้าที่');
   await open(page, '/o/applications/APP-2569-0002');
@@ -45,7 +45,7 @@ test('Reset Demo Data: กลับเป็นข้อมูลตัวอย
   await page.getByRole('button', { name: 'Reset Demo Data' }).click();
   await confirm(page, undefined, 'รีเซ็ต');
   // หน้าแรกต้องลงท้ายด้วย "/" เสมอ (Sub-path Reload ได้ไม่เป็น 404)
-  await expect(page).toHaveURL(/:\d+\/(sme-trust\/)?$/);
+  await expect(page).toHaveURL(baseURL!);
   await page.reload();
   expect((await store<{ id: string; status: string }>(page, 'applications')).find((a) => a.id === 'APP-2569-0002')!.status).toBe('pending_review');
   expect((await store(page, 'merchants')).length).toBe(12);
@@ -56,10 +56,11 @@ test('Base path: ลิงก์ภายในทุกหน้าและล
   if (browserName === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const base = new URL(baseURL!).pathname; // "/" หรือ "/sme-trust/"
   await fresh(page);
-  await page.evaluate(() => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-001', merchantLoggedIn: true, consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {} }, version: 1 })));
+  await page.evaluate(() => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { role: 'merchant', operatorId: 'OP-001', merchantLoggedIn: true, consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {} }, version: 1 })));
   for (const path of ['/m', '/m/toolkit', '/verify/SMT-2569-000101', '/shop/M-001', '/demo']) {
     await open(page, path);
-    await page.waitForLoadState('networkidle');
+    // รอเนื้อหาหลักของหน้า (เสถียรกว่ารอ networkidle เมื่อรันหลาย Worker)
+    await expect(page.locator('main').first()).toBeVisible();
     const hrefs = await page.evaluate(() => [...document.querySelectorAll('a[href^="/"]')].map((a) => a.getAttribute('href')!));
     expect(hrefs.filter((h) => !h.startsWith(base)), `ลิงก์ที่ไม่อยู่ใต้ ${base} ในหน้า ${path}`).toEqual([]);
   }

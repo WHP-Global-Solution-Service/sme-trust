@@ -1,4 +1,6 @@
-# Deploy SME Trust Prototype ไปยัง GitHub Pages (Static เท่านั้น — ไม่มี Backend/Database)
+# Deploy SME Trust Platform v2 ไปยัง GitHub Pages ที่ URL เดิม https://<owner>.github.io/<repo>/ (แทน v1)
+# Static เท่านั้น — ไม่มี Backend / Database / External API / Secrets
+# Deploy เฉพาะ Branch main (push หรือสั่งด้วยมือจาก main) — Branch อื่น เช่น sme-trustv.2 จะไม่ถูก Deploy
 name: Deploy to GitHub Pages
 
 on:
@@ -11,13 +13,16 @@ permissions:
   pages: write
   id-token: write
 
+# Workflow เดียวที่ Deploy Pages — ไม่ให้มีการ Deploy ซ้อนกัน
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,16 +30,30 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm test
-      # base path = /<ชื่อ repository>/ ; postbuild คัดลอก index.html เป็น 404.html เพื่อรองรับ Deep link (เช่น QR → /verify/...)
-      - run: npm run build
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Automated tests (unit, flows, scenarios 1–13, v2 engines, render ทุกเส้นทาง)
+        run: npm test
+      # base path = /<ชื่อ repository>/ (เช่น /sme-trust/) — ไม่ใช่ /sme-trust/v2/
+      # postbuild คัดลอก index.html เป็น 404.html เพื่อรองรับ Deep link และ Refresh (เช่น QR → /verify/...)
+      - name: Build
+        run: npm run build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+      - name: Verify build output
+        env:
+          BASE: /${{ github.event.repository.name }}/
+        run: |
+          test -f dist/index.html && test -f dist/404.html
+          cmp dist/index.html dist/404.html
+          grep -q "src=\"${BASE}assets/" dist/index.html
+          if grep -q "${BASE}v2/" dist/index.html; then echo "พบ path /v2/ ใน Build — ต้องเผยแพร่ที่ ${BASE}"; exit 1; fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
   deploy:
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

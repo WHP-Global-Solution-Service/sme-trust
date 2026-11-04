@@ -12,6 +12,8 @@ import type {
 } from '@/types';
 import { seed } from '@/mock/data';
 import type { AiHistoryEntry } from '@/features/ai-assistant/types/ai.types';
+import type { MarketplaceConnection } from '@/features/marketplace/types';
+import type { TrustAssessment } from '@/features/trust-assessment/types';
 import { createEntityStore } from './createEntityStore';
 
 // ===== Domain stores (แหล่งข้อมูลเดียวของทุกหน้าจอ) =====
@@ -27,6 +29,10 @@ export const useNotificationStore = createEntityStore<AppNotification>('notifica
 export const useAuditStore = createEntityStore<AuditEntry>('audit', seed.audit);
 /** ประวัติ AI Simulation (ไม่เก็บข้อความที่ผู้ใช้พิมพ์เอง) */
 export const useAiHistoryStore = createEntityStore<AiHistoryEntry>('ai-history', seed.aiHistory);
+/** v2: การเชื่อมต่อ Marketplace แบบจำลอง (ไม่มีการเชื่อมต่อ API จริง) */
+export const useMarketplaceStore = createEntityStore<MarketplaceConnection>('marketplace-connections', seed.marketplaceConnections);
+/** v2: ผลประเมินความน่าเชื่อถือ (Trust Assessment) */
+export const useAssessmentStore = createEntityStore<TrustAssessment>('trust-assessments', seed.assessments);
 
 export const domainStores = [
   useOperatorStore,
@@ -40,6 +46,8 @@ export const domainStores = [
   useNotificationStore,
   useAuditStore,
   useAiHistoryStore,
+  useMarketplaceStore,
+  useAssessmentStore,
 ];
 
 export { useSessionStore } from './session';

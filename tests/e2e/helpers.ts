@@ -27,10 +27,10 @@ export async function fresh(page: Page) {
 
 /** อ่าน Store จาก localStorage (ข้อมูลเดียวกับที่ UI ใช้) */
 export async function store<T = Record<string, unknown>>(page: Page, name: string): Promise<T[]> {
-  return page.evaluate((n) => JSON.parse(localStorage.getItem(`smetrust:v1:${n}`) ?? '{"state":{"items":[]}}').state.items, name);
+  return page.evaluate((n) => JSON.parse(localStorage.getItem(`smetrust:v2:${n}`) ?? '{"state":{"items":[]}}').state.items, name);
 }
 export async function demoState(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v1:demo') ?? '{"state":{}}').state);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v2:demo') ?? '{"state":{}}').state);
 }
 
 // ---------------- Demo Controller ----------------

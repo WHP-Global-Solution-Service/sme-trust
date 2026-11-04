@@ -8,6 +8,7 @@ import { fmtDate } from '@/utils/format';
 import { Alert, Card, LinkButton, PageHeader, SkeletonList } from '@/components/common/ui';
 import { CertificateCard, VerdictPanel } from '@/components/common/Trust';
 import { NotFoundExplain } from './shared';
+import { PublicAssessmentCard } from '@/features/trust-assessment/components/AssessmentParts';
 
 /** Certificate Verification — ปลายทางของ QR Code */
 export default function CertVerifyPage() {
@@ -65,6 +66,7 @@ export default function CertVerifyPage() {
         </Alert>
       )}
       <CertificateCard cert={cert} merchant={merchant} />
+      {isLatest && <PublicAssessmentCard merchantId={merchant.id} />}
       <p className="flex items-center gap-1 text-xs text-ink-soft">
         <Clock className="h-3.5 w-3.5" />
         ตรวจสอบเมื่อ {fmtDate(checkedAt, true)} — ผลตรวจสอบเป็นข้อมูลสาธิต ณ เวลาที่ตรวจ

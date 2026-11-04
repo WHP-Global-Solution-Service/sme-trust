@@ -19,6 +19,7 @@ import { useStats } from '@/hooks/useStats';
 import { Alert, Card, CardHeader, PageHeader, Stat } from '@/components/common/ui';
 import { Select } from '@/components/forms/Field';
 import { ChartTable, HBarChart, TimeBarChart } from '@/components/common/Charts';
+import V2KpiSection from './V2KpiSection';
 
 export default function AdminDashboard() {
   const [province, setProvince] = useState('');
@@ -114,6 +115,7 @@ export default function AdminDashboard() {
           </div>
         </Card>
       </div>
+      <V2KpiSection />
     </div>
   );
 }

@@ -347,9 +347,9 @@ C.startScenario('s4', nav);
 go();
 reportDemo('report.step', 5);
 go();
-const snap = storage['smetrust:v1:demo'];
+const snap = storage['smetrust:v2:demo'];
 useDemoStore.setState({ activeScenario: undefined, stepIndex: 0, current: {}, signals: {} });
-storage['smetrust:v1:demo'] = snap;
+storage['smetrust:v2:demo'] = snap;
 await (useDemoStore as unknown as { persist: { rehydrate: () => Promise<void> } }).persist.rehydrate();
 check(demo().activeScenario === 's4' && demo().stepIndex === 2 && demo().current.merchantId === 'M-001' && demo().signals['report.step'] === 5, 'หลัง Refresh: Scenario, ขั้นตอน, Context IDs และสัญญาณยังอยู่');
 assertBlocked();
@@ -413,9 +413,9 @@ check(demo().current.merchantId === 'M-001' && !!demo().current.notice && demo()
 check(view(cur).length > 0 && demo().journey.merchantId === cShop.id, '  ร้านของ Journey ยังถูกเก็บไว้ ไม่ถูกเขียนทับด้วยร้านตัวอย่าง');
 C.restartScenario(nav);
 check(!!demo().current.notice && demo().current.merchantId === 'M-001', '  Restart Scenario ยังแสดงหมายเหตุเดิม');
-const snapNotice = storage['smetrust:v1:demo'];
+const snapNotice = storage['smetrust:v2:demo'];
 useDemoStore.setState({ current: {} });
-storage['smetrust:v1:demo'] = snapNotice;
+storage['smetrust:v2:demo'] = snapNotice;
 await (useDemoStore as unknown as { persist: { rehydrate: () => Promise<void> } }).persist.rehydrate();
 check(!!demo().current.notice, '  Refresh แล้วหมายเหตุยังอยู่');
 W.approveApplication(cApp.id);
@@ -486,7 +486,7 @@ useAiWorkspaceStore.getState().setReplyDraft('CMP-2569-0005', { text: 'ร่า
 W.resetAllDemoData();
 check(S.useAiHistoryStore.getState().items.length === 4 && Object.keys(useAiWorkspaceStore.getState().replyDrafts).length === 0, 'Reset Demo Data คืนประวัติ AI ตัวอย่าง และล้างร่างที่ค้าง');
 useAiWorkspaceStore.getState().setComplaint({ source: 'custom', text: 'ข้อความส่วนตัวที่พิมพ์เอง' });
-check(!storage['smetrust:v1:ai-workspace'].includes('ข้อความส่วนตัวที่พิมพ์เอง'), 'ข้อร้องเรียนที่พิมพ์เองไม่ถูกบันทึกลง localStorage');
+check(!storage['smetrust:v2:ai-workspace'].includes('ข้อความส่วนตัวที่พิมพ์เอง'), 'ข้อร้องเรียนที่พิมพ์เองไม่ถูกบันทึกลง localStorage');
 check(stats().kpi.complaints === 20, 'AI ไม่เปลี่ยนข้อมูลธุรกิจโดยตรง');
 
 
@@ -499,14 +499,14 @@ for (const [label, raw] of [
   ['รายการไม่มี id', JSON.stringify({ state: { items: [{ shopName: 'x' }] }, version: 1 })],
   ['เวอร์ชันเก่า (0)', JSON.stringify({ state: { items: [] }, version: 0 })],
 ] as const) {
-  storage['smetrust:v1:merchants'] = raw;
+  storage['smetrust:v2:merchants'] = raw;
   const origErr = console.error;
   console.error = () => {};
   await (S.useMerchantStore as unknown as Rehydratable).persist.rehydrate();
   console.error = origErr;
   check(S.useMerchantStore.getState().items.length === seedCount, `${label} → ใช้ข้อมูลตัวอย่าง ไม่เกิด Error`);
 }
-storage['smetrust:v1:demo'] = JSON.stringify({ state: { activeScenario: 's99', stepIndex: 50, status: 'running' }, version: 1 });
+storage['smetrust:v2:demo'] = JSON.stringify({ state: { activeScenario: 's99', stepIndex: 50, status: 'running' }, version: 1 });
 await (useDemoStore as unknown as Rehydratable).persist.rehydrate();
 check(!C.activeScenario() && view('/demo').length > 0 && view('/m').length > 0, 'Demo State อ้าง Scenario ที่ไม่มีอยู่ → ไม่แสดงตัวควบคุม และหน้าจอไม่พัง');
 W.resetAllDemoData();

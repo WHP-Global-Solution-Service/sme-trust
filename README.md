@@ -15,11 +15,13 @@ npm install
 npm run dev        # เปิด http://localhost:5173
 npm run build      # Type-check (tsc -b) + Production build ไปที่ dist/
 npm run preview    # เปิดดู build
-npm test           # พิสูจน์อักษรไทย, Flow ข้ามบทบาท, AI Simulation, Demo Scenarios 8 เรื่อง + Full Journey, Workflow และ Render ทุกหน้า
+npm test           # พิสูจน์อักษรไทย, Flow ข้ามบทบาท, AI Simulation, Demo Scenarios 1–13 + Full Journey v1/v2, Workflow, Model Validation, P7 Regression และ Render ทุกหน้า
 npm run typecheck  # TypeScript (strict)
 npm run test:e2e   # E2E บน Chromium จริง (build + preview อัตโนมัติ) — ครั้งแรกอาจต้อง npx playwright install chromium
 npm run test:e2e:subpath  # E2E ภายใต้ /sme-trust/ (เหมือน GitHub Pages)
 npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop + iPhone + iPad — ครั้งแรกต้อง npx playwright install webkit
+npm run test:e2e:firefox  # E2E บน Firefox — ครั้งแรกต้อง npx playwright install firefox
+npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/sme-trust/) + จำลอง GitHub Pages (404.html) + E2E (ไม่ Deploy)
 ```
 
 เริ่มนำเสนอ: เปิด **`/demo`** (หน้ารวม Demo Scenarios — ปุ่มบนหน้าแรก) → **Start Full Journey** (เรื่องต่อเนื่อง 1 → 8) หรือ **Start Demo** รายเรื่อง แล้วใช้ **Demo Controller** (แผงขวาบนเดสก์ท็อป / แถบล่างบนมือถือ) ไปทีละขั้น · ปุ่มถัดไปเปิดเมื่อทำขั้นนั้นเสร็จจริง · **Restart Scenario** เริ่มเรื่องเดิมใหม่ได้ทุกเมื่อ
@@ -28,7 +30,7 @@ npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop
 
 ## Deploy บน GitHub Pages
 
-มี Workflow ที่ `.github/workflows/deploy-pages.yml` (Push ที่ `main` → Build → Deploy) ตั้งค่า Repository: **Settings → Pages → Source: GitHub Actions**
+มี Workflow ที่ `.github/workflows/deploy-pages.yml` (Push ที่ `main` → TypeScript Check → Tests → Build → Deploy) — v2 เผยแพร่แทน v1 ที่ URL เดิม `/sme-trust/` เมื่อ Merge เข้า `main` (ขั้นตอนและ Rollback: [docs/release-v2-pages.md](docs/release-v2-pages.md)) ตั้งค่า Repository: **Settings → Pages → Source: GitHub Actions**
 
 - Build ด้วย `VITE_BASE=/<ชื่อ repo>/` — Router, ลิงก์ QR/ใบรับรอง และ Device Preview ใช้ Base Path นี้อัตโนมัติ
 - `postbuild` คัดลอก `index.html` เป็น `404.html` เพื่อให้ลิงก์ตรง (เช่น `/verify/...`) เปิดได้บน GitHub Pages
@@ -43,6 +45,15 @@ npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop
 | เจ้าหน้าที่ | Dashboard + Work Queue, ตรวจและอนุมัติคำขอ, ตรวจช่องทางขาย, จัดการใบรับรอง, จัดการข้อร้องเรียน (ปรับผล Screening), ออกคำแนะนำ/คำเตือน, ตรวจผลแก้ไข, Risk Review + อุทธรณ์, Training Records, Reports (CSV) |
 | AI Simulation (ผู้ประกอบการ) | AI-01 ตรวจสอบข้อความโฆษณา (Highlight, ระดับความเสี่ยงเบื้องต้น, ข้อความเสนอแก้ไข, เปรียบเทียบก่อน–หลัง), AI-02 ช่วยจัดการข้อร้องเรียน (สรุปประเด็น, ข้อมูลที่ควรขอ, ร่างคำตอบ 3 Tone นำไปใส่เคสโดยไม่ส่งอัตโนมัติ), ประวัติการใช้งาน — **Rule-based ในเบราว์เซอร์ ไม่ใช่ AI Model จริง** |
 | ผู้ดูแลระบบ | Admin Dashboard (12 KPI + 7 กราฟ คำนวณจาก Mock State), บัญชีทั้งหมด, Audit Log, Export/Reset ข้อมูลสาธิต |
+
+## SME Trust v2 (Branch `sme-trustv.2` — อยู่ระหว่างพัฒนา)
+
+ต่อยอดจาก v1 โดยไม่ลบฟังก์ชันเดิม — รายละเอียดใน [docs/sme-trust-v2-plan.md](docs/sme-trust-v2-plan.md)
+
+- เชื่อมต่อ **Shopee (จำลอง) / Lazada (จำลอง)** — ยังไม่มีการเชื่อมต่อ API จริง ข้อมูลการขายสร้างแบบ Deterministic ในเบราว์เซอร์
+- วิเคราะห์ราคา ยอดขาย รีวิว → **Trust Assessment** (Band A–D / Insufficient Data, Data Coverage, Data Confidence, คำอธิบายทุกปัจจัย)
+- ผู้บริโภคไม่เห็นคะแนนตัวเลข · Standing (ระงับ/เพิกถอน) แยกจาก Band · ยกระดับ Level 3–4 ผ่าน Officer Review และเกณฑ์ v1 เท่านั้น
+- **Demo v2** — Scenario 9–13 (เชื่อมข้อมูล → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ), เส้นทางทางเลือก 9B สำหรับร้านที่ไม่มี Marketplace, Full Journey v2 แยกจาก v1 และ Executive Impact Summary (`/demo/v2/summary`)
 
 ## เทคโนโลยี
 

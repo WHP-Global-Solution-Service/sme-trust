@@ -1,0 +1,372 @@
+# SME Trust Platform v2 — แผนพัฒนา
+
+> Branch: `sme-trustv.2` (แยกจาก `main` ที่ commit `4027c04` — v1 ฉบับสมบูรณ์ล่าสุดที่ Deploy บน GitHub Pages แล้ว)
+> สถานะ: **แผนงานฉบับปรับตามข้อสรุป (4 พ.ย. 2569)** · Prompt 3.6 ดำเนินการ P1–P5
+
+## ข้อสรุปที่ตกลงแล้ว (มีผลเหนือส่วนอื่นของเอกสาร)
+
+| # | ข้อสรุป | ผลต่อการออกแบบ |
+|---|---|---|
+| D1 | ใช้ชื่อ **Shopee (จำลอง)** และ **Lazada (จำลอง)** ใน UI ไม่ใช้โลโก้จริง | ทุกจุดที่แสดงแพลตฟอร์มมีป้าย "(จำลอง)" + ข้อความ "ยังไม่มีการเชื่อมต่อ API จริง" |
+| D2 | ผู้บริโภคเห็น **Band A–D, Data Coverage, Confidence และคำอธิบาย** — **ไม่แสดงคะแนน 0–100 ต่อสาธารณะ** | คะแนนตัวเลขและวิธีคำนวณแสดงเฉพาะมุมเจ้าหน้าที่ (และผู้ดูแลระบบ) · ร้านค้าเห็น Band และทิศทางผลของแต่ละปัจจัย (+/−) โดยไม่มีตัวเลขคะแนน |
+| D3 | **คง Trust Level 1–4 ของ v1** — Trust Assessment เป็นข้อมูลประกอบการพิจารณา **Level 3–4 เท่านั้น** | ไม่เปลี่ยนเกณฑ์ v1 · ไม่มีการออก Badge อัตโนมัติ · ยกระดับได้ผ่าน **Officer Review** และต้องผ่านเกณฑ์ v1 ด้วย |
+| D4 | เตรียมเผยแพร่ v2 ที่ **`/sme-trust/v2/`** ในอนาคต ยังไม่ Deploy และไม่กระทบเว็บ v1 | เพิ่มสคริปต์ Build แยก (`build:v2` → `dist-v2/`) · ไม่แก้ Workflow ที่ Deploy `main` |
+| D5 | น้ำหนักตามแผนเป็น **ค่าเริ่มต้น** ปรับได้ผ่าน Configuration และแสดงวิธีคำนวณโปร่งใส | Model เป็น Config + หน้า "โมเดลการประเมิน" (ผู้ดูแลระบบ) ปรับน้ำหนักได้ ตรวจผลรวม = 100 และคืนค่าเริ่มต้นได้ · หน้าเจ้าหน้าที่แสดงตารางคำนวณทีละขั้น |
+| D6 | **Missing Data ≠ 0** — ข้อมูลไม่พอให้แสดง **Insufficient Data** | องค์ประกอบที่ไม่มีข้อมูลไม่ถูกนับ (กระจายน้ำหนักใหม่) · ข้อมูล Marketplace ไม่พอ → สถานะ Insufficient Data แทน Band |
+| D7 | **แยก Data Coverage กับ Data Confidence** | Coverage = ความครบถ้วนของมิติข้อมูล · Confidence = จำนวนแหล่งที่มา, ความใหม่, ขนาดตัวอย่าง, ความสอดคล้อง/คุณภาพข้อมูล (หัวข้อ 5.2) |
+| D8 | **แยกสถานะ Suspension/Revocation ออกจาก Band** | ผลประเมินมี `standing` แยกจาก `band` — ถูกเพิกถอนแสดง **Revoked** และใช้ Badge ไม่ได้แม้ Band สูง (ไม่บังคับ Band เป็น D) |
+| D9 | วิเคราะห์ราคาโดยคำนึงถึง **หมวดสินค้า ปริมาณคำสั่งซื้อ มูลค่าธุรกรรม จำนวนรีวิว และความเสี่ยงของสินค้า** — ราคาถูก/แพงไม่ใช่หลักฐานทุจริต | ราคาต่ำผิดปกติเป็นเพียง "ควรตรวจสอบเพิ่มเติม" และลดระดับลงเมื่อมีคำสั่งซื้อ/รีวิวสนับสนุน · ราคาสูงไม่ถูกหักคะแนน (หัวข้อ 5.6) |
+| D10 | รักษา v1 และ Demo Scenario 1–8 ให้ทำงานเหมือนเดิม + Regression หลังแต่ละ Phase | ทุก Phase รัน `npm test` และ E2E ของ v1 |
+
+ขอบเขต Prompt 3.6: **P1–P5** (Data Foundation, Marketplace Connection Simulation, Analysis Engines, Trust Assessment Engine, UI) — P6 Demo v2 และ P7 Final QA ทำหลังส่วนหลักผ่านการทดสอบเบื้องต้น
+
+หลักการที่ไม่เปลี่ยนจาก v1: **Frontend-only, Mock Data, Rule-based Simulation** — ไม่มี Backend, Database, API ภายนอก, AI Model จริง หรือการเชื่อมต่อแพลตฟอร์มจริง ข้อมูลทั้งหมดเป็นข้อมูลสมมติในเบราว์เซอร์ และทุกหน้าต้องแสดงว่าเป็นระบบสาธิต
+
+---
+
+## 1. เป้าหมายและ Concept ใหม่
+
+### จาก "ตรวจเอกสาร" สู่ "ประเมินจากพฤติกรรมการขายจริง (จำลอง)"
+
+| | v1 (ปัจจุบัน) | v2 (เป้าหมาย) |
+|---|---|---|
+| แหล่งข้อมูลความน่าเชื่อถือ | ตัวตน (e-KYC), เอกสารธุรกิจ, ประวัติร้องเรียน/คำเตือน | v1 **+** ข้อมูลการขายบน Marketplace (ราคา ยอดขาย รีวิว การจัดส่ง) จากหลายแพลตฟอร์ม |
+| ผลลัพธ์ | Trust Level 0–4 + ใบรับรอง | v1 **+** Trust Assessment ที่ปรับตามความเสี่ยง พร้อม **ระดับความครอบคลุมข้อมูลและความเชื่อมั่น** และ **คำอธิบายทุกปัจจัย** |
+| ใครตัดสิน | เจ้าหน้าที่อนุมัติตาม Checklist | ระบบ **เสนอ** ความเหมาะสมของ Badge → **เจ้าหน้าที่ตัดสิน** (Human-in-the-loop เสมอ) |
+| ร้านใหม่ที่ข้อมูลน้อย | ได้ระดับตามเอกสาร | ได้สถานะ **"ข้อมูลยังไม่เพียงพอ"** — ไม่ถูกลงโทษเพราะเป็นร้านใหม่ |
+
+### Concept หลัก
+
+1. **Evidence-based Trust** — ความน่าเชื่อถือคำนวณจากหลักฐานหลายแหล่ง ไม่ใช่เอกสารอย่างเดียว
+2. **Risk-adjusted** — คะแนนรวมถูกปรับด้วยสัญญาณความเสี่ยง (เช่น ราคาต่ำผิดปกติ รีวิวผิดธรรมชาติ ข้อร้องเรียนร้ายแรง) และมี "เพดาน" เมื่อมีมาตรการที่เปิดอยู่
+3. **Coverage & Confidence** — ทุกผลประเมินบอกว่าใช้ข้อมูลมากน้อยแค่ไหน และมั่นใจได้ระดับใด
+4. **Explainable** — ทุกผลต้องอธิบายได้: ปัจจัยใด ค่าเท่าไร มาจากข้อมูลใด และร้านควรปรับปรุงอะไร
+5. **Human Decision** — ระบบไม่ให้ Badge, ไม่ระงับ, ไม่ขึ้นบัญชีดำอัตโนมัติ เจ้าหน้าที่ตัดสินและบันทึกเหตุผลเสมอ
+
+---
+
+## 2. รายการฟีเจอร์ที่จะเพิ่ม
+
+| # | ฟีเจอร์ | รายละเอียด | ผู้ใช้หลัก |
+|---|---|---|---|
+| F1 | **Multi-Platform Marketplace Connection Simulation** | เชื่อมร้านกับ Marketplace แบบจำลอง: เลือกแพลตฟอร์ม → หน้าขอความยินยอมจำลอง (ระบุขอบเขตข้อมูล) → รหัสร้านจำลอง → จำลองการซิงก์ (มีสถานะกำลังซิงก์/สำเร็จ/ล้มเหลว) · จัดการการเชื่อมต่อ: ซิงก์ใหม่, ยกเลิกการเชื่อมต่อ (ข้อมูลจากแพลตฟอร์มนั้นถูกลบออกจากการประเมิน) | ผู้ประกอบการ |
+| F2 | **Shopee / Lazada Mock Data** | ข้อมูลสมมติต่อร้าน: รายการสินค้า, ราคาและประวัติราคา, ยอดขายรายเดือน, อัตรายกเลิก/คืนสินค้า, การจัดส่งตรงเวลา, อัตราตอบแชต, คะแนนและรีวิวตัวอย่าง, อายุร้าน — สร้างแบบ **Deterministic** (Seed เดิม = ข้อมูลเดิมทุกครั้ง) | ทุกบทบาท |
+| F3 | **Merchant Self-Registration** | ต่อยอดการลงทะเบียน v1: ร้านเลือก "นำเข้าข้อมูลร้านจาก Marketplace" เพื่อเติมข้อมูลร้านอัตโนมัติ (ยังแก้ไขได้) ก่อนยื่นคำขอ · ยังคงเส้นทางกรอกเองแบบ v1 | ผู้ประกอบการ |
+| F4 | **Price & Sales Volume Analysis** | เทียบราคากับช่วงอ้างอิงของหมวดสินค้า (จำลอง), ตรวจราคาต่ำผิดปกติ/กระโดด, ยอดขายพุ่งไม่สอดคล้องกับอายุร้าน, ความสม่ำเสมอของยอดขาย, อัตรายกเลิก/คืนสินค้า | ระบบ → ร้าน/เจ้าหน้าที่ |
+| F5 | **Review & Rating Analysis** | การกระจายคะแนน, จำนวนและความใหม่ของรีวิว, สัญญาณรีวิวผิดธรรมชาติ (รีวิวจำนวนมากในช่วงสั้น, ข้อความซ้ำ/สั้นผิดปกติ), ประเด็นเชิงลบที่พบบ่อย (ใช้คำสำคัญเดียวกับ AI-02), ความขัดแย้งระหว่างคะแนนกับข้อร้องเรียน | ระบบ → ร้าน/เจ้าหน้าที่ |
+| F6 | **Risk-Adjusted Trust Assessment Engine** | Pure Function: รวมคะแนน 5 องค์ประกอบ → ปรับด้วยสัญญาณความเสี่ยง → เพดานจากมาตรการที่เปิดอยู่ → ระดับผลประเมิน (A–D / ข้อมูลไม่เพียงพอ) | ระบบ |
+| F7 | **Data Coverage & Confidence Indicators** | แสดงความครอบคลุมข้อมูล (แพลตฟอร์มที่เชื่อม, จำนวนเดือน, จำนวนรีวิว/คำสั่งซื้อ, ความใหม่ของข้อมูล) และความเชื่อมั่น สูง/กลาง/ต่ำ ทุกจุดที่แสดงผลประเมิน | ทุกบทบาท |
+| F8 | **Explainable Trust Assessment** | รายการปัจจัย: ค่า, ผลต่อคะแนน (+/−), หลักฐาน, แหล่งข้อมูล, คำแนะนำการปรับปรุง · มุมผู้บริโภคเห็นสรุปที่เข้าใจง่ายโดยไม่เปิดเผยข้อมูลเชิงพาณิชย์ของร้าน | ร้าน / ผู้บริโภค / เจ้าหน้าที่ |
+| F9 | **Officer Review & Badge Eligibility** | คิวงานผลประเมินใหม่ → เจ้าหน้าที่ดูรายละเอียด → อนุมัติ Badge / ขอข้อมูลเพิ่ม / ไม่อนุมัติ / ส่งพิจารณาความเสี่ยง — การตัดสินที่ต่างจากข้อเสนอของระบบต้องมีเหตุผล (Audit Log) | เจ้าหน้าที่ |
+| F10 | **Full Journey Demo v2** | เรื่องราวสาธิตใหม่ตั้งแต่ร้านลงทะเบียนเอง → เชื่อม 2 แพลตฟอร์ม → วิเคราะห์ → เจ้าหน้าที่ตัดสิน → ผู้บริโภคเห็นผล + กรณีเปรียบเทียบ (ร้านใหม่ข้อมูลน้อย, ร้านมีสัญญาณเสี่ยง) | ผู้นำเสนอ |
+
+### ชื่อแพลตฟอร์ม (ข้อสรุป D1)
+
+แสดง **"Shopee (จำลอง)" / "Lazada (จำลอง)"** ทุกครั้ง ไม่ใช้โลโก้ สีแบรนด์ หรือ URL ร้านจริง และมีข้อความ "ยังไม่มีการเชื่อมต่อ API จริง — ข้อมูลทั้งหมดเป็นข้อมูลสมมติ" ทุกหน้าที่เกี่ยวข้อง ชื่อเก็บใน Config ที่เดียว (`PLATFORMS`)
+
+---
+
+## 3. ส่วนของระบบเดิมที่จะนำกลับมาใช้
+
+v2 **ต่อยอด ไม่แทนที่** — ทุกฟังก์ชัน v1 ยังอยู่และต้องผ่าน Test เดิมทั้งหมด
+
+| ส่วนเดิม | ไฟล์หลัก | การใช้ใน v2 |
+|---|---|---|
+| Registration / OTP / e-KYC | `features/onboarding/*` | จุดเริ่มต้นของ Self-Registration (ไม่แก้ Flow เดิม) |
+| ลงทะเบียนร้าน 7 ขั้น | `features/merchants/RegisterShopWizard.tsx` | เพิ่มตัวเลือก "นำเข้าจาก Marketplace" เป็นทางเลือก (เส้นทางเดิมยังใช้ได้) |
+| Merchant Verification / Application | `features/verification/*`, `approveApplication()` | คำขอ Badge จากผลประเมินใช้ `VerificationApplication` type `certification` + อ้างอิง `assessmentId` |
+| Trust Level, ใบรับรอง, Badge, QR | `utils/trust.ts`, `utils/criteria.ts`, `components/common/Trust.tsx` | ผลประเมิน v2 เป็น **เกณฑ์เพิ่มเติม** ของ Level 3–4 · Badge/QR เดิมแสดงผลประเมินและ Coverage เพิ่ม |
+| Consumer Verification | `features/consumers/*` | หน้าร้าน/หน้าตรวจใบรับรองแสดงสรุปผลประเมิน + ความครอบคลุมข้อมูล |
+| Complaint Center / Merchant Resolution | `features/complaints/*`, `features/resolution/*` | สถิติข้อร้องเรียน (แก้ไขสำเร็จ/ส่งต่อ/ร้ายแรง) เป็นองค์ประกอบ "ประวัติการปฏิบัติตาม" |
+| Warning & Training | `features/warnings/*`, `features/training/*` | คำเตือนค้าง = สัญญาณความเสี่ยง · การอบรม = ปัจจัยบวก · คำแนะนำการปรับปรุงลิงก์ไปหลักสูตร |
+| Risk / Suspension / Appeal | `features/risk/*`, `riskAction()` | ระงับ/เพิกถอน/เรื่องเปิดอยู่ = **เพดาน** ผลประเมิน · เจ้าหน้าที่ส่งร้านที่มีสัญญาณเสี่ยงเข้า Risk Review เดิม |
+| AI Advertising Checker | `features/ai-assistant/services/advertisingAnalyzer.ts` | ตรวจคำบรรยายสินค้าที่นำเข้าจาก Marketplace (ข้อกล่าวอ้างเกินจริง) |
+| AI Complaint Assistant | `rules/complaintRules.ts`, `complaintAnalyzer.ts` | ใช้คำสำคัญ/การจัดประเภทเดิมจัดกลุ่มประเด็นเชิงลบในรีวิว |
+| Store / Workflow / Audit | `createEntityStore`, `stores/workflows.ts`, `useAuditStore` | Store ใหม่ใช้รูปแบบเดิม · ทุกการเปลี่ยนแปลงผ่าน Workflow + Audit |
+| Demo Controller | `demo/controller.ts`, `mock/scenarios/*`, `DemoController.tsx` | Scenario v2 ใช้ Controller, Gate, Role Transition, Continuity, Snapshot เดิม |
+| Test Harness | `tests/harness.mts`, `tests/e2e/helpers.ts`, `flows.ts` | ใช้กับ Test v2 ทั้งหมด |
+| Design System | `components/common/ui.tsx`, Tailwind tokens | Component ใหม่ใช้ Token เดิม (สีผ่าน WCAG AA แล้ว) |
+
+**Demo Scenario 1–8 และ Full Journey v1 คงไว้ตามเดิม** — v2 เพิ่มเรื่องใหม่ ไม่เปลี่ยนลำดับหรือเนื้อหาเรื่องเดิม
+
+---
+
+## 4. Mock Data Architecture
+
+### หลักการออกแบบ
+
+- **เก็บน้อย คำนวณซ้ำได้** — localStorage เก็บเฉพาะ "การเชื่อมต่อ + Seed + โปรไฟล์ร้าน (Archetype)" ส่วนข้อมูลการขายรายละเอียดสร้างด้วย Generator แบบ Deterministic เมื่อต้องใช้ (Memoize) → ขนาด localStorage เล็ก, Reset ง่าย, ผลซ้ำได้ 100%
+- **ไม่แตะรูปแบบข้อมูล v1** — เพิ่มเฉพาะ Field แบบ Optional และ Store ใหม่ ข้อมูล v1 ที่ผู้ใช้มีอยู่ยังโหลดได้ (ทดสอบด้วย localStorage รูปแบบ v1)
+- **ทุกอย่างผ่าน Workflow** — เชื่อม/ซิงก์/ยกเลิก/ประเมิน/ตัดสิน → `stores/workflows.ts` + Audit + Notification
+
+### Store ใหม่ (`createEntityStore`, key `smetrust:v1:<name>` — รวมใน `domainStores` เพื่อ Reset/Export)
+
+| Store | ข้อมูลหลัก |
+|---|---|
+| `useMarketplaceStore` (`marketplace-connections`) | `id`, `merchantId`, `platform` (`shopee` \| `lazada`), `mockShopId`, `status` (`pending_consent` \| `syncing` \| `connected` \| `sync_failed` \| `disconnected`), `scopes[]`, `consentAt`, `lastSyncAt`, `seed`, `archetype` |
+| `useAssessmentStore` (`trust-assessments`) | `id`, `merchantId`, `modelVersion`, `computedAt`, `inputsHash`, ผลลัพธ์ (`score`, `band`, `confidence`, `coverage`, `components`, `factors`, `flags`), `status` (`draft` \| `pending_review` \| `decided`), `officerDecision` (`approved` \| `rejected` \| `need_info` \| `escalated`, `reason`, `officerId`, `at`) |
+
+### Generator (Pure, Deterministic)
+
+```
+src/features/marketplace/
+  data/platforms.ts        PLATFORMS (ชื่อแสดงผล + "(จำลอง)"), ขอบเขตข้อมูลที่ขอความยินยอม
+  data/categoryBenchmarks.ts  ช่วงราคาอ้างอิงต่อหมวดสินค้า (จำลอง)
+  data/archetypes.ts       โปรไฟล์ร้านต้นแบบ
+  services/prng.ts         Seeded PRNG (mulberry32) — ไม่มี Math.random ในการสร้างข้อมูล
+  services/generator.ts    generateSnapshot(connection, now) → MarketplaceSnapshot
+```
+
+`MarketplaceSnapshot` (ไม่ persist): `shopAgeMonths`, `listings[]` (ชื่อ, หมวด, ราคา, ประวัติราคา 6 เดือน, คำบรรยาย), `monthlyOrders[12]`, `cancelRate`, `returnRate`, `onTimeShipRate`, `chatResponseRate`, `ratingHistogram[1..5]`, `reviews[]` (ตัวอย่าง ≤ 30 รายการ: คะแนน, ข้อความ, วันที่), `followers`
+
+### Archetypes (ครอบคลุมทุกกรณีที่ต้องสาธิตและทดสอบ)
+
+| Archetype | ลักษณะข้อมูล | ผลที่คาดหวัง |
+|---|---|---|
+| `established_good` | ขายมา 24+ เดือน ยอดสม่ำเสมอ รีวิวดี คืนสินค้าต่ำ | A — ความเชื่อมั่นสูง |
+| `growing_ok` | 8–12 เดือน ยอดโตปกติ รีวิวดีแต่น้อย | B — ความเชื่อมั่นกลาง |
+| `new_shop` | < 3 เดือน คำสั่งซื้อและรีวิวน้อยมาก | **ข้อมูลไม่เพียงพอ** (ไม่ใช่ D) |
+| `price_anomaly` | สินค้าแบรนด์ราคาต่ำกว่าช่วงอ้างอิง > 50% | สัญญาณเสี่ยงด้านราคา → C/D |
+| `review_burst` | รีวิว 5 ดาวจำนวนมากในไม่กี่วัน ข้อความสั้นซ้ำกัน | สัญญาณรีวิวผิดธรรมชาติ + ลดความเชื่อมั่น |
+| `fulfillment_issue` | ยกเลิก/คืนสูง จัดส่งล่าช้า | องค์ประกอบผลการขายต่ำ |
+| `sales_spike` | ยอดพุ่ง 10 เท่าในเดือนเดียว ร้านอายุน้อย | สัญญาณผิดปกติ → แนะนำให้เจ้าหน้าที่ตรวจ |
+
+### การผูกกับข้อมูล v1 (Seed)
+
+ร้านตัวอย่าง 12 ร้านของ v1 ได้ Archetype ที่สอดคล้องกับเรื่องเดิม เช่น M-001 บ้านผ้าคราม → `established_good` (Shopee + Lazada), M-005 ร้านกาแฟดอยสูง → `growing_ok`, M-004 ไอทีแกดเจ็ตช็อป → `fulfillment_issue` (สอดคล้องข้อร้องเรียนไม่ได้รับสินค้า), M-008/M-012 → `review_burst`/`price_anomaly` (สอดคล้องกรณีเพิกถอน/ตัวตนซ้ำ), ร้านที่ยังไม่เชื่อมต่อคงเดิม — ตรวจความสอดคล้องด้วย `tests/integrity.mts`
+
+### localStorage / Version
+
+- Prefix เดิม `smetrust:v1:` เพื่อให้ Reset/Export/Corrupt-data guard เดิมครอบคลุม Store ใหม่ทันที
+- `merge` ของ `createEntityStore` (ตรวจรูปแบบแล้วใช้ Seed แทนเมื่อเสียหาย) ใช้กับ Store ใหม่เช่นกัน
+- ผลประเมินเก็บ `modelVersion` + `inputsHash` — เปลี่ยนกฎ/ข้อมูลเมื่อใด UI แสดง "ผลประเมินล้าสมัย — ประเมินใหม่"
+
+---
+
+## 5. Trust Assessment Model
+
+Pure Function `assessTrust(input, model = MODEL_V2)` ใน `src/features/trust-assessment/` — ไม่แตะ Store, ทดสอบได้โดยตรง, Model (น้ำหนัก/เกณฑ์) แยกเป็น Config ที่อ่านได้
+
+### 5.1 องค์ประกอบ (คะแนนย่อย 0–100 ต่อองค์ประกอบ)
+
+| องค์ประกอบ | น้ำหนัก | ข้อมูลที่ใช้ |
+|---|---|---|
+| C1 ตัวตนและธุรกิจ | 25% | e-KYC, การอนุมัติร้าน, ใบรับรอง, ช่องทางขายที่ยืนยันแล้ว (v1) |
+| C2 ผลการขายและการจัดส่ง | 25% | ความสม่ำเสมอของยอดขาย, อายุร้าน, อัตรายกเลิก/คืน, จัดส่งตรงเวลา, อัตราตอบแชต (Marketplace) |
+| C3 เสียงลูกค้า | 20% | คะแนนเฉลี่ยแบบถ่วงความใหม่, จำนวนรีวิว, คุณภาพรีวิว, ประเด็นเชิงลบ (Marketplace) |
+| C4 ความสมเหตุสมผลของราคา | 10% | ราคาเทียบช่วงอ้างอิง, การเปลี่ยนราคาผิดปกติ (Marketplace) |
+| C5 การปฏิบัติตามและการแก้ไขปัญหา | 20% | อัตราแก้ไขข้อร้องเรียนสำเร็จ, เรื่องที่ส่งต่อ, คำเตือนที่แก้แล้ว/ค้าง, การอบรม (v1) |
+
+องค์ประกอบที่ **ไม่มีข้อมูล** ไม่ถูกนับเป็น 0 — น้ำหนักกระจายไปยังองค์ประกอบที่มีข้อมูล และลดความครอบคลุม (Coverage) แทน
+
+### 5.2 ขั้นตอนคำนวณ
+
+1. **Base Score** = ผลรวมถ่วงน้ำหนักขององค์ประกอบที่มีข้อมูล (0–100)
+2. **Risk Adjustment** — หักตามสัญญาณความเสี่ยงที่ตรวจพบ (แต่ละสัญญาณมีน้ำหนักและหลักฐาน) เช่น ราคาต่ำผิดปกติ −10, รีวิวผิดธรรมชาติ −8, ยอดขายพุ่งผิดปกติ −5, ข้อร้องเรียนร้ายแรงที่ยังเปิด −15 (ค่าจริงกำหนดใน Phase 4 พร้อม Test)
+3. **Standing แยกจาก Band (D8)** — สถานะจาก v1 ไม่ถูกแปลงเป็นคะแนนหรือ Band: `normal` / `under_review` (มีเรื่องพิจารณาความเสี่ยงเปิดอยู่) / `suspended` / `revoked` · Standing ที่ไม่ใช่ `normal` ทำให้ **ไม่มีสิทธิ์ใช้/ขอ Badge** และแสดงเด่นกว่า Band เสมอ
+4. **Data Coverage (D7)** — *มีข้อมูลครบแค่ไหน*: ค่าเฉลี่ยถ่วงน้ำหนักของมิติข้อมูลที่คาดหวัง — แพลตฟอร์มที่เชื่อม (เป้า 2), เดือนที่มีข้อมูลการขาย (เป้า 12), รายการสินค้าที่มีราคา (เป้า 5), คำสั่งซื้อ (เป้า 100), รีวิว (เป้า 30), ข้อมูลตัวตนและประวัติ v1 (มีเสมอ)
+5. **Data Confidence (D7)** — *เชื่อถือข้อมูลที่มีได้แค่ไหน* (แยกจาก Coverage): จำนวนแหล่งที่มาอิสระ, ความใหม่ของการซิงก์ (≤ 30 วัน เต็ม, ≤ 90 วัน ลดลง, > 90 วัน ต่ำ), ขนาดตัวอย่าง (คำสั่งซื้อ/รีวิว), ความสอดคล้องระหว่างแพลตฟอร์ม, สัญญาณคุณภาพข้อมูล (เช่น รีวิวผิดธรรมชาติ) → สูง / กลาง / ต่ำ พร้อมเหตุผลทุกข้อ
+6. **Insufficient Data (D6)** — ข้อมูล Marketplace ไม่พอ (ไม่มีการเชื่อมต่อที่ซิงก์แล้ว หรือคำสั่งซื้อ/รีวิว/เดือนต่ำกว่าเกณฑ์ขั้นต่ำ) → สถานะ **Insufficient Data** แทน Band · คะแนนยังคำนวณให้เจ้าหน้าที่ดูพร้อมหมายเหตุ แต่ไม่แสดงเป็นผลประเมิน
+7. **Band**
+
+| Band | เงื่อนไข | ความหมายที่แสดง |
+|---|---|---|
+| A | คะแนน ≥ 80 **และ** ความเชื่อมั่นสูง **และ** ไม่มีสัญญาณที่ควรตรวจสอบ (มิฉะนั้นสูงสุด B) | น่าเชื่อถือสูง |
+| B | 65–79 | น่าเชื่อถือ |
+| C | 50–64 หรือถูกจำกัดเพดาน | ควรติดตาม |
+| D | < 50 | มีความเสี่ยงสูง |
+| Insufficient Data | ข้อมูล Marketplace ไม่ถึงเกณฑ์ขั้นต่ำ | **ข้อมูลยังไม่เพียงพอ** — ไม่ใช่ผลลบ |
+
+ค่าน้ำหนัก, คะแนนหักความเสี่ยง, เกณฑ์ Band และเป้าหมาย Coverage อยู่ใน `MODEL_V2` (Config) — น้ำหนักองค์ประกอบปรับได้ที่หน้า **โมเดลการประเมิน** ของผู้ดูแลระบบ (D5) ผลประเมินบันทึกน้ำหนักที่ใช้จริงไว้ทุกครั้ง
+
+### 5.3 Explainability (ผลลัพธ์ทุกครั้งต้องมี)
+
+```ts
+interface TrustFactor {
+  id: string;            // เช่น 'c3.rating_recency', 'risk.review_burst'
+  component: 'C1'|'C2'|'C3'|'C4'|'C5'|'risk'|'cap';
+  label: string;         // ภาษาไทย อ่านเข้าใจได้
+  value: string;         // เช่น "4.7 ดาว จาก 1,240 รีวิว (12 เดือน)"
+  impact: number;        // ผลต่อคะแนน (+/−)
+  evidence: string[];    // ข้อมูลที่ใช้ เช่น เดือนที่ยอดพุ่ง, สินค้าที่ราคาต่ำ
+  source: 'identity' | 'shopee' | 'lazada' | 'complaints' | 'warnings' | 'training' | 'risk';
+  improve?: string;      // คำแนะนำ เช่น "เชื่อมต่อ Lazada เพื่อเพิ่มความครอบคลุมข้อมูล"
+}
+```
+
+- มุมร้านค้า: ทุกปัจจัย + คำแนะนำการปรับปรุง (ลิงก์ไปหลักสูตรอบรม/AI ตรวจโฆษณา)
+- มุมผู้บริโภค (D2): Band, Coverage, Confidence และสรุปภาษาง่าย 3–5 ข้อ **ไม่แสดงคะแนนตัวเลข ยอดขาย หรือข้อมูลเชิงพาณิชย์ของร้าน** และไม่แสดงข้อกล่าวหาที่ยังไม่มีข้อสรุป (หลักเดียวกับ v1)
+- มุมเจ้าหน้าที่: คะแนน 0–100, ตารางคำนวณทีละขั้น (คะแนนองค์ประกอบ × น้ำหนักหลังกระจายใหม่ − หักความเสี่ยง), ทุกปัจจัย + หลักฐาน และประวัติผลประเมิน
+
+### 5.4 Badge Eligibility และการตัดสินของเจ้าหน้าที่
+
+| ข้อเสนอของระบบ | เงื่อนไข |
+|---|---|
+| **ไม่สามารถพิจารณา Badge** | Standing ไม่ใช่ `normal` (ระงับ/เพิกถอน/อยู่ระหว่างพิจารณาความเสี่ยง) |
+| **ประกอบการพิจารณา Level 3 (Trusted SME)** | Band A/B + ความเชื่อมั่นสูง/กลาง |
+| **ประกอบการพิจารณา Level 4** | Band A + ความเชื่อมั่นสูง + มี Level 3 แล้ว |
+| **ขอข้อมูลเพิ่ม** | Insufficient Data หรือความเชื่อมั่นต่ำ |
+| **ยังไม่เหมาะสม** | Band C/D |
+| **ควรส่งพิจารณาความเสี่ยง** | สัญญาณความเสี่ยงหลายข้อร่วมกัน (เช่น ราคาต่ำผิดปกติในสินค้าความเสี่ยงสูง + ข้อร้องเรียนไม่ได้รับสินค้า) |
+
+เจ้าหน้าที่เลือก: อนุมัติยกระดับ / ขอข้อมูลเพิ่ม / ไม่อนุมัติ / ส่ง Risk Review (v1) — ตัดสินต่างจากข้อเสนอได้แต่ต้องมีเหตุผล · **อนุมัติยกระดับได้เมื่อผ่านเกณฑ์ v1 ของระดับนั้นด้วย** แล้วออกใบรับรองผ่าน `applyCertification()` + `approveApplication()` เดิม (มี Audit) · **ไม่มีการออก/ลด Badge หรือระงับอัตโนมัติจากผลประเมิน (D3)**
+
+### 5.6 การวิเคราะห์ราคา (D9)
+
+- ราคาเทียบกับ **ช่วงอ้างอิงของประเภทสินค้าเดียวกัน** (ไม่ใช่ทั้งร้าน) และแต่ละสินค้ามี **ระดับความเสี่ยงของสินค้า** (เช่น อาหารเสริม/เครื่องสำอาง/อุปกรณ์ไฟฟ้า = สูง, ผ้า/ของตกแต่ง = ต่ำ)
+- ราคาต่ำกว่าช่วงอ้างอิงมากเป็นเพียง **ข้อสังเกต** — ยกเป็น "ควรตรวจสอบเพิ่มเติม" เฉพาะสินค้าความเสี่ยงสูง/กลาง และ **ลดระดับลง** เมื่อมีหลักฐานสนับสนุน: ปริมาณคำสั่งซื้อและมูลค่าธุรกรรมสูง, รีวิวจำนวนมากและคะแนนดี
+- ราคาสูงกว่าช่วงอ้างอิง **ไม่ถูกหักคะแนน** (อาจเป็นสินค้าทำมือ/พรีเมียม)
+- ราคาเปลี่ยนแรงในเวลาสั้นเป็นข้อสังเกตให้ตรวจสอบ
+- ทุกข้อความใช้ถ้อยคำ "ควรตรวจสอบเพิ่มเติม" — **ไม่สรุปว่าร้านทุจริต** และไม่ใช้ราคาเป็นหลักฐานเพียงอย่างเดียว
+
+### 5.5 ข้อจำกัดที่ต้องแสดง
+
+ผลประเมินเป็น **การจำลองด้วยกฎ** จากข้อมูลสมมติ ไม่ใช่คะแนนเครดิต ไม่ใช่การรับรองทางกฎหมาย ไม่ใช่บัญชีดำ และไม่ได้ใช้ข้อมูลจริงจาก Shopee/Lazada
+
+---
+
+## 6. Demo Flow v2
+
+เพิ่มในหน้ารวม `/demo` เป็นแท็บ **"Full Journey v2"** คู่กับ Journey v1 เดิม (Scenario 1–8 ไม่เปลี่ยน) — ใช้ Demo Controller, Gate, Role Transition และ Continuity เดิม
+
+| Scenario | เรื่อง | บทบาท | Action สำคัญ (Gate) |
+|---|---|---|---|
+| **9** | ร้านลงทะเบียนเองและเชื่อม Marketplace | ผู้ประกอบการ | ลงทะเบียน (ใช้ S1 เดิมหรือบัญชีตัวอย่าง) → เชื่อม Shopee (จำลอง) → ให้ความยินยอม → ซิงก์สำเร็จ → เชื่อม Lazada (จำลอง) → นำเข้าข้อมูลร้านในแบบฟอร์มลงทะเบียน → ยื่นคำขอ |
+| **10** | วิเคราะห์ราคา ยอดขาย และรีวิว | ผู้ประกอบการ | ดูผลวิเคราะห์ + Coverage/Confidence → ดูปัจจัยและคำแนะนำ → (ทางเลือก) แก้คำบรรยายสินค้าด้วย AI ตรวจโฆษณา |
+| **11** | เจ้าหน้าที่ตรวจผลประเมินและตัดสิน Badge | เจ้าหน้าที่ | เปิดคิว → ดูปัจจัย/หลักฐาน → อนุมัติ Badge (หรือตัดสินต่างพร้อมเหตุผล) → ร้านได้แจ้งเตือน |
+| **12** | ผู้บริโภคตรวจสอบร้านที่ใช้ข้อมูลหลายแพลตฟอร์ม | ผู้บริโภค | ค้นหา/สแกน QR → เห็น Band + "ข้อมูลจาก 2 แพลตฟอร์ม 14 เดือน" → สรุปเหตุผลภาษาง่าย |
+| **13** | กรณีเปรียบเทียบ: ร้านใหม่ vs ร้านมีสัญญาณเสี่ยง | เจ้าหน้าที่ / ผู้บริโภค | ร้านใหม่ได้ "ข้อมูลยังไม่เพียงพอ" (ไม่ถูกลงโทษ) · ร้านราคาต่ำผิดปกติ + รีวิวผิดธรรมชาติ → เจ้าหน้าที่ส่ง Risk Review (ต่อกับกระบวนการ S6 เดิม) |
+
+**Full Journey v2** = 9 → 10 → 11 → 12 → 13 ด้วยบัญชี/ร้านเดียวกันใน 9–12 (Context ID: `operatorId`, `merchantId`, `connectionIds`, `assessmentId`) · S13 เป็นกรณีศึกษาแยกที่แจ้งก่อนเริ่ม (กลไก caseNote/Continuity เดิม) · จบด้วยหน้าสรุปภาพรวม v2
+
+---
+
+## 7. Implementation Phases
+
+ทุก Phase จบเมื่อ: `npm test` ผ่าน (รวม v1 ทั้งหมด), `tsc` ผ่าน, E2E ที่เกี่ยวข้องผ่าน, เอกสารอัปเดต — ไม่ Push/Merge/Deploy จนกว่าจะได้รับคำสั่ง
+
+| Phase | ขอบเขต | ผลลัพธ์ที่ตรวจได้ |
+|---|---|---|
+| **P0** ✅ | สร้าง Branch, ตรวจ Architecture, แผนนี้ | `docs/sme-trust-v2-plan.md` |
+| **P1 Data Foundation** | Types, PRNG, Generator, Archetypes, Category Benchmarks, Store ใหม่, Seed ผูกร้าน v1, รวมใน Reset/Export, Integrity | Unit test: Deterministic, Archetype ให้ข้อมูลตามลักษณะ, Reset ตรง Seed, localStorage v1 ยังโหลดได้ |
+| **P2 Connection & Self-Registration** | หน้าเชื่อม Marketplace (ความยินยอม, ซิงก์, จัดการ/ยกเลิก), นำเข้าข้อมูลใน Wizard เดิม, Workflow + Audit + Notification | Workflow test + E2E เชื่อม/ยกเลิก/นำเข้า |
+| **P3 Analysis Engines** | Price & Sales, Review & Rating (ใช้คำสำคัญ AI-02) — Pure Function | Unit test ต่อ Archetype + กรณีขอบ |
+| **P4 Trust Assessment Engine** | Components, Risk Adjustment, Caps, Coverage, Confidence, Band, Factors, Badge Eligibility | Unit test + Invariants (หัวข้อ 8) |
+| **P5 UI** | หน้าผลประเมินของร้าน, การแสดงผลในมุมผู้บริโภค/QR, คิวและหน้าตัดสินของเจ้าหน้าที่, KPI ใหม่ใน Admin Dashboard | Render test ทุกเส้นทางใหม่ + E2E ข้ามบทบาท |
+| **P6 Demo v2** | Scenario 9–13, Full Journey v2, หน้าสรุป v2 | Scenario test (Node) + E2E Journey v2 |
+| **P7 QA & Regression** | Responsive, Safari, Sub-path, พิสูจน์อักษร, เอกสาร (UAT v2) | ทุก Suite v1 + v2 ผ่าน, UAT Report v2 |
+
+ลำดับนี้ทำให้ Logic (P1, P3, P4) ทดสอบได้ก่อนมี UI และ v1 ไม่ถูกแตะจนถึง P2
+
+---
+
+## 8. Test Strategy
+
+| ระดับ | สิ่งที่ทดสอบ | ไฟล์ |
+|---|---|---|
+| Unit (Pure) | Generator Deterministic, Archetype → ลักษณะข้อมูล, Price/Sales/Review Analysis, Assessment | `tests/v2/marketplace.test.mts`, `tests/v2/assessment.test.mts` |
+| **Invariants** | คะแนน 0–100 เสมอ · เพิ่มข้อร้องเรียนส่งต่อ → คะแนนไม่เพิ่ม · ยกเลิกการเชื่อมต่อ → Coverage ไม่เพิ่ม · ร้านถูกเพิกถอน → D เสมอ · ข้อมูลน้อย → "ข้อมูลยังไม่เพียงพอ" ไม่ใช่ D · Input เดิม → ผลเดิม · ทุกผลมี Factor ที่อธิบายผลรวมได้ | `tests/v2/assessment.test.mts` |
+| Workflow / Integrity | เชื่อม/ซิงก์/ยกเลิก/ประเมิน/ตัดสิน → Store, Audit, Notification ตรงกันทุกบทบาท · FK ของ Store ใหม่ | `tests/flows.test.mts` (ขยาย), `tests/integrity.mts` |
+| Render | ทุกเส้นทางใหม่ × บทบาท ไม่มี Error, Role Gate ถูกต้อง | `tests/render.test.mts` |
+| Scenario | Scenario 9–13 + Full Journey v2 ผ่าน Controller (Gate, Transition, Continuity, Restart, Refresh) | `tests/scenarios.test.mts` |
+| E2E | เชื่อมต่อ → ประเมิน → เจ้าหน้าที่ตัดสิน → ผู้บริโภคเห็นผล, Journey v2 | `tests/e2e/v2-*.spec.ts` (Chromium + Safari + Sub-path) |
+| ภาษาไทย | กฎพิสูจน์อักษรเดิมครอบคลุมข้อความใหม่อัตโนมัติ | `tests/thai.test.mts` |
+| **Regression v1** | ทุก Suite เดิม (`npm test` 482 เงื่อนไข + Render 78 เส้นทาง, E2E Chromium 47 + Safari 61) ต้องผ่านทุก Phase | เดิม |
+
+---
+
+## 9. GitHub Pages Compatibility
+
+- **ไม่มี Network** — ข้อมูล Marketplace สร้างในเบราว์เซอร์ด้วย Seeded Generator ไม่มี `fetch`/API (ตรวจด้วยการสแกนโค้ดเดิม)
+- **Base path** — ใช้ `appPath()` / `appUrl()` / Router `basename` เดิม ทุกลิงก์และ QR ใหม่ต้องผ่าน Test "Base path" เดิม
+- **ขนาด Bundle** — v2 เพิ่มโค้ดมาก แนะนำแยกหน้า v2 ด้วย `React.lazy` (Code-split) ซึ่งช่วยแก้ KI-04 ด้วย · Asset ทั้งหมด Bundle ภายใน ไม่ใช้โลโก้แพลตฟอร์มจากภายนอก
+- **localStorage** — เก็บเฉพาะการเชื่อมต่อ/ผลประเมิน (ข้อมูลรายละเอียดคำนวณซ้ำ) เป้าหมายรวมทั้งระบบ < 1 MB
+- **Deploy** — Workflow ปัจจุบัน Deploy เฉพาะ `main` → งานบน `sme-trustv.2` **ไม่กระทบเว็บ v1 ที่ใช้งานอยู่** ทดสอบ v2 ในเครื่องด้วย `npm run test:e2e:subpath`
+- **เผยแพร่ v2 ที่ `/sme-trust/v2/` (D4)** — เตรียมแล้วด้วย `npm run build:v2` (Base `/sme-trust/v2/`, Output `dist-v2/`) แยกจาก Build ของ v1 · ยังไม่แก้ Workflow และยังไม่ Deploy
+- ข้อควรทราบเมื่อจะ Deploy จริง: GitHub Pages ใช้ `404.html` ระดับเว็บเพียงไฟล์เดียว ลิงก์ตรงภายใต้ `/sme-trust/v2/...` จะได้ `404.html` ของ v1 — ต้องเพิ่มการส่งต่อ (Redirect) ไปยังแอป v2 ใน `404.html` ตอนรวม Artifact ซึ่งจะทำในขั้นเผยแพร่
+
+---
+
+## สถานะการพัฒนา (Prompt 3.6 — P1–P5 · Prompt 3.7 — P6)
+
+| Phase | สถานะ | สิ่งที่ทำ |
+|---|---|---|
+| P0 | ✅ | Branch `sme-trustv.2`, แผนพัฒนา, ข้อสรุป D1–D10 |
+| P1 Data Foundation | ✅ | `features/marketplace` (types, platforms, catalog, archetypes, PRNG, generator), Store `marketplace-connections` / `trust-assessments` / `assessment-config`, Seed 13 การเชื่อมต่อ + 10 ผลประเมิน, Reset/Export/Integrity |
+| P2 Connection & Self-Registration | ✅ | `/m/marketplace` (ความยินยอม, ซิงก์, จำลองซิงก์ล้มเหลว, ซิงก์ใหม่, ยกเลิก), นำเข้าข้อมูลร้านใน Wizard ลงทะเบียนร้าน (ขั้นข้อมูลร้านค้า), Workflow + Audit + Notification (`stores/workflowsV2.ts`) |
+| P3 Analysis Engines | ✅ | `analysis/price.ts` (D9), `sales.ts`, `reviews.ts` (ใช้คำสำคัญ AI-02) |
+| P4 Trust Assessment Engine | ✅ | `trust-assessment/engine.ts` + `model.ts` (Config) — D2, D3, D5–D8 |
+| P5 UI | ✅ | ร้านค้า `/m/trust` · เจ้าหน้าที่ `/o/assessments`, `/o/assessments/:id` (ตารางคำนวณ + เกณฑ์ v1 + การตัดสิน) · ผู้ดูแลระบบ `/admin/assessment-model` · ผู้บริโภค: การ์ดผลประเมินในหน้าร้านและหน้าตรวจใบรับรอง · ข้อมูลประกอบในคำขอ Level 3–4 |
+| D4 | ✅ เตรียมแล้ว | `npm run build:v2` → `dist-v2/` (Base `/sme-trust/v2/`) — ไม่แก้ Workflow และยังไม่ Deploy |
+| P6 Demo v2 | ✅ | Scenario 9–13 + เส้นทางทางเลือก 9B (`mock/scenarios/v2.ts`), Full Journey v2 แยกจาก v1 (`journeyTrack`), Demo Selector แยกหมวด v1/v2, Executive Impact Summary `/demo/v2/summary` — รายละเอียดด้านล่าง |
+| P7 Final QA | ⏳ | ยังไม่ทำ (รอคำสั่ง) |
+
+### เส้นทางใหม่
+
+| บทบาท | เส้นทาง |
+|---|---|
+| ผู้ประกอบการ | `/m/marketplace` (ขั้นตอนเชื่อมต่อ: ยินยอม → เลือกร้าน → Preview → ยืนยันนำเข้า), `/m/marketplace/data/:id` (Data Overview), `/m/marketplace/analysis?tab=price\|sales\|reviews\|risk\|compare\|summary`, `/m/trust` · ปุ่มนำเข้าใน `/m/register-shop` |
+| เจ้าหน้าที่ / ผู้ดูแลระบบ | `/o/assessments`, `/o/assessments/:id` |
+| ผู้ดูแลระบบ | `/admin/assessment-model` |
+| ผู้บริโภค | การ์ด "ผลประเมินจากข้อมูลการขาย" ใน `/shop/:id` และ `/verify/:certId` · ร้านบน Marketplace ที่เชื่อมต่อแล้ว + ตัวอย่างหน้าร้าน (Mockup) ใน `/shop/:id` |
+| การสาธิต | `/demo` (แยกหมวด v1/v2), `/demo/complete/s9`…`s13`, `/demo/complete/s9b`, `/demo/v2/summary` |
+
+### P6 — Demo v2 (Prompt 3.7)
+
+| Scenario | ร้าน / บริบทที่ส่งต่อ | ประเด็นหลัก |
+|---|---|---|
+| 9 เชื่อมข้อมูลร้านค้าออนไลน์ | ร้านกาแฟดอยสูง (M-005) → Connection ID | ยินยอม → เลือกร้านตัวอย่าง → Preview → ยืนยันนำเข้า → สำเร็จ/ล้มเหลวแล้วลองใหม่ → Data Overview (Shop ID, หมวด, สินค้า, ราคา, คะแนน, รีวิว, ยอดขาย, วันที่อัปเดต, Data Source, Data Availability) |
+| 10 วิเคราะห์พฤติกรรมการขาย | Connection เดิม | ราคา/ยอดขาย/รีวิว/สัญญาณ/สรุป ด้วย Engine P3 + เปรียบเทียบ 4 กรณี (`analysis/comparison.ts` — ปรับเฉพาะข้อมูลตั้งต้น ไม่มีสูตรใหม่) และคำอธิบายว่าทำไมดาวเท่ากันแต่ผลต่างกัน |
+| 11 ประเมินความน่าเชื่อถือ | → Assessment ID, Application ID | 5 มิติ + น้ำหนักจาก Config, Risk Adjustment, Coverage/Confidence, Band, ข้อมูลที่ควรเพิ่ม · มุมร้าน (ไม่มีคะแนน) → มุมเจ้าหน้าที่ (คำนวณ) → มุมผู้บริโภค |
+| 12 เจ้าหน้าที่พิจารณา | ID เดิมทั้งหมด → Certificate ID | คิว → คำขอ (e-KYC, Marketplace Evidence) → ผลประเมิน → เกณฑ์ v1 → อนุมัติ/ขอข้อมูล/ไม่อนุมัติ → แจ้งร้าน → ใบรับรอง |
+| 13 ผู้บริโภคตรวจสอบ | Merchant เดียวกับ S12 | ค้นหา/QR → โปรไฟล์ → Band/Coverage/Confidence → ช่องทางที่ยืนยัน + ร้านบน Marketplace → ใบรับรอง → Marketplace Preview (Mockup) · "Badge ไม่ใช่การรับประกัน" |
+| 9B ทางเลือก: ไม่มี Marketplace | OP-012 (ยังไม่มีร้าน) | Self-Registration → Insufficient Data (ไม่ใช่ผลลบ, มิติ Marketplace ไม่นับเป็นศูนย์) → ส่งพิจารณา → เจ้าหน้าที่ขอหลักฐานเพิ่มผ่านคำขอลงทะเบียนเดิม |
+
+การเปลี่ยนแปลงที่เกี่ยวข้อง:
+- `submitAssessment` ผูกผลประเมินกับคำขอ v1 (`applicationId`): ใช้คำขอที่ค้างอยู่ หรือยื่นคำขอรับรองระดับที่แนะนำผ่าน `applyCertification` — `decideAssessment` อนุมัติ/ขอข้อมูล/ไม่อนุมัติคำขอเดิมผ่าน `approveApplication` / `requestInfo` / `rejectApplication` (ไม่สร้างคำขอซ้ำ)
+- ร้านส่งผลประเมินให้เจ้าหน้าที่ได้ทุกผลที่สถานะการรับรองปกติ (รวม Insufficient Data เพื่อขอหลักฐานเพิ่ม) — การยกระดับยังต้องผ่านเกณฑ์ v1 และเจ้าหน้าที่
+- Engine: ร้านที่ยังไม่มี Level 2 ไม่ได้รับข้อเสนอ "ประกอบการพิจารณา Level 3" (ก่อนหน้านี้ร้านที่รออนุมัติลงทะเบียนได้รับข้อเสนอนี้)
+- Demo Controller: `journeyTrack` แยก Full Journey v1/v2, เส้นทางทางเลือก (`branch`) เล่นแทรกระหว่าง Journey ได้, แสดง Context IDs และปุ่ม Restart Journey, Restart Scenario ใช้บริบทตอนเริ่ม (ไม่เรียก Fixture ซ้ำ)
+- ขั้นตอนเชื่อมต่อแสดงในหน้า (ไม่ใช่ Modal) เพื่อไม่บังตัวควบคุมการสาธิต
+
+### ข้อจำกัดที่ยังเหลือ
+
+- ข้อมูล Marketplace, ช่วงราคาอ้างอิง และ Archetype เป็นข้อมูลสมมติทั้งหมด — เกณฑ์และค่าน้ำหนักเป็นค่าเริ่มต้นสำหรับการจำลอง ยังไม่ผ่านการปรับเทียบกับข้อมูลจริง
+- วันที่ซิงก์ของข้อมูลตัวอย่างคงที่ (20 ต.ค. 2569) — เมื่อเวลาผ่านไปเกิน 30/90 วัน ความเชื่อมั่นของข้อมูลจะลดลงตามกฎ (ถูกต้องตามการออกแบบ แต่ผลสาธิตจะเปลี่ยน) จนกว่าจะกด "ซิงก์ใหม่"
+- การนำเข้าข้อมูลใน Wizard ไม่ถูกบันทึกในฉบับร่าง (ถ้าออกกลางทางต้องนำเข้าใหม่)
+- ยังไม่แยกโค้ดหน้า v2 (Code-split) — Bundle 1.30 MB (gzip 392 KB) เพิ่มจาก 1.21 MB
+- Admin Dashboard ยังไม่มี KPI ของ v2 (มีสรุปจำนวนต่อ Band ในคิวของเจ้าหน้าที่แทน)
+- การเผยแพร่ `/sme-trust/v2/` บน GitHub Pages ต้องเพิ่มการส่งต่อลิงก์ตรงใน `404.html` ตอนรวม Artifact (ยังไม่ทำ)
+- E2E ของ v2 ทดสอบบน Chromium (ทั้ง `/`, `/sme-trust/v2/`) — ยังไม่รันบน Safari/WebKit (P7)
+- กรณีเปรียบเทียบใน Scenario 10 ใช้หมวด "ความงามและสุขภาพ" คงที่ (เพื่อให้เห็นผลของความเสี่ยงสินค้า) และใช้ข้อมูลตัวตน/การปฏิบัติตามของร้านปัจจุบันเป็นฐาน
+- เส้นทาง 9B ใช้บัญชี OP-012 — ถ้าเล่นซ้ำระหว่าง Journey โดยไม่ Restart บัญชีจะมีร้านแล้ว (Restart Scenario คืนสภาพได้)
+- Executive Impact Summary เป็นตัวเลขจากข้อมูลสาธิตในเบราว์เซอร์ ไม่ใช่การคาดการณ์ผลกระทบจริง
+
+> สถานะหลัง P7: ข้อจำกัดเรื่องวันที่ซิงก์คงที่, Code-split, KPI v2, 404 ของ `/sme-trust/v2/`, E2E บน WebKit, หมวดของการเปรียบเทียบ และ 9B เล่นซ้ำ — **แก้แล้วใน P7** (ดูด้านล่าง)
+
+## P7 — Final QA, Trust Model Validation & Release Readiness
+
+| หัวข้อ | สิ่งที่ทำ | เอกสาร / Test |
+|---|---|---|
+| P7-A Journey Validation | หน้าจบ Scenario แตกแขนงตามผลจริง (อนุมัติ / ขอข้อมูลเพิ่ม / ไม่อนุมัติ / ส่งพิจารณาความเสี่ยง) · Scenario 13 ไม่แสดง Badge ว่าอนุมัติเมื่อผลไม่ใช่การอนุมัติ · Context ส่งต่อใบรับรองเฉพาะเมื่ออนุมัติ · จำลองเชื่อมต่อ/นำเข้า/ซิงก์ไม่สำเร็จแยกกัน | `tests/v2/p7.test.mts`, `tests/e2e/v2-p7.spec.ts` |
+| P7-B Model Validation | โปรไฟล์จำลอง 12 แบบ + ตรวจความเป็นธรรม 15 ข้อ → พบปัญหา 3 ข้อ แก้เป็นโมเดล **v2.1**: Band A ต้องมี Coverage ≥ 70% และข้อมูลไม่ขัดแย้ง (`bandCapReasons`), ตัวอย่างต่ำกว่าเป้าหมายลด Confidence, อัตราคืนสินค้า > 10% เป็นสัญญาณควรตรวจสอบ | `docs/assessment-validation.md`, `tests/v2/validation.test.mts` |
+| P7-C Configuration | ชุดน้ำหนักมีเลขชุด วันที่เริ่มใช้ และประวัติ · ผลประเมินบันทึก `weightSet` + สำเนาน้ำหนัก (ไม่ถูกแก้ย้อนหลัง) · ข้อมูลรุ่นก่อนใน localStorage ถูกย้ายเป็นชุด #1 (เดิมถูกทิ้ง) · Reset คืนชุดเริ่มต้น | `tests/v2/p7.test.mts` |
+| P7-D Data Freshness | วันที่ซิงก์และผลประเมินตัวอย่างสัมพัทธ์กับวันเริ่ม Demo · Mock Sync บันทึกที่มา (`syncSource`) และจำนวนครั้ง ไม่สร้างข้อมูลซ้ำ · Fixture จำลองอายุข้อมูล (ใหม่/31/91/180 วัน/ซิงก์ไม่สำเร็จ) · Data Confidence ปัจจุบันในหน้า Data Overview | `FreshnessCard`, `simulateDataAge` |
+| P7-E 9B Replay | `fixtureBranchClean` ล้างร้านของ OP-012 แบบ Idempotent · แจ้งชื่อร้านเดิมก่อนเริ่มใหม่ (`replayNote`) | E2E + Unit (เล่นซ้ำ 3 รอบ) |
+| P7-F Comparison | หมวดของการเปรียบเทียบ = หมวดของร้าน (เปลี่ยนได้) · คำเตือนเมื่อเทียบต่างหมวด · แสดงหมวดที่ใช้แทนเมื่อไม่มีสินค้าตัวอย่าง | E2E + Unit |
+| P7-G Dashboard v2 | `computeV2Stats` (Pure function จาก State) + ส่วน KPI v2 ใน Admin Dashboard (Dashboard v1 คงเดิม) | Unit: ตรงกับ State, เปลี่ยนตาม Scenario, Reset กลับค่าเริ่มต้น |
+| P7-H Performance | Route-based Code Splitting (`lazyPage`) + โหลดล่วงหน้าเมื่อเครื่องว่าง · Recharts แยก Chunk | `docs/performance-report.md` |
+| P7-I GitHub Pages | รวม v1+v2 ใน Artifact เดียว, 404 ส่งต่อ Deep link ของ v2, `restoreDeepLink`, localStorage Namespace `smetrust:v2:` | `docs/deployment-readiness.md`, `npm run test:e2e:pages` |
+| P7-J Cross-browser | Chromium + Firefox + WebKit, 375/768/1440 px | `docs/uat-report-v2.md` |
+| P7-K Security | ไม่มี Network call/Secrets/External URL/XSS sink · Dependency advisories บันทึกใน Known Issues | `docs/uat-report-v2.md` |
+
+## ประเด็นที่ตัดสินใจแล้ว
+
+ดูตาราง **ข้อสรุปที่ตกลงแล้ว (D1–D10)** ด้านบน
+
+## Release — v2 แทน v1 ที่ `/sme-trust/` (เปลี่ยนแนวทาง D4)
+
+- D4 เดิม (เผยแพร่ v2 ที่ `/sme-trust/v2/` คู่กับ v1) **ยกเลิก** — v2 เผยแพร่แทน v1 ที่ URL เดิม ผ่านการ Merge `sme-trustv.2` → `main` (Workflow Deploy จาก `main` เท่านั้น)
+- เตรียมแล้ว: Workflow (TypeScript Check / Tests / ตรวจ Build Output / Deploy เฉพาะ `main`), localStorage `smetrust:v2:*`, ลบกลไก `/v2/` (`pages-combine`, `build:v2`, `restoreDeepLink`), E2E เว็บไซต์เดียว, Test runner ข้ามแพลตฟอร์ม (`scripts/run-tests.mjs`), Tag `v1-before-sme-trust-v2` (ในเครื่อง)
+- ยังไม่ Push / Merge / Deploy — ขั้นตอนและ Rollback: `docs/release-v2-pages.md`
+

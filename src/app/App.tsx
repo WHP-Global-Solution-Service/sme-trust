@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, useLocation } from 'react-router-dom';
 import { AppRoutes } from '@/routes/AppRoutes';
+import { preloadWhenIdle } from '@/routes/lazyPage';
 import { ConfirmHost, ToastHost } from '@/components/feedback/Feedback';
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary';
 import { postToParent } from '@/utils/devicePreview';
@@ -24,6 +25,8 @@ function ScrollToTop() {
 }
 
 export function App() {
+  // หน้าอื่นแยกไฟล์ไว้ — โหลดต่อเมื่อเบราว์เซอร์ว่าง เพื่อให้การสาธิตเปลี่ยนหน้าได้ทันทีและใช้งานออฟไลน์ต่อได้
+  useEffect(() => preloadWhenIdle(), []);
   return (
     <ErrorBoundary>
       {/* เปิดพฤติกรรมของ React Router v7 ล่วงหน้า (ปิดคำเตือน Future Flag ใน Console) */}

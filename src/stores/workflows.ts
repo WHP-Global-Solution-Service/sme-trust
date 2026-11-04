@@ -34,6 +34,7 @@ import { COMPLAINT_CATEGORY, TRUST_LEVELS } from '@/constants/labels';
 import type { AiHistoryEntry } from '@/features/ai-assistant/types/ai.types';
 import { useAiWorkspaceStore } from './aiWorkspace';
 import { useDemoStore } from './demo';
+import { useAssessmentConfigStore } from './assessmentConfig';
 import {
   domainStores,
   useAiHistoryStore,
@@ -84,7 +85,7 @@ export function audit(action: string, target: string, detail?: string, system = 
   });
 }
 
-const notifyMerchant = (merchantId: string, title: string, body: string, link?: string, tone?: AppNotification['tone']) => {
+export const notifyMerchant = (merchantId: string, title: string, body: string, link?: string, tone?: AppNotification['tone']) => {
   const m = merchantOf(merchantId);
   if (m) notify('merchant', m.operatorId, title, body, link, tone);
 };
@@ -95,6 +96,7 @@ export function resetAllDemoData() {
   useSessionStore.getState().reset();
   useAiWorkspaceStore.getState().reset();
   useDemoStore.getState().reset();
+  useAssessmentConfigStore.getState().reset();
 }
 
 // ---------- AI Simulation history ----------

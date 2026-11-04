@@ -27,6 +27,8 @@ R.useSyncExternalStore = (sub: unknown, get: unknown) => origUSES(sub, get, get)
 const { renderToString } = await imp('react-dom/server');
 const { StaticRouter } = await imp('react-router-dom/server');
 const { AppRoutes } = await import('@/routes/AppRoutes');
+// หน้าแยกไฟล์ (lazy) — โหลดทั้งหมดก่อน Render แบบ SSR
+await (await import('@/routes/lazyPage')).preloadAllPages();
 export const S = await import('@/stores');
 export const W = await import('@/stores/workflows');
 export const T = await import('@/utils/trust');

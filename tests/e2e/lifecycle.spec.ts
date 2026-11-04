@@ -9,7 +9,7 @@ type App = { id: string; merchantId: string; type: string; status: string; reque
 type Cert = { id: string; merchantId: string; level: number; status: string; supersededBy?: string };
 
 const setSession = (page: Page, s: Record<string, unknown>) =>
-  page.evaluate((x) => localStorage.setItem('smetrust:v1:session', JSON.stringify({ state: { consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...x }, version: 1 })), s);
+  page.evaluate((x) => localStorage.setItem('smetrust:v2:session', JSON.stringify({ state: { consumerId: 'CS-001', officerId: 'OF-001', shopDrafts: {}, ...x }, version: 1 })), s);
 const asOfficer = (page: Page) => setSession(page, { role: 'officer', officerId: 'OF-001' });
 const asMerchant = (page: Page, operatorId: string) => setSession(page, { role: 'merchant', operatorId, merchantLoggedIn: true });
 const asConsumer = (page: Page) => setSession(page, { role: 'consumer', consumerId: 'CS-001' });

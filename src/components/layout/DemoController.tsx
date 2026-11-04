@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, Info, LayoutGrid, Lightbulb, Lock, Pause, Repeat, Undo2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, Info, Link2, LayoutGrid, Lightbulb, Lock, Pause, Repeat, RotateCcw, Undo2, X } from 'lucide-react';
 import type { Role } from '@/types';
 import { domainStores, useSessionStore, confirmDialog, toast } from '@/stores';
 import { useAiWorkspaceStore } from '@/stores/aiWorkspace';
 import { useDemoStore } from '@/stores/demo';
-import { scenarios, stepInstruction } from '@/mock/scenarios';
+import { journeyScenarios, scenarioCode, stepInstruction, trackOf } from '@/mock/scenarios';
 import { ROLE_LABEL } from '@/constants/labels';
-import { activeScenario, back, gateState, next, pauseDemo, restartScenario, returnToStep, scenarioStatus, stepRoute } from '@/demo/controller';
+import { activeScenario, back, gateState, next, pauseDemo, restartJourney, restartScenario, returnToStep, scenarioStatus, stepRoute } from '@/demo/controller';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/ui';
 import { cn } from '@/utils/cn';
@@ -46,6 +46,22 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
   const isLast = i === sc.steps.length - 1;
   const pct = Math.round(((i + 1) / sc.steps.length) * 100);
   const nextLabel = step.nextLabel ?? (isLast ? 'จบ Scenario และดูสรุป' : 'ถัดไป');
+  const code = scenarioCode(sc);
+  const track = d.journeyMode ? d.journeyTrack ?? 'v1' : trackOf(sc);
+  const seq = journeyScenarios(track);
+  const pos = seq.findIndex((s) => s.id === sc.id) + 1;
+  const journeyLabel = track === 'v2' ? 'Full Journey v2 — Marketplace Intelligence' : 'Full Journey Demo';
+  const journeyPos = sc.branch ? 'เส้นทางทางเลือก' : track === 'v2' ? `Scenario ${pos}/${seq.length} ของ v2` : `Scenario ${sc.no}/${seq.length}`;
+  // บริบทที่ส่งต่อตลอด Journey v2 (Merchant / Connection / Assessment / Application)
+  const ids = trackOf(sc) === 'v2'
+    ? ([
+        ['Merchant', d.current.merchantId],
+        ['Connection', d.current.connectionId],
+        ['Assessment', d.current.assessmentId],
+        ['Application', d.current.applicationId],
+        ['Certificate', d.current.certId],
+      ].filter(([, v]) => !!v) as [string, string][])
+    : [];
 
   const doNext = (confirmed = false) => {
     const r = next(nav, here, confirmed);
@@ -78,6 +94,12 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
     setSheet(false);
     toast.success(`เริ่ม Scenario ${sc.no} ใหม่แล้ว`);
   };
+  const doRestartJourney = async () => {
+    const r = await confirmDialog({ title: `Restart ${journeyLabel}`, body: 'ล้างข้อมูลทั้งหมดที่สร้างระหว่าง Journey และเริ่ม Scenario แรกของชุดนี้ใหม่', confirmText: 'เริ่ม Journey ใหม่', tone: 'danger' });
+    if (!r.ok) return;
+    restartJourney(nav);
+    setSheet(false);
+  };
   const doPause = async () => {
     const r = await confirmDialog({ title: 'ออกจากโหมดสาธิตชั่วคราว?', body: 'ข้อมูลและขั้นตอนถูกเก็บไว้ กลับมาสาธิตต่อได้จากหน้ารวม Demo Scenarios', confirmText: 'ออกจากโหมดสาธิต' });
     if (r.ok) pauseDemo();
@@ -88,13 +110,11 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
       {d.journeyMode && (
         <div className="mb-2">
           <div className="flex items-center justify-between text-[11px] text-white/70">
-            <span>Full Journey Demo</span>
-            <span>
-              Scenario {sc.no}/{scenarios.length}
-            </span>
+            <span>{journeyLabel}</span>
+            <span>{journeyPos}</span>
           </div>
-          <div className="mt-1 grid grid-cols-8 gap-0.5" aria-label="ความคืบหน้าภาพรวม">
-            {scenarios.map((s) => {
+          <div className="mt-1 grid gap-0.5" style={{ gridTemplateColumns: `repeat(${seq.length}, minmax(0, 1fr))` }} aria-label="ความคืบหน้าภาพรวม">
+            {seq.map((s) => {
               const st = scenarioStatus(s.id);
               return <span key={s.id} className={cn('h-1 rounded-full', st === 'completed' ? 'bg-success' : st === 'current' ? 'bg-white' : 'bg-white/20')} />;
             })}
@@ -102,7 +122,7 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
         </div>
       )}
       <p className="truncate text-sm font-semibold">
-        Scenario {sc.no}: {sc.title}
+        Scenario {code}: {sc.title}
       </p>
       <div className="mt-1.5 flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -125,6 +145,16 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
             {d.current.notice}
           </span>
         </p>
+      )}
+      {ids.length > 0 && (
+        <div className="flex flex-wrap gap-1" data-demo="context" aria-label="บริบทที่ส่งต่อ">
+          <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+          {ids.map(([k, v]) => (
+            <span key={k} className="rounded-md bg-bg px-1.5 py-0.5 text-[11px] text-ink-soft">
+              {k} <b className="font-mono text-ink">{v}</b>
+            </span>
+          ))}
+        </div>
       )}
       {sc.caseNote && (
         <p className="flex gap-1.5 rounded-lg bg-info-50 px-2.5 py-2 text-xs text-[#1d4ab8]">
@@ -209,6 +239,12 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
           <Repeat className="h-3.5 w-3.5" />
           Restart Scenario
         </button>
+        {d.journeyMode && (
+          <button onClick={doRestartJourney} className="inline-flex items-center gap-1 font-medium text-ink-soft hover:text-primary">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restart Journey
+          </button>
+        )}
         <Link to="/demo" className="inline-flex items-center gap-1 font-medium text-ink-soft hover:text-primary">
           <LayoutGrid className="h-3.5 w-3.5" />
           Demo Menu
@@ -240,7 +276,7 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
           <button onClick={() => setSheet(true)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left" aria-label="ดูรายละเอียดขั้นตอน">
             <span className="min-w-0">
               <span className="block truncate text-[11px] text-ink-soft">
-                {d.journeyMode ? `Journey ${sc.no}/8 · ` : ''}S{sc.no} · ขั้น {i + 1}/{sc.steps.length} · {ROLE_LABEL[step.role]}
+                {d.journeyMode ? `Journey ${sc.branch ? code : track === 'v2' ? pos : sc.no}/${seq.length} · ` : ''}S{code} · ขั้น {i + 1}/{sc.steps.length} · {ROLE_LABEL[step.role]}
               </span>
               <span className="block truncate text-sm font-semibold text-ink">{step.title}</span>
               {!gate.ok && <span className="block truncate text-[11px] text-warning">{gate.hint}</span>}
