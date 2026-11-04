@@ -3,7 +3,7 @@
 URL: https://whp-global-solution-service.github.io/sme-trust/
 Source: `sme-trustv.2` → Merge เข้า `main` → GitHub Actions (`deploy-pages.yml`) Deploy จาก `main` เท่านั้น
 
-> สถานะ: **เตรียม Release เสร็จ — ยังไม่ได้ Push / Merge / Deploy** · รอคำสั่งอนุมัติการเผยแพร่จริง
+> สถานะ: **เผยแพร่แล้ว (5 พ.ย. 2569 เวลา 00:01 น. ตามเวลาไทย)** — Merge Commit `7e6df10` · GitHub Actions Run #3 สำเร็จ · ตรวจเว็บจริงผ่าน · ดูบันทึกข้อ 9
 > Prototype นี้เป็น Frontend Only ด้วยข้อมูลจำลอง — **ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)**
 
 ## 1. ผล Preflight
@@ -127,12 +127,36 @@ git push origin main                          # Workflow (ของ v1) Deploy v
 
 | เกณฑ์ | ตรวจในเครื่อง | ตรวจบนเว็บจริง |
 |---|---|---|
-| URL เดิมเปิด v2 / v1 ถูกแทนที่ | ✅ (เซิร์ฟเวอร์จำลอง) | รอ Deploy |
-| Scenario 1–13, Full Journey v1/v2, 9B | ✅ | รอ Deploy |
-| Marketplace เป็นข้อมูลจำลอง / ไม่มี External API | ✅ (ตรวจ Request ทุกหน้า) | รอ Deploy |
-| Trust Model v2.1 | ✅ | รอ Deploy |
+| URL เดิมเปิด v2 / v1 ถูกแทนที่ | ✅ (เซิร์ฟเวอร์จำลอง) | ✅ `index--Nc6Dx8l.js` (v1 เดิม `index-BPJSzHoq.js`) |
+| Scenario 1–13, Full Journey v1/v2, 9B | ✅ | ✅ E2E บนเว็บจริง 37/37 |
+| Marketplace เป็นข้อมูลจำลอง / ไม่มี External API | ✅ (ตรวจ Request ทุกหน้า) | ✅ ไม่มี Request นอก `/sme-trust/` |
+| Trust Model v2.1 | ✅ | ✅ (Full Journey v2, P7 flows) |
 | ไม่มีข้อมูลส่วนบุคคลจริง | ✅ (Mock Data) | — |
-| ไม่มี Console Errors / Broken Routes | ✅ | รอ Deploy |
-| Automated Tests | ✅ | GitHub Actions — รอ Deploy |
-| GitHub Actions สำเร็จ | ยังไม่ได้รัน (KI-V2-12) | รอ Deploy |
+| ไม่มี Console Errors / Broken Routes | ✅ | ✅ ยกเว้นข้อความ 404 ของ Document จาก Deep link (KI-03) — จับคู่ได้ครบ 113/113 ไม่มี Asset ล้มเหลว |
+| Automated Tests | ✅ | ✅ GitHub Actions (TypeScript + `npm test`) |
+| GitHub Actions สำเร็จ | — | ✅ Run #3 (build + deploy) |
 | Rollback Plan / Git History v1 | ✅ Tag + แผนข้อ 7 · ไม่มีการ Rewrite | — |
+
+## 9. บันทึกการเผยแพร่
+
+| รายการ | ค่า |
+|---|---|
+| Rollback Tag (Push แล้ว) | `v1-before-sme-trust-v2` → `4027c04` |
+| Source Branch (Push แล้ว) | `sme-trustv.2` @ `c7d5fa0` |
+| Merge Commit (`--no-ff`) | `7e6df10` "Release SME Trust v2 to GitHub Pages (replaces v1 at /sme-trust/)" — ไม่มี Conflict · ต้นไม้ไฟล์ตรงกับ `c7d5fa0` · ไม่มี Force Push |
+| ตรวจหลัง Merge (ในเครื่อง) | `npm ci` · TypeScript ✅ · `npm test` 13 ชุด ✅ · Build `/sme-trust/` + Verify ✅ · E2E Pages จำลอง 9/9 (3 เบราว์เซอร์) |
+| GitHub Actions | Run #3 `41873095495` — build ✅ (checkout, setup-node, npm ci, TypeScript check, Automated tests, Build, Verify build output, upload) · deploy ✅ · 16:59:47–17:01:54 UTC 4 พ.ย. 2569 · https://github.com/WHP-Global-Solution-Service/sme-trust/actions/runs/41873095495 |
+| Run ของ v1 สำหรับ Rollback ทางเลือก A | Run #2 `39731774899` (`4027c04`) — Re-run ได้ถึงราว 21 พ.ย. 2569 |
+| เว็บไซต์จริง | https://whp-global-solution-service.github.io/sme-trust/ — HTTP 200, `index--Nc6Dx8l.js` (ตรงกับ Build ในเครื่องหลัง Merge) · Asset ทั้งหมด 200 |
+
+### Smoke Test บนเว็บไซต์จริง (Playwright กับ URL จริง)
+
+| ชุด | ผล |
+|---|---|
+| หน้าแรก/Asset/Network, Deep link + Refresh 13 เส้นทาง, ข้อมูล v1 ค้างในเบราว์เซอร์ | ✅ Chromium 3/3 · Firefox 3/3 · WebKit 3/3 |
+| E2E เชิงฟังก์ชัน (Full Journey v1 1→8, Scenario 1–8, Full Journey v2 + 9B, P7: S12 ไม่อนุมัติ/S13, 9B เล่นซ้ำ, ความใหม่ข้อมูล, หมวดเปรียบเทียบ, Admin, จอ 375/768/1440, Role/Lifecycle, AI, Trust Assessment) | ✅ 37/37 (Chromium) |
+
+หมายเหตุ: รอบแรกของ E2E เชิงฟังก์ชัน 10 Test ไม่ผ่านที่ตัวตรวจ Console เท่านั้น — ข้อความ "Failed to load resource: 404" เกิดจาก GitHub Pages ตอบ Deep link ด้วย `404.html` (HTTP 404, KI-03) ซึ่ง `vite preview` ในเครื่องตอบ 200 จึงไม่เคยพบ · รันซ้ำด้วยตัวตรวจที่ยอมเฉพาะข้อความ 404 ที่จับคู่กับ Document 404 และนับ Request อื่นที่ ≥ 400 เป็น Error → 37/37 ผ่าน, Console 404 = Document 404 = 113, ไม่มี Asset ล้มเหลว · ไม่ใช่ปัญหาร้ายแรง จึง**ไม่ Rollback**
+
+Not Tested: Safari/อุปกรณ์มือถือจริง, Screen reader, ผู้ใช้จริงที่เคยเปิด v1 (จำลองด้วย localStorage แทน)
+

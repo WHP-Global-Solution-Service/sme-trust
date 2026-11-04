@@ -40,7 +40,7 @@ npm run test:e2e:safari                    # E2E บน WebKit (Safari) Desktop 
 
 # SME Trust v2 — เผยแพร่แทน v1 ที่ URL เดิม `/sme-trust/`
 
-สถานะ: **เตรียม Release เสร็จ รอคำสั่งอนุมัติ — ยังไม่ได้ Push / Merge / Deploy** · ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)
+สถานะ: **เผยแพร่แล้ว** (Merge `7e6df10`, GitHub Actions Run #3 สำเร็จ, ตรวจเว็บจริงผ่าน) · ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)
 
 แนวทาง (เปลี่ยนจาก P7-I ที่เตรียมโครงสร้าง `/sme-trust/v2/` + v1 ใน Artifact เดียว):
 
