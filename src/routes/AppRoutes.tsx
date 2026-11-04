@@ -31,6 +31,8 @@ const ShopPublicPage = lazyPage(() => import('@/features/consumers/ShopPublicPag
 const VerifyPage = lazyPage(() => import('@/features/consumers/VerifyPage'));
 const CertVerifyPage = lazyPage(() => import('@/features/consumers/CertVerifyPage'));
 const ReportWizard = lazyPage(() => import('@/features/complaints/ReportWizard'));
+const MarketplaceRegistrationPage = lazyPage(() => import('@/features/merchants/MarketplaceRegistrationPage'));
+const MarketplaceProfilePage = lazyPage(() => import('@/features/marketplace/pages/MarketplaceProfilePage'));
 const ConsumerCases = lazyPage(() => import('@/features/complaints/ConsumerCases'));
 const ConsumerCaseDetail = lazyPage(() => import('@/features/complaints/ConsumerCaseDetail'));
 
@@ -96,6 +98,7 @@ export function AppRoutes() {
         <Route path="/m/kyc" element={gate(M, <KycPage />)} />
         <Route path="/m/shop" element={gate(M, <ShopPage />)} />
         <Route path="/m/register-shop" element={gate(M, <RegisterShopWizard />)} />
+        <Route path="/m/register-shop/marketplace" element={gate(M, <MarketplaceRegistrationPage />)} />
         <Route path="/m/certification" element={gate(M, <MerchantCertPage />)} />
         <Route path="/m/passport" element={gate(M, <PassportPage />)} />
         <Route path="/m/complaints" element={gate(M, <MerchantComplaints />)} />
@@ -111,6 +114,7 @@ export function AppRoutes() {
         <Route path="/m/marketplace" element={gate(M, <MarketplacePage />)} />
         <Route path="/m/marketplace/data/:id" element={gate(M, <MarketplaceDataPage />)} />
         <Route path="/m/marketplace/analysis" element={gate(M, <MarketplaceAnalysisPage />)} />
+        <Route path="/m/marketplace/profile/:id" element={gate(M, <MarketplaceProfilePage />)} />
         <Route path="/m/trust" element={gate(M, <MerchantAssessmentPage />)} />
         <Route path="/m/ai/ad-checker" element={gate(M, <AdvertisingChecker />)} />
         <Route path="/m/ai/complaint" element={gate(M, <ComplaintAssistant />)} />

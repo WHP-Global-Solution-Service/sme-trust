@@ -370,3 +370,20 @@ interface TrustFactor {
 - เตรียมแล้ว: Workflow (TypeScript Check / Tests / ตรวจ Build Output / Deploy เฉพาะ `main`), localStorage `smetrust:v2:*`, ลบกลไก `/v2/` (`pages-combine`, `build:v2`, `restoreDeepLink`), E2E เว็บไซต์เดียว, Test runner ข้ามแพลตฟอร์ม (`scripts/run-tests.mjs`), Tag `v1-before-sme-trust-v2` (ในเครื่อง)
 - ยังไม่ Push / Merge / Deploy — ขั้นตอนและ Rollback: `docs/release-v2-pages.md`
 
+## Marketplace-Assisted Registration & Auto-Fill
+
+ตัดสินใจร่วมกับผู้ใช้ (5 พ.ย. 2569): **Scenario 9 = ร้านเดิม M-005 อัปเดตโปรไฟล์จากข้อมูลที่นำเข้า** (ไม่สร้างร้าน/คำขอใหม่ ใบรับรอง Level 3 ไม่เปลี่ยน · Scenario 10–13 ใช้ M-005 ต่อเนื่อง) และ **เส้นทางสมัครร้านใหม่แยกเป็น 9A** (OP-013 · Level 2 เมื่ออนุมัติ) · 9B คงเป็นการลงทะเบียนด้วยตนเอง
+
+| ส่วน | สิ่งที่ทำ |
+|---|---|
+| ทางเข้า | `/m/register-shop` ขั้นแรก: A. เชื่อมต่อร้านค้าจาก Marketplace / B. ลงทะเบียนด้วยตนเอง (ค่าเริ่มต้น — Scenario 2 และ 9B ไม่เปลี่ยน) |
+| เชื่อมบัญชี (ร้านใหม่) | `/m/register-shop/marketplace`: เลือกแพลตฟอร์ม → หน้าอนุญาตจำลอง (ไม่ใช่หน้า Login ไม่มีช่องรหัสผ่าน) → เลือกร้านในบัญชี → Preview → ยืนยันนำเข้า · ความคืบหน้าบันทึกทุกขั้น |
+| Auto-Fill | ชื่อร้าน คำอธิบาย หมวดหมู่ ลิงก์ร้าน · ช่องที่ไม่มีในแหล่งข้อมูลเว้นว่าง ("ต้องกรอกเพิ่ม") · ไม่สร้างข้อมูลเจ้าของร้านหรือเอกสาร · ไม่ Auto-Submit |
+| ที่มาของข้อมูล | `src/features/marketplace/autofill.ts`: นำเข้า / ผู้สมัครแก้ไข / กรอกเอง / ต้องกรอกเพิ่ม / รอการตรวจสอบ + สรุปจำนวน |
+| Raw Source | สำเนา ณ ตอนนำเข้า (อ่านอย่างเดียว) จาก Generator เดียวกับที่ประเมิน · การเชื่อมต่อเก็บ Seed/Shop ID/หมวดต้นฉบับ (`sourceCategory`) → แก้หมวด/ชื่อในโปรไฟล์ไม่เปลี่ยน Snapshot หรือผลประเมิน · การเชื่อมต่อเดิมไม่มี `sourceCategory` จึงได้ผลเหมือนเดิม (Model v2.1 ไม่เปลี่ยน) |
+| ฉบับร่าง | บันทึกอัตโนมัติใน localStorage ของ v2 · Refresh/Back/Next ไม่หาย · เปลี่ยน Marketplace ต้องยืนยัน · ยกเลิกการนำเข้าล้างเฉพาะค่าที่ยังเป็นต้นฉบับ · ยกเลิกการเชื่อมต่อล้างฉบับร่างอัปเดตโปรไฟล์ |
+| ไม่ซ้ำ | `submitShopRegistration(..., { draftId })` และ `submitMarketplaceRegistration` คืนคำขอเดิมเมื่อส่งซ้ำ · `confirmProfileUpdate` คืนบันทึกเดิม · Fixture ล้างข้อมูลของบัญชีตัวอย่างก่อนเล่นซ้ำ |
+| ร้านเดิม (Scenario 9) | `/m/marketplace/profile/:id`: ข้อมูลเดิม / จาก Marketplace / ที่จะบันทึก · คำอธิบาย ติดต่อ ที่อยู่บันทึกทันที · ชื่อร้านและหมวดที่ผูกกับใบรับรอง → รอเจ้าหน้าที่ตรวจ |
+| เจ้าหน้าที่ | หน้าคำขอและหน้าผลประเมิน: แหล่งข้อมูล สถานะการเชื่อมต่อ ต้นฉบับเทียบที่ส่ง ช่องที่แก้ ช่องที่ขาด ผลประเมิน การยืนยันตัวตน · ขอข้อมูลเพิ่มผ่าน Workflow เดิม |
+| ทดสอบ | `tests/v2/autofill.test.mts` (87) · `tests/e2e/v2-autofill.spec.ts` · ปรับ `tests/v2/scenarios.test.mts` และ `tests/e2e/v2-journey.spec.ts` ตามขั้นตอนใหม่ของ Scenario 9 |
+

@@ -72,7 +72,7 @@ test.describe('P7 — Desktop flows', () => {
 
   test('9B เล่นซ้ำ: แจ้งร้านเดิมของ OP-012 แล้วล้างก่อนเริ่มใหม่ (ไม่สร้างร้านซ้ำ)', async ({ page }) => {
     test.setTimeout(300_000);
-    await startV2(page, 5); // 9B
+    await startV2(page, 6); // 9B (การ์ดลำดับ 9, 10, 11, 12, 13, 9A, 9B)
     await expect(panel(page).getByText('Scenario 9B:')).toBeVisible();
     await next(page);
     await main(page).getByRole('button', { name: 'ไม่มีร้านบน Marketplace — ลงทะเบียนด้วยตนเอง' }).click();

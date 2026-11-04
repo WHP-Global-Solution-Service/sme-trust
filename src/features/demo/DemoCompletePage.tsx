@@ -140,9 +140,14 @@ export default function DemoCompletePage() {
             {primary.label}
           </Button>
           {sc.id === 's9' && (
-            <Button size="lg" variant="outline" icon={GitBranch} onClick={() => launch('s9b')}>
-              ทางเลือก 9B: ร้านที่ไม่มี Marketplace
-            </Button>
+            <>
+              <Button size="lg" variant="outline" icon={GitBranch} onClick={() => launch('s9a')}>
+                ทางเลือก 9A: ร้านใหม่สมัครด้วย Auto-Fill
+              </Button>
+              <Button size="lg" variant="outline" icon={GitBranch} onClick={() => launch('s9b')}>
+                ทางเลือก 9B: ร้านที่ไม่มี Marketplace
+              </Button>
+            </>
           )}
           <Button size="lg" variant="outline" icon={Repeat} onClick={replay}>
             {outcome && outcome.kind !== 'approved' && outcome.kind !== 'pending' ? 'Replay Scenario เพื่อเลือกผลอื่น' : 'Replay Scenario'}

@@ -12,7 +12,7 @@ const MID_TEXTS = ['โดยรวมโอเค แต่ส่งช้า�
 const BAD_TEXTS = ['ยังไม่ได้รับสินค้าเลย ทักไปไม่ตอบ', 'ส่งช้ามาก เลยกำหนดไปหลายวัน', 'สินค้าชำรุด ใช้งานไม่ได้', 'ได้ของไม่ตรงปก คนละรุ่นกับที่สั่ง', 'ขอคืนเงินแล้วยังไม่ได้รับเงินคืน'];
 const BURST_TEXTS = ['ดีมาก', 'ดีมากค่ะ', 'ดี', 'สินค้าดี', 'ดีมาก'];
 
-type ConnLike = Pick<MarketplaceConnection, 'id' | 'platform' | 'seed' | 'archetype'>;
+type ConnLike = Pick<MarketplaceConnection, 'id' | 'platform' | 'seed' | 'archetype'> & { sourceCategory?: string };
 
 const round = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d;
 
@@ -56,7 +56,9 @@ function sampleReviews(rng: Rng, conn: ConnLike, hist: number[], shopAgeDays: nu
   return reviews.sort((a, b) => a.daysAgo - b.daysAgo);
 }
 
-export function generateSnapshot(conn: ConnLike, category: string): MarketplaceSnapshot {
+export function generateSnapshot(conn: ConnLike, profileCategory: string): MarketplaceSnapshot {
+  // Raw Source: ใช้หมวดที่บันทึกตอนนำเข้า (ถ้ามี) — การแก้หมวดในโปรไฟล์ร้านไม่เปลี่ยนข้อมูลต้นฉบับ
+  const category = conn.sourceCategory ?? profileCategory;
   const p = ARCHETYPES[conn.archetype];
   const rng = mulberry32(conn.seed);
   const shopAgeMonths = intBetween(rng, p.shopAgeMonths[0], p.shopAgeMonths[1]);
@@ -133,7 +135,7 @@ export function generateSnapshot(conn: ConnLike, category: string): MarketplaceS
 // Snapshot คำนวณซ้ำได้ — Cache ตาม Seed/Archetype/หมวดสินค้า
 const cache = new Map<string, MarketplaceSnapshot>();
 export function snapshotOf(conn: ConnLike, category: string): MarketplaceSnapshot {
-  const key = `${conn.id}|${conn.seed}|${conn.archetype}|${category}`;
+  const key = `${conn.id}|${conn.seed}|${conn.archetype}|${conn.sourceCategory ?? category}`;
   let s = cache.get(key);
   if (!s) {
     s = generateSnapshot(conn, category);

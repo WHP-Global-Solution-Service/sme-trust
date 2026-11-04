@@ -19,6 +19,8 @@ export interface DemoCtx {
   /** v2: การเชื่อมต่อ Marketplace (จำลอง) และผลประเมินที่ใช้ต่อเนื่องใน Scenario 9–13 */
   connectionId?: string;
   assessmentId?: string;
+  /** v2: บันทึกการนำเข้าข้อมูลร้านจาก Marketplace (Scenario 9 / 9A) */
+  importId?: string;
   /** แจ้งเมื่อใช้ข้อมูลตัวอย่างแทนข้อมูลจาก Scenario ก่อนหน้า (แสดงในตัวควบคุมการสาธิต) */
   notice?: string;
 }

@@ -467,7 +467,7 @@ check(demo().status === 'paused' && view('/m').length > 0 && view('/demo').inclu
 C.resumeDemo(nav);
 check(demo().status === 'running' && cur === '/', 'Resume กลับขั้นเดิม');
 C.startJourney(nav);
-check(demo().completed.length === 0 && S.useMerchantStore.getState().items.length === 12 && S.useOperatorStore.getState().items.length === 12, 'Restart Full Journey คืนข้อมูลสาธิตเริ่มต้น');
+check(demo().completed.length === 0 && JSON.stringify(S.useMerchantStore.getState().items) === JSON.stringify(MOCK.seed.merchants()) && JSON.stringify(S.useOperatorStore.getState().items) === JSON.stringify(MOCK.seed.operators()), 'Restart Full Journey คืนข้อมูลสาธิตเริ่มต้น (ร้านค้าและบัญชีตรงกับ Seed ทุกรายการ)');
 
 // ================================================================ AI integration
 describe('AI Integration กับระบบเดิม');

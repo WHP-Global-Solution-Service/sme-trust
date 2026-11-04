@@ -83,39 +83,7 @@ test('ร้านเชื่อมต่อ Lazada (จำลอง) → ป�
   await expect(main(page)).not.toContainText(mine.result.score.toFixed(1));
 });
 
-test('Self-Registration: นำเข้าข้อมูลร้านจาก Shopee (จำลอง) → ส่งคำขอ → การเชื่อมต่อผูกกับร้านใหม่ → ประเมินได้', async ({ page }) => {
-  test.setTimeout(240_000);
-  await fresh(page);
-  await session(page, { role: 'merchant', operatorId: 'OP-012', merchantLoggedIn: true });
-  await open(page, '/m/register-shop');
-  await main(page).getByRole('button', { name: 'ถัดไป', exact: true }).click();
-  await main(page).getByRole('button', { name: 'ถัดไป', exact: true }).click();
-  await main(page).getByRole('button', { name: 'นำเข้าจาก Shopee (จำลอง)' }).click();
-  await expect(page.getByRole('dialog').getByText(/ยังไม่มีการเชื่อมต่อ API จริง/)).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: 'ยินยอมและเชื่อมต่อ (จำลอง)' }).click();
-  const shopName = await main(page).getByPlaceholder('ชื่อที่ใช้บนช่องทางขาย').inputValue();
-  expect(shopName).toMatch(/^ร้าน/);
-  await expect(main(page).getByRole('button', { name: 'นำเข้าจาก Shopee (จำลอง) แล้ว' })).toBeVisible();
-  await main(page).getByLabel(/อำเภอ\/เขต/).fill('เมือง');
-  await main(page).getByRole('button', { name: 'ถัดไป', exact: true }).click();
-  // ช่องทางขาย Marketplace ที่นำเข้า (react-hook-form ไม่ตั้ง attribute value จึงอ่านค่าจาก input โดยตรง)
-  expect((await main(page).locator('input').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value))).some((v) => v.includes('(จำลอง)'))).toBe(true);
-  await main(page).getByRole('button', { name: 'ถัดไป', exact: true }).click();
-  await main(page).getByRole('button', { name: /ทะเบียนพาณิชย์/ }).first().click();
-  await main(page).getByRole('button', { name: 'ถัดไป', exact: true }).click();
-  await main(page).getByRole('checkbox').last().check();
-  await main(page).getByRole('button', { name: 'ส่งคำขอ', exact: true }).click();
-  await expect(main(page).getByText(/APP-\d{4}-\d{4}/).first()).toBeVisible();
-
-  const merchants = await store<{ id: string; operatorId: string; shopName: string }>(page, 'merchants');
-  const m = merchants.find((x) => x.operatorId === 'OP-012')!;
-  expect(m.shopName).toBe(shopName);
-  expect((await store<Conn>(page, 'marketplace-connections')).filter((c) => c.merchantId === m.id && c.status === 'connected').map((c) => c.platform)).toEqual(['shopee']);
-  await open(page, '/m/trust');
-  await main(page).getByRole('button', { name: 'ประเมินความน่าเชื่อถือ' }).click();
-  await expect(main(page).getByText('Data Coverage — ความครบถ้วนของข้อมูล')).toBeVisible();
-  await expect(main(page).getByText('Shopee (จำลอง)').first()).toBeVisible();
-});
+// Self-Registration ด้วยข้อมูลจาก Marketplace: ย้ายไปทดสอบเส้นทางใหม่ (เลือก Marketplace → อนุญาต → เลือกร้าน → Preview → Auto-Fill) ใน v2-autofill.spec.ts
 
 test('ผู้ดูแลระบบปรับน้ำหนักโมเดล: ผลรวมต้อง 100 · บันทึก · คืนค่าเริ่มต้น', async ({ page }) => {
   await fresh(page);

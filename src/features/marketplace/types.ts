@@ -34,6 +34,11 @@ export interface MarketplaceConnection {
   failKind?: FailKind;
   disconnectedAt?: ISODate;
   failReason?: string;
+  /**
+   * หมวดสินค้าของร้านบนแพลตฟอร์ม ณ ตอนนำเข้า (Raw Source) — ถ้ามี Generator ใช้ค่านี้แทนหมวดในโปรไฟล์ร้าน
+   * เพื่อให้การแก้ข้อมูลลงทะเบียน (เช่นหมวดธุรกิจ) ไม่เปลี่ยนข้อมูลต้นฉบับจาก Marketplace
+   */
+  sourceCategory?: string;
 }
 
 export interface Listing {

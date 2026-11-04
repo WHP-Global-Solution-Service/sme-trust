@@ -21,11 +21,12 @@ test('Demo Selector: แยก v1 / v2, Full Journey 2 ชุด และแท
   await expect(page.getByRole('region', { name: 'สาธิตระบบแบบต่อเนื่อง (Full Journey Demo)' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Full Journey v2 — Marketplace Intelligence' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Full Journey v2 — Marketplace Intelligence' }).getByText(/เน้นการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิม/)).toBeVisible();
-  // แท็บ v1 แสดง 8 การ์ด, แท็บ v2 แสดง 5 + ทางเลือก 9B
+  // แท็บ v1 แสดง 8 การ์ด, แท็บ v2 แสดง 5 + ทางเลือก 9A (ร้านใหม่ Auto-Fill) + 9B (ลงทะเบียนเอง)
   await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(8);
   await page.getByRole('tab', { name: /v2 — Marketplace Intelligence/ }).click();
-  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(6);
+  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(7);
   await expect(page.getByRole('tabpanel').getByText('ร้านที่ไม่มีบัญชี Marketplace — ลงทะเบียนด้วยตนเอง')).toBeVisible();
+  await expect(page.getByRole('tabpanel').getByText('ร้านใหม่ — สมัครด้วยข้อมูลจาก Marketplace (Auto-Fill)')).toBeVisible();
 });
 
 test('Full Journey v2: เชื่อมต่อ → วิเคราะห์ → ประเมิน → เจ้าหน้าที่อนุมัติ → ผู้บริโภคตรวจสอบ ด้วย ID เดียวกันตลอด', async ({ page }) => {
@@ -56,13 +57,38 @@ test('Full Journey v2: เชื่อมต่อ → วิเคราะห�
   await wiz(page).getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
   await next(page);
   await expect(wiz(page).getByText('เชื่อมต่อสำเร็จ (Connection Success)')).toBeVisible();
+  await expect(wiz(page).getByRole('link', { name: 'เติมข้อมูลโปรไฟล์ร้านอัตโนมัติ' })).toBeVisible();
   await next(page);
   const conn = (await store<Conn>(page, 'marketplace-connections')).find((c) => c.merchantId === 'M-005' && c.status === 'connected')!;
+  // Auto-Fill โปรไฟล์ร้านเดิม → ตรวจ/แก้ไข → ยืนยันอัปเดต (ไม่ใช่การสมัครร้านใหม่)
+  const before = { merchants: (await store<{ id: string }>(page, 'merchants')).length, apps: (await store<App>(page, 'applications')).length, certs: JSON.stringify((await store<{ merchantId: string }>(page, 'certifications')).filter((c) => c.merchantId === 'M-005')) };
+  await expect(page).toHaveURL(new RegExp(`/m/marketplace/profile/${conn.id}$`));
+  await expect(main(page).getByText('อัปเดตข้อมูลร้านเดิม — ไม่ใช่การสมัครร้านใหม่', { exact: false })).toBeVisible();
+  await expect(main(page).getByTestId('import-summary')).toContainText('นำเข้าสำเร็จ');
+  await expect(main(page).getByTestId('source-data')).toContainText('อ่านอย่างเดียว');
+  await next(page);
+  await expectBlocked(page);
+  const desc = main(page).getByLabel(/คำอธิบายธุรกิจ/);
+  await desc.fill(`${await desc.inputValue()} เปิดรับคำสั่งซื้อทุกวัน 08:00–20:00`);
+  await expect(main(page).locator('[data-field="description"]').first()).toHaveAttribute('data-status', 'user_edited');
+  await next(page);
+  await expectBlocked(page);
+  await main(page).getByLabel(/ข้าพเจ้าตรวจสอบข้อมูลแล้ว/).check();
+  await main(page).getByRole('button', { name: 'ยืนยันการอัปเดตข้อมูลร้าน' }).click();
+  await expect(main(page).getByRole('status').filter({ hasText: 'อัปเดตข้อมูลร้านแล้ว' })).toBeVisible();
+  const m5 = (await store<{ id: string; description: string }>(page, 'merchants')).find((m) => m.id === 'M-005')!;
+  expect(m5.description).toContain('เปิดรับคำสั่งซื้อทุกวัน 08:00–20:00');
+  expect((await store<{ id: string }>(page, 'merchants')).length).toBe(before.merchants);
+  expect((await store<App>(page, 'applications')).length).toBe(before.apps);
+  expect(JSON.stringify((await store<{ merchantId: string }>(page, 'certifications')).filter((c) => c.merchantId === 'M-005'))).toBe(before.certs);
+  expect((await store<{ merchantId: string; mode: string }>(page, 'marketplace-imports')).filter((r) => r.merchantId === 'M-005').map((r) => r.mode)).toEqual(['profile_update']);
+  await next(page);
   await expect(page).toHaveURL(new RegExp(`/m/marketplace/data/${conn.id}$`));
   await expect(main(page).getByText('Data Availability')).toBeVisible();
   await expect(panel(page).getByText(conn.id).first()).toBeVisible(); // Context Preservation
   await finishScenario(page, 's9');
   await expect(main(page).getByRole('button', { name: 'ทางเลือก 9B: ร้านที่ไม่มี Marketplace' })).toBeVisible();
+  await expect(main(page).getByRole('button', { name: 'ทางเลือก 9A: ร้านใหม่สมัครด้วย Auto-Fill' })).toBeVisible();
 
   // ---------------- S10
   await continueTo(page, '10');
@@ -111,6 +137,9 @@ test('Full Journey v2: เชื่อมต่อ → วิเคราะห�
   await next(page);
   await expect(page).toHaveURL(new RegExp(`/o/applications/${tas.applicationId}$`));
   await expect(main(page).getByText('Marketplace Evidence').first()).toBeVisible();
+  // เจ้าหน้าที่เห็นข้อมูลที่ร้านนำเข้าและแก้ไขใน Scenario 9
+  await expect(main(page).getByTestId('import-review')).toContainText('ร้านอัปเดตโปรไฟล์จากข้อมูลที่นำเข้า');
+  await expect(main(page).getByTestId('modified-fields')).toContainText('คำอธิบายธุรกิจ');
   for (let k = 0; k < 4; k++) await next(page);
   await expectBlocked(page);
   await main(page).getByRole('radio', { name: 'อนุมัติยกระดับ' }).click();

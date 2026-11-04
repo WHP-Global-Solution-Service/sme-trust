@@ -101,12 +101,41 @@ V.resyncMarketplace(conn.id);
 V.completeSync(conn.id, true);
 go();
 check(demo().current.connectionId === conn.id, `  บันทึก Connection ID ${conn.id}`);
-let page = assertStep('Overview');
+// ---- Auto-Fill โปรไฟล์ร้านเดิม → ตรวจ/แก้ไข → ยืนยันอัปเดต (ไม่ใช่การสมัครร้านใหม่)
+let page = assertStep('Auto-Fill');
+check(cur === `/m/marketplace/profile/${conn.id}` && page.includes('อัปเดตข้อมูลร้านเดิม — ไม่ใช่การสมัครร้านใหม่') && page.includes('นำเข้าสำเร็จ') && page.includes('อ่านอย่างเดียว') && page.includes('Level 3'), '  หน้าเติมโปรไฟล์ร้านเดิม: สรุปการนำเข้า ข้อมูลต้นฉบับ (อ่านอย่างเดียว) และระบุว่าใบรับรองเดิมไม่เปลี่ยน');
+assertBlocked();
+reportDemo('profile.loaded', 1);
+go();
+assertStep('แก้ไข');
+assertBlocked();
+const m5 = S.useMerchantStore.getState().items.find((m) => m.id === 'M-005')!;
 const live = S.useMarketplaceStore.getState().items.find((c) => c.id === conn.id)!;
+const src9 = V.sourceOfConnection(live, m5);
+const reg9 = V.registeredValues(m5);
+const edited9 = { ...reg9, shopName: src9.shopName, category: src9.category, description: `${src9.description} เปิดรับคำสั่งซื้อทุกวัน 08:00–20:00` };
+reportDemo('profile.edited', 1);
+go();
+assertStep('ยืนยัน');
+assertBlocked();
+const before9 = { merchants: S.useMerchantStore.getState().items.length, apps: S.useVerificationStore.getState().items.length, certs: JSON.stringify(S.useCertificationStore.getState().items.filter((c) => c.merchantId === 'M-005')) };
+const up = V.confirmProfileUpdate(conn.id, edited9, 'DRF-TEST-S9');
+check(up.ok && up.record?.mode === 'profile_update' && up.record.applied.join() === 'description' && up.record.pending.length === 0, '  ยืนยันอัปเดต: บันทึกเฉพาะคำอธิบายที่แก้ (ชื่อร้าน/หมวดตรงกับต้นฉบับ)');
+check(
+  S.useMerchantStore.getState().items.length === before9.merchants && S.useVerificationStore.getState().items.length === before9.apps && JSON.stringify(S.useCertificationStore.getState().items.filter((c) => c.merchantId === 'M-005')) === before9.certs,
+  '  ไม่สร้างร้านหรือคำขอใหม่ และใบรับรอง Level 3 เดิมไม่เปลี่ยน',
+);
+check(V.confirmProfileUpdate(conn.id, edited9, 'DRF-TEST-S9').duplicate === true && S.useImportRecordStore.getState().items.filter((r) => r.merchantId === 'M-005').length === 1, '  กดยืนยันซ้ำ → บันทึกเดิม ไม่สร้างซ้ำ');
+const rawOf = (x: ReturnType<typeof V.sourceOfConnection>) => JSON.stringify({ ...x, importedAt: '' });
+const src9After = V.sourceOfConnection(S.useMarketplaceStore.getState().items.find((c) => c.id === conn.id)!, S.useMerchantStore.getState().items.find((m) => m.id === 'M-005')!);
+check(rawOf(src9After) === rawOf(src9) && src9After.rating === src9.rating && src9After.reviewCount === src9.reviewCount && src9After.salesVolume === src9.salesVolume, '  ข้อมูลต้นฉบับจาก Marketplace (คะแนน รีวิว ยอดขาย ราคา) ไม่เปลี่ยนหลังแก้โปรไฟล์');
+go();
+check(demo().current.importId === up.record?.id, `  บันทึก Import ID ${up.record?.id}`);
+page = assertStep('Overview');
 check(cur === `/m/marketplace/data/${conn.id}` && page.includes(live.mockShopId) && page.includes('Data Availability') && page.includes('ข้อมูลผู้ซื้อ') && page.includes('Lazada (จำลอง)'), '  Data Overview: Shop ID จำลอง, แหล่งข้อมูล, Data Availability');
 check(go() === 'completed' && cur === '/demo/complete/s9', 'จบ Scenario 9 → หน้าสรุป');
 page = view(cur);
-check(page.includes('ดำเนินการต่อ: วิเคราะห์พฤติกรรมการขาย') && page.includes('ทางเลือก 9B') && page.includes(conn.id), '  สรุปมี CTA ไป Scenario 10 และทางเลือก 9B');
+check(page.includes('ดำเนินการต่อ: วิเคราะห์พฤติกรรมการขาย') && page.includes('ทางเลือก 9A') && page.includes('ทางเลือก 9B') && page.includes(conn.id) && page.includes('อัปเดตโปรไฟล์ร้านเดิม'), '  สรุปมี CTA ไป Scenario 10 ทางเลือก 9A/9B และสรุปการอัปเดตโปรไฟล์');
 check(demo().journey.connectionId === conn.id && demo().journey.merchantId === 'M-005', '  ส่งต่อ Merchant ID และ Connection ID');
 
 describe('Full Journey v2 — Scenario 10: วิเคราะห์พฤติกรรมการขาย');

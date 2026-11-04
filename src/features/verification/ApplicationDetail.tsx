@@ -11,6 +11,7 @@ import { Timeline } from '@/components/common/Timeline';
 import { DocList } from '@/components/forms/MockUpload';
 import NotFoundPage from '@/features/onboarding/NotFoundPage';
 import { AssessmentSupportPanel } from '@/features/trust-assessment/components/AssessmentSupportPanel';
+import { ImportReviewSection } from '@/features/marketplace/components/ImportReviewSection';
 
 export default function ApplicationDetail() {
   const { id } = useParams();
@@ -84,6 +85,9 @@ export default function ApplicationDetail() {
           {blocker && <p className="w-full text-sm text-warning">ยังอนุมัติไม่ได้: {blocker}</p>}
         </Card>
       )}
+
+      {/* ข้อมูลที่ร้านนำเข้าจาก Marketplace (จำลอง): คำขอลงทะเบียนใช้บันทึกของคำขอ · คำขออื่นใช้การอัปเดตโปรไฟล์ล่าสุดของร้าน (Scenario 9) */}
+      <ImportReviewSection merchantId={m.id} importId={app.importId} className="mb-4" />
 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4">

@@ -161,7 +161,13 @@ export interface ShopForm {
   documents: MockDocument[];
 }
 
-export function submitShopRegistration(operatorId: string, f: ShopForm): { merchant: Merchant; app: VerificationApplication } {
+export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { draftId?: string } = {}): { merchant: Merchant; app: VerificationApplication; duplicate?: boolean } {
+  // ส่งซ้ำจากฉบับร่างเดิม (กดซ้ำ / Refresh / Back) → คืนคำขอเดิม ไม่สร้างร้านหรือคำขอซ้ำ
+  if (opts.draftId) {
+    const prev = useVerificationStore.getState().items.find((a) => a.sourceDraftId === opts.draftId);
+    const prevMerchant = prev && ms().items.find((m) => m.id === prev.merchantId);
+    if (prev && prevMerchant) return { merchant: prevMerchant, app: prev, duplicate: true };
+  }
   const merchants = ms().items;
   const id = `M-${String(Math.max(...merchants.map((m) => Number(m.id.slice(2)))) + 1).padStart(3, '0')}`;
   const priorFlagged = merchants.filter((m) => m.operatorId === operatorId && ['suspended', 'revoked'].includes(m.riskStatus));
@@ -202,6 +208,7 @@ export function submitShopRegistration(operatorId: string, f: ShopForm): { merch
     submittedAt: nowISO(),
     updatedAt: nowISO(),
     checks: standardChecks(op?.kycStatus === 'verified' ? 'partial' : false),
+    ...(opts.draftId ? { sourceDraftId: opts.draftId } : {}),
     timeline: [
       ev('ส่งคำขอลงทะเบียนร้านค้า', `${f.businessType === 'juristic' ? 'นิติบุคคล' : 'บุคคลธรรมดา'} · เอกสาร ${f.documents.length} รายการ`, 'merchant'),
       ev(

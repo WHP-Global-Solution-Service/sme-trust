@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { reportDemo } from '@/stores/demo';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, CheckCircle2, Download, FlaskConical, Pencil, Plus, Save, Trash2, User } from 'lucide-react';
+import { Building2, CheckCircle2, ClipboardEdit, Download, FlaskConical, Pencil, Phone, Plus, RefreshCw, Save, Store, Trash2, User, XCircle } from 'lucide-react';
 import type { ChannelType, MockDocument } from '@/types';
-import { useSessionStore, toast } from '@/stores';
+import { useSessionStore, toast, confirmDialog } from '@/stores';
 import { submitShopRegistration } from '@/stores/workflows';
-import { attachImportedMarketplaces, mockShopProfile } from '@/stores/workflowsV2';
-import type { Archetype, Platform } from '@/features/marketplace/types';
-import { PLATFORM_LIST, PLATFORMS } from '@/features/marketplace/data/platforms';
-import { ConsentModal } from '@/features/marketplace/components/MarketplaceParts';
+import { submitMarketplaceRegistration } from '@/stores/workflowsV2';
+import { PLATFORMS } from '@/features/marketplace/data/platforms';
+import { clearImported, fieldRows, newRegistrationRules, summarize, type FieldKey, type FieldValues, type ImportSource } from '@/features/marketplace/autofill';
+import { FieldDiffTable, FieldStatusBadge, ImportSummaryBar, SourceDataCard } from '@/features/marketplace/components/ImportProvenance';
+import { uid } from '@/utils/id';
 import { useCurrentOperator } from '@/hooks/useCurrent';
 import { BUSINESS_CATEGORIES, CHANNEL_TYPES, COMPANY_TYPES, PROVINCES } from '@/constants/labels';
 import { fmtDate } from '@/utils/format';
@@ -66,19 +67,37 @@ const stepFields: (keyof Form)[][] = [
   ['agree'],
 ];
 
+const fieldValues = (v: Partial<Form>): FieldValues => ({
+  shopName: v.shopName ?? '',
+  description: v.description ?? '',
+  category: v.category ?? '',
+  phone: v.phone ?? '',
+  email: v.email ?? '',
+  province: v.province ?? '',
+  district: v.district ?? '',
+  address: v.address ?? '',
+});
+
+type DraftData = Form & { docs?: MockDocument[]; importSource?: ImportSource; draftId?: string };
+
 export default function RegisterShopWizard() {
   const nav = useNavigate();
   const op = useCurrentOperator()!;
   const draft = useSessionStore((s) => s.shopDrafts[op.id]);
   const saveDraft = useSessionStore((s) => s.saveDraft);
-  const [step, setStep] = useState(0);
+  const [params] = useSearchParams();
+  const fromImport = params.get('from') === 'import';
+  // มาจากการยืนยันนำเข้า → เปิดฉบับร่างทันทีตั้งแต่ Render แรก (ไม่ต้องถาม และไม่กระพริบเป็นขั้นแรก)
+  const initial = fromImport && draft ? (draft.data as DraftData) : undefined;
+  const [step, setStep] = useState(initial ? draft!.step : 0);
   useEffect(() => reportDemo('shop.step', step), [step]);
-  const [docs, setDocs] = useState<MockDocument[]>([]);
+  const [docs, setDocs] = useState<MockDocument[]>(initial?.docs ?? []);
   const [docErr, setDocErr] = useState('');
-  // v2: นำเข้าข้อมูลร้านจาก Marketplace (จำลอง) — ผูกการเชื่อมต่อหลังส่งคำขอ
-  const [importFor, setImportFor] = useState<Platform>();
-  const [imports, setImports] = useState<{ platform: Platform; archetype: Archetype }[]>([]);
-  const [showDraftPrompt, setShowDraftPrompt] = useState(!!draft);
+  // v2: ข้อมูลต้นฉบับที่นำเข้าจาก Marketplace (จำลอง) — อ่านอย่างเดียว · รหัสฉบับร่างกันการส่งคำขอซ้ำ
+  const [importSource, setImportSource] = useState<ImportSource | undefined>(initial?.importSource);
+  const [draftId, setDraftId] = useState(() => initial?.draftId ?? uid('DRF'));
+  // มาจากการยืนยันนำเข้า → เปิดฉบับร่างทันที (ไม่ต้องถาม)
+  const [showDraftPrompt, setShowDraftPrompt] = useState(!!draft && !fromImport);
   const [result, setResult] = useState<{ appId: string; merchantId: string; flagged: boolean }>();
 
   const defaults: Form = useMemo(
@@ -104,10 +123,43 @@ export default function RegisterShopWizard() {
     [op],
   );
 
-  const { register, handleSubmit, trigger, watch, setValue, getValues, reset, control, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema), defaultValues: defaults });
+  const { register, handleSubmit, trigger, watch, setValue, getValues, reset, control, formState: { errors, isDirty } } = useForm<Form>({ resolver: zodResolver(schema), defaultValues: initial ? (() => { const { docs: _d, importSource: _s, draftId: _i, ...rest } = initial; return { ...defaults, ...rest }; })() : defaults });
   const channels = useFieldArray({ control, name: 'channels' });
   const bt = watch('businessType');
   const values = watch();
+
+  /** โหลดฉบับร่าง (Resume) — รวมข้อมูลต้นฉบับที่นำเข้าและรหัสฉบับร่าง */
+  const loadDraft = (d: NonNullable<typeof draft>) => {
+    const { docs: dd, importSource: src, draftId: id, ...rest } = d.data as DraftData;
+    reset({ ...defaults, ...rest });
+    setDocs(dd ?? []);
+    setImportSource(src);
+    if (id) setDraftId(id);
+    setStep(d.step);
+  };
+
+  // บันทึกฉบับร่างอัตโนมัติใน localStorage ของ v2 (Refresh / Back / Next ไม่ทำให้ข้อมูลหาย) — ไม่มีรหัสผ่าน Token หรือเลขบัตรประชาชน
+  const snapshot = JSON.stringify(values);
+  useEffect(() => {
+    if (showDraftPrompt || step >= 6) return;
+    if (!importSource && !isDirty && step === 0 && !docs.length) return;
+    saveDraft(op.id, { step, data: { ...getValues(), docs, importSource, draftId }, savedAt: new Date().toISOString() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot, docs, step, importSource, draftId, showDraftPrompt]);
+
+  // สถานะที่มาของแต่ละช่อง (เมื่อเติมจากข้อมูลที่นำเข้า)
+  const rows = importSource ? fieldRows(fieldValues(values), newRegistrationRules(importSource, bt === 'juristic')) : [];
+  const summary = summarize(rows);
+  const rowOf = (k: FieldKey) => rows.find((r) => r.key === k);
+  const tag = (k: FieldKey) => {
+    const r = rowOf(k);
+    return r ? <FieldStatusBadge status={r.status} source={importSource} /> : undefined;
+  };
+  const originalHint = (k: FieldKey, fallback?: string) => {
+    const r = rowOf(k);
+    return r && (r.status === 'user_edited' || r.status === 'verification_required') ? `ต้นฉบับจาก Marketplace: ${r.imported}` : r?.status === 'missing' ? 'ไม่มีในข้อมูลที่นำเข้า — กรุณากรอกเพิ่ม' : fallback;
+  };
+  useEffect(() => reportDemo('reg.edited', summary.edited), [summary.edited]);
 
   const next = async () => {
     if (step === 4) {
@@ -127,7 +179,7 @@ export default function RegisterShopWizard() {
   };
 
   const onSubmit = (v: Form) => {
-    const { merchant, app } = submitShopRegistration(op.id, {
+    const form = {
       businessType: v.businessType,
       ownerName: v.businessType === 'individual' ? v.ownerName : v.applicantName,
       juristic: v.businessType === 'juristic' ? { companyName: v.companyName, registrationNo: v.registrationNo, companyType: v.companyType, authorizedPerson: v.authorizedPerson, applicantName: v.applicantName } : undefined,
@@ -141,26 +193,41 @@ export default function RegisterShopWizard() {
       description: v.description,
       channels: v.channels as { type: ChannelType; handle: string }[],
       documents: docs,
-    });
-    if (imports.length) attachImportedMarketplaces(merchant.id, imports);
+    };
+    // ผู้สมัครกดส่งเองเท่านั้น — ส่งซ้ำจากฉบับร่างเดิมได้คำขอเดิม (ไม่สร้างร้าน/คำขอ/การเชื่อมต่อซ้ำ)
+    const { merchant, app } = importSource
+      ? submitMarketplaceRegistration(op.id, form, { draftId, source: importSource, juristic: v.businessType === 'juristic' })
+      : submitShopRegistration(op.id, form, { draftId });
     saveDraft(op.id, undefined);
     setResult({ appId: app.id, merchantId: merchant.id, flagged: !!merchant.identityFlag });
     setStep(6);
     toast.success('ส่งคำขอลงทะเบียนแล้ว', app.id);
   };
 
-  /** นำเข้าข้อมูลร้าน (จำลอง): เติมชื่อร้าน หมวด รายละเอียด และช่องทางขาย — ผู้ใช้แก้ไขต่อได้ */
-  const importShop = (archetype: Archetype) => {
-    if (!importFor) return;
-    const p = mockShopProfile(op.id, importFor);
-    setValue('shopName', p.shopName, { shouldValidate: true });
-    setValue('category', p.category, { shouldValidate: true });
-    setValue('description', p.description, { shouldValidate: true });
-    const list = getValues('channels').filter((c) => c.handle.trim());
-    if (!list.some((c) => c.handle === p.handle)) setValue('channels', [...list, { type: 'marketplace', handle: p.handle }]);
-    setImports((xs) => [...xs.filter((x) => x.platform !== importFor), { platform: importFor, archetype }]);
-    toast.success(`นำเข้าข้อมูลจาก ${PLATFORMS[importFor].label} แล้ว`, 'ตรวจสอบและแก้ไขข้อมูลได้ก่อนส่งคำขอ');
-    setImportFor(undefined);
+  /** ยกเลิกการนำเข้า: ช่องที่ยังเป็นค่าจากแหล่งข้อมูลถูกล้าง ช่องที่ผู้สมัครแก้/กรอกเองยังอยู่ และจะไม่ผูกการเชื่อมต่อเมื่อส่งคำขอ */
+  const cancelImport = async () => {
+    if (!importSource) return;
+    const r = await confirmDialog({
+      title: 'ยกเลิกการนำเข้าข้อมูล?',
+      body: `ช่องที่ยังเป็นค่าจาก ${PLATFORMS[importSource.platform].label} จะถูกล้าง ช่องที่คุณแก้ไขหรือกรอกเองยังอยู่ และร้านจะไม่ถูกเชื่อมต่อกับ Marketplace เมื่อส่งคำขอ`,
+      confirmText: 'ยกเลิกการนำเข้า',
+      tone: 'danger',
+    });
+    if (!r.ok) return;
+    const cleared = clearImported(fieldValues(getValues()), importSource);
+    (['shopName', 'description', 'category'] as const).forEach((k) => setValue(k, cleared[k], { shouldDirty: true }));
+    const rest = getValues('channels').filter((c) => c.handle !== importSource.shopUrl);
+    setValue('channels', rest.length ? rest : [{ type: 'facebook', handle: '' }], { shouldDirty: true });
+    setImportSource(undefined);
+    reportDemo('reg.imported', 0);
+    toast.info('ยกเลิกการนำเข้าแล้ว', 'กรอกข้อมูลร้านด้วยตนเองต่อได้');
+  };
+
+  /** ช่องติดต่อไม่มีในข้อมูลที่นำเข้า — เติมจากบัญชีที่ยืนยันตัวตนแล้ว (สถานะ "กรอกเอง") */
+  const fillAccountContact = () => {
+    setValue('phone', op.phone, { shouldValidate: true, shouldDirty: true });
+    setValue('email', op.email, { shouldValidate: true, shouldDirty: true });
+    if (PROVINCES.includes(op.province)) setValue('province', op.province, { shouldValidate: true, shouldDirty: true });
   };
 
   // สำหรับการนำเสนอ: เติมข้อมูลตัวอย่างครบทุกขั้น แล้วไปขั้นตรวจสอบข้อมูล (ยังต้องติ๊กยืนยันและกดส่งเอง)
@@ -190,7 +257,7 @@ export default function RegisterShopWizard() {
   };
 
   const doSaveDraft = () => {
-    saveDraft(op.id, { step, data: { ...getValues(), docs }, savedAt: new Date().toISOString() });
+    saveDraft(op.id, { step, data: { ...getValues(), docs, importSource, draftId }, savedAt: new Date().toISOString() });
     toast.success('บันทึกฉบับร่างแล้ว', 'กลับมาทำต่อได้ภายหลังจากเมนูลงทะเบียนร้านค้า');
   };
 
@@ -202,14 +269,12 @@ export default function RegisterShopWizard() {
           <p className="font-semibold text-ink">พบฉบับร่างที่บันทึกไว้</p>
           <p className="mt-1 text-sm text-ink-soft">
             บันทึกเมื่อ {fmtDate(draft.savedAt, true)} · ค้างอยู่ที่ขั้นตอน "{STEPS[draft.step]}"
+            {(draft.data as DraftData).importSource && ` · ข้อมูลนำเข้าจาก ${PLATFORMS[(draft.data as DraftData).importSource!.platform].label}`}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
               onClick={() => {
-                const { docs: d, ...rest } = draft.data as Form & { docs: MockDocument[] };
-                reset({ ...defaults, ...rest });
-                setDocs(d ?? []);
-                setStep(draft.step);
+                loadDraft(draft);
                 setShowDraftPrompt(false);
               }}
             >
@@ -235,7 +300,6 @@ export default function RegisterShopWizard() {
     <div className="mx-auto max-w-2xl">
       <PageHeader title="ลงทะเบียนร้านค้า" subtitle="ข้อมูลจะใช้เพื่อการตรวจสอบในระบบสาธิตเท่านั้น" back={{ to: '/m', label: 'หน้าหลัก' }} />
       <Stepper steps={STEPS} current={step} />
-      {importFor && <ConsentModal open mode="import" platform={importFor} defaultArchetype="growing_ok" onCancel={() => setImportFor(undefined)} onConfirm={({ archetype }) => importShop(archetype)} />}
       {step < 5 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-secondary/40 bg-secondary-50/50 px-3 py-2">
           <p className="flex items-center gap-1.5 text-sm text-secondary">
@@ -251,6 +315,32 @@ export default function RegisterShopWizard() {
       <Card className="p-5">
         {step === 0 && (
           <div className="space-y-3">
+            {importSource ? (
+              <Alert tone="info" title={`เติมข้อมูลร้านจาก ${PLATFORMS[importSource.platform].label} แล้ว`}>
+                ร้าน "{importSource.shopName}" · ตรวจสอบและแก้ไขได้ในขั้น "ข้อมูลร้านค้า" ก่อนส่งคำขอ
+              </Alert>
+            ) : (
+              <section aria-label="วิธีลงทะเบียน" className="space-y-2 border-b border-line pb-4">
+                <p className="font-semibold text-ink">เลือกวิธีลงทะเบียน</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button type="button" onClick={() => nav('/m/register-shop/marketplace')} className="flex items-start gap-3 rounded-xl border-2 border-line p-4 text-left hover:border-primary/30">
+                    <Store className="h-6 w-6 shrink-0 text-primary" aria-hidden />
+                    <span>
+                      <span className="block font-semibold text-ink">A. เชื่อมต่อร้านค้าจาก Marketplace</span>
+                      <span className="block text-sm text-ink-soft">Shopee (จำลอง) / Lazada (จำลอง) — เติมข้อมูลร้านอัตโนมัติ แล้วตรวจแก้ก่อนส่ง</span>
+                    </span>
+                  </button>
+                  <div className="flex items-start gap-3 rounded-xl border-2 border-primary bg-primary-50/50 p-4" aria-current="step">
+                    <ClipboardEdit className="h-6 w-6 shrink-0 text-primary" aria-hidden />
+                    <span>
+                      <span className="block font-semibold text-ink">B. ลงทะเบียนด้วยตนเอง</span>
+                      <span className="block text-sm text-ink-soft">สำหรับร้านที่ไม่ได้ใช้แพลตฟอร์มที่รองรับ — กรอกแบบฟอร์มด้านล่าง</span>
+                    </span>
+                    <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-primary" aria-hidden />
+                  </div>
+                </div>
+              </section>
+            )}
             <p className="font-semibold text-ink">เลือกรูปแบบธุรกิจ</p>
             {(
               [
@@ -310,21 +400,39 @@ export default function RegisterShopWizard() {
 
         {step === 2 && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-primary/30 bg-primary-50/50 p-3 sm:col-span-2">
-              <p className="text-sm font-medium text-ink">นำเข้าข้อมูลร้านจาก Marketplace (จำลอง)</p>
-              <p className="text-xs text-ink-soft">เติมข้อมูลร้านอัตโนมัติและใช้ข้อมูลการขายประกอบการประเมินความน่าเชื่อถือ — ยังไม่มีการเชื่อมต่อ API จริง ข้อมูลเป็นข้อมูลสมมติ</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {PLATFORM_LIST.map((pl) => (
-                  <Button key={pl} size="sm" variant="outline" icon={imports.some((x) => x.platform === pl) ? CheckCircle2 : Download} onClick={() => setImportFor(pl)}>
-                    {imports.some((x) => x.platform === pl) ? `นำเข้าจาก ${PLATFORMS[pl].label} แล้ว` : `นำเข้าจาก ${PLATFORMS[pl].label}`}
+            {importSource ? (
+              <section aria-label="ทบทวนข้อมูลที่นำเข้า" className="space-y-3 sm:col-span-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-ink">ทบทวนข้อมูลที่นำเข้า (Review Imported Information)</p>
+                  <FieldStatusBadge status="imported" source={importSource} />
+                </div>
+                <ImportSummaryBar summary={summary} />
+                <SourceDataCard source={importSource} />
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" icon={RefreshCw} onClick={() => nav('/m/register-shop/marketplace')}>
+                    เปลี่ยน Marketplace / ร้าน
                   </Button>
-                ))}
+                  <Button size="sm" variant="outline" icon={Phone} onClick={fillAccountContact}>
+                    ใช้ข้อมูลติดต่อจากบัญชี
+                  </Button>
+                  <Button size="sm" variant="ghost" icon={XCircle} onClick={cancelImport}>
+                    ยกเลิกการนำเข้า
+                  </Button>
+                </div>
+                <p className="text-xs text-ink-soft">แก้ไขช่องด้านล่างได้ — ข้อมูลต้นฉบับด้านบนไม่เปลี่ยน และเจ้าหน้าที่จะเห็นความแตกต่างระหว่างต้นฉบับกับข้อมูลที่ส่ง</p>
+              </section>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary-50/50 p-3 sm:col-span-2">
+                <p className="text-sm text-ink">มีร้านบน Shopee หรือ Lazada (จำลอง)? นำเข้าข้อมูลร้านอัตโนมัติแทนการกรอกเอง</p>
+                <Button size="sm" variant="outline" icon={Download} onClick={() => nav('/m/register-shop/marketplace')}>
+                  นำเข้าจาก Marketplace
+                </Button>
               </div>
-            </div>
-            <Field label="ชื่อร้านค้า" required error={err('shopName')} className="sm:col-span-2">
+            )}
+            <Field label="ชื่อร้านค้า" required error={err('shopName')} className="sm:col-span-2" extra={tag('shopName')} hint={originalHint('shopName')}>
               <Input placeholder="ชื่อที่ใช้บนช่องทางขาย" invalid={!!errors.shopName} {...register('shopName')} />
             </Field>
-            <Field label="ประเภทธุรกิจ/หมวดสินค้า" required error={err('category')}>
+            <Field label="ประเภทธุรกิจ/หมวดสินค้า" required error={err('category')} extra={tag('category')} hint={originalHint('category')}>
               <Select invalid={!!errors.category} {...register('category')}>
                 <option value="">เลือก</option>
                 {BUSINESS_CATEGORIES.map((c) => (
@@ -332,7 +440,7 @@ export default function RegisterShopWizard() {
                 ))}
               </Select>
             </Field>
-            <Field label="จังหวัด" required error={err('province')}>
+            <Field label="จังหวัด" required error={err('province')} extra={tag('province')} hint={originalHint('province')}>
               <Select invalid={!!errors.province} {...register('province')}>
                 <option value="">เลือก</option>
                 {PROVINCES.map((p) => (
@@ -340,19 +448,19 @@ export default function RegisterShopWizard() {
                 ))}
               </Select>
             </Field>
-            <Field label="อำเภอ/เขต" required error={err('district')}>
+            <Field label="อำเภอ/เขต" required error={err('district')} extra={tag('district')} hint={originalHint('district')}>
               <Input invalid={!!errors.district} {...register('district')} />
             </Field>
-            <Field label={bt === 'juristic' ? 'ที่อยู่สถานประกอบการ' : 'ที่อยู่ (ไม่บังคับ)'} required={bt === 'juristic'} error={err('address')}>
+            <Field label={bt === 'juristic' ? 'ที่อยู่สถานประกอบการ' : 'ที่อยู่ (ไม่บังคับ)'} required={bt === 'juristic'} error={err('address')} extra={tag('address')} hint={originalHint('address')}>
               <Input placeholder="ที่อยู่สมมติ" invalid={!!errors.address} {...register('address')} />
             </Field>
-            <Field label="เบอร์โทรศัพท์ร้าน" required error={err('phone')}>
+            <Field label="เบอร์โทรศัพท์ร้าน" required error={err('phone')} extra={tag('phone')} hint={originalHint('phone')}>
               <Input inputMode="numeric" invalid={!!errors.phone} {...register('phone')} />
             </Field>
-            <Field label="อีเมลร้าน" required error={err('email')}>
+            <Field label="อีเมลร้าน" required error={err('email')} extra={tag('email')} hint={originalHint('email')}>
               <Input type="email" invalid={!!errors.email} {...register('email')} />
             </Field>
-            <Field label="รายละเอียดสินค้าและบริการ" required error={err('description')} className="sm:col-span-2">
+            <Field label="รายละเอียดสินค้าและบริการ" required error={err('description')} className="sm:col-span-2" extra={tag('description')} hint={originalHint('description')}>
               <Textarea placeholder="สินค้าหลัก นโยบายการคืนสินค้า ระยะเวลาจัดส่ง" invalid={!!errors.description} {...register('description')} />
             </Field>
           </div>
@@ -401,6 +509,19 @@ export default function RegisterShopWizard() {
 
         {step === 5 && (
           <div>
+            {importSource && (
+              <section aria-label="ตรวจสอบข้อมูลที่นำเข้าและแก้ไข" className="mb-4 space-y-3 border-b border-line pb-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-ink">ข้อมูลที่นำเข้าและแก้ไข</p>
+                  <FieldStatusBadge status="imported" source={importSource} />
+                </div>
+                <ImportSummaryBar summary={summary} />
+                <FieldDiffTable rows={rows} source={importSource} />
+                <p className="text-xs text-ink-soft">
+                  ระบบไม่ส่งคำขออัตโนมัติ — ตรวจสอบแล้วติ๊กยืนยันและกด "ส่งคำขอ" ด้วยตนเอง · การประเมินใช้ข้อมูลต้นฉบับจาก {PLATFORMS[importSource.platform].label} (Shop ID {importSource.mockShopId}) ไม่ใช่ข้อมูลที่แก้ในแบบฟอร์ม
+                </p>
+              </section>
+            )}
             {[
               { title: 'ประเภทธุรกิจ', s: 0, rows: [['รูปแบบ', bt === 'juristic' ? 'นิติบุคคล' : 'บุคคลธรรมดา']] },
               {
