@@ -12,6 +12,7 @@ import { latestAssessment } from '@/stores/workflowsV2';
 import { COMPONENTS } from '../model';
 import { ASSESSMENT_DISCLAIMER, BAND_LABEL, CONFIDENCE_LABEL, STANDING_LABEL } from '../labels';
 import type { AssessmentResult, BandOrInsufficient, Standing, TrustFactor } from '../types';
+import type { Platform } from '@/features/marketplace/types';
 
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const pct = (r: number) => `${(r * 100).toFixed(1)}%`;
@@ -134,6 +135,7 @@ export function PublicAssessmentCard({ merchantId }: { merchantId: string }) {
             <SourcesLine result={a.result} />
           </>
         )}
+        <p className="rounded-lg border border-warning/30 bg-warning-50 p-2.5 text-xs text-[#7a4705]">Trust Badge และผลประเมินไม่ใช่การรับประกันว่าจะไม่มีปัญหาการซื้อขาย — ควรตรวจสอบรายละเอียดสินค้า เงื่อนไขการขาย และช่องทางชำระเงินทุกครั้ง</p>
         <p className="rounded-lg bg-bg p-2.5 text-xs text-ink-soft">{ASSESSMENT_DISCLAIMER}</p>
       </div>
     </Card>
@@ -276,78 +278,157 @@ const Stat2 = ({ label, value }: { label: string; value: ReactNode }) => (
   </div>
 );
 
+/**
+ * 5 Assessment Dimensions (มุมร้านค้า/ผู้บริหาร) — น้ำหนักที่ใช้ ความพร้อมของข้อมูล และทิศทางของปัจจัย
+ * ไม่แสดงคะแนนภายใน (D2) — เจ้าหน้าที่ดูคะแนนได้ที่ตารางวิธีคำนวณ
+ */
+export function DimensionGrid({ result }: { result: AssessmentResult }) {
+  return (
+    <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      {result.components.map((c) => {
+        const pos = c.factors.filter((f) => f.direction === 'positive' && f.id !== 'c2.base').length;
+        const neg = c.factors.filter((f) => f.direction === 'negative').length;
+        return (
+          <li key={c.id} className={cn('rounded-xl border p-3 text-sm', c.available ? 'border-line' : 'border-dashed border-line bg-bg')}>
+            <p className="text-xs text-ink-soft">
+              {c.id} · น้ำหนัก {c.weight}%{c.available && c.effectiveWeight !== c.weight && ` → ${Math.round(c.effectiveWeight)}%`}
+            </p>
+            <p className="font-semibold text-ink">{COMPONENTS[c.id].en}</p>
+            <p className="text-xs text-ink-soft">{c.label}</p>
+            {c.available ? (
+              <p className="mt-1.5 flex flex-wrap gap-1">
+                {pos > 0 && <Badge tone="success">↑ {pos} ปัจจัย</Badge>}
+                {neg > 0 && <Badge tone="warning">↓ {neg} ปัจจัย</Badge>}
+                {!pos && !neg && <Badge tone="neutral">ไม่มีปัจจัยลบ</Badge>}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-xs text-ink-soft">ไม่มีข้อมูล — ไม่นับเป็นศูนย์ (กระจายน้ำหนักให้มิติอื่น)</p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** ข้อมูลที่ควรเพิ่มเติม — จากข้อมูลที่ยังขาด ความครอบคลุม และคำแนะนำของแต่ละปัจจัย */
+export function ImproveList({ result }: { result: AssessmentResult }) {
+  const items = [
+    ...result.insufficientReasons.map((r) => `เพิ่มข้อมูลให้ถึงขั้นต่ำ: ${r}`),
+    ...result.coverage.items.filter((c) => c.ratio < 1 && c.key === 'platforms').map(() => 'เชื่อมต่อแพลตฟอร์มที่ขายอยู่เพิ่ม (หรือส่งหลักฐานการขายจากช่องทางอื่นให้เจ้าหน้าที่)'),
+    ...[...result.components.flatMap((c) => c.factors), ...result.riskFactors].map((f) => f.improve).filter((x): x is string => !!x),
+  ];
+  const unique = [...new Set(items)];
+  if (!unique.length) return <p className="text-sm text-ink-soft">ข้อมูลครบถ้วนในเกณฑ์ดี — รักษามาตรฐานและซิงก์ข้อมูลให้เป็นปัจจุบัน</p>;
+  return (
+    <ul className="space-y-1.5 text-sm text-ink">
+      {unique.map((t) => (
+        <li key={t} className="flex gap-2">
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          {t}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** เดือนย้อนหลัง 12 เดือนสำหรับกราฟ (เก่า → ใหม่) */
+const monthSeries = (monthlyOrders: number[], asOf: Date) =>
+  monthlyOrders.map((value, i) => {
+    const dt = new Date(asOf.getFullYear(), asOf.getMonth() - (11 - i), 1);
+    return { name: TH_MONTHS[dt.getMonth()], value };
+  });
+
+type Analysis = AssessmentResult['analysis'];
+
+/** ยอดขายและการจัดส่ง — ใช้ผลจาก analyzeSales (P3) */
+export function SalesPanel({ sales, sources, asOf, className }: { sales: Analysis['sales']; sources: Platform[]; asOf: Date; className?: string }) {
+  return (
+    <Card className={className}>
+      <CardHeader title="ยอดขายและการจัดส่ง" subtitle={`รวม ${sources.map((p) => PLATFORMS[p].label).join(' + ')}`} icon={Store} />
+      <div className="space-y-3 p-4">
+        <TimeBarChart data={monthSeries(sales.monthlyOrders, asOf)} label="คำสั่งซื้อ" height={180} />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Stat2 label="อัตรายกเลิก" value={pct(sales.cancelRate)} />
+          <Stat2 label="อัตราคืนสินค้า" value={pct(sales.returnRate)} />
+          <Stat2 label="จัดส่งตรงเวลา" value={pct(sales.onTimeShipRate)} />
+          <Stat2 label="ตอบแชต" value={pct(sales.chatResponseRate)} />
+        </div>
+        <Findings items={sales.findings} />
+      </div>
+    </Card>
+  );
+}
+
+/** คะแนนและรีวิว — ใช้ผลจาก analyzeReviews (P3) */
+export function ReviewPanel({ reviews, className }: { reviews: Analysis['reviews']; className?: string }) {
+  return (
+    <Card className={className}>
+      <CardHeader title="คะแนนและรีวิว" subtitle={`${reviews.totalReviews.toLocaleString('th-TH')} รีวิว · เฉลี่ย ${reviews.avgRating.toFixed(2)} ดาว`} />
+      <div className="space-y-3 p-4">
+        <div className="space-y-1">
+          {[5, 4, 3, 2, 1].map((star) => {
+            const n = reviews.histogram[star - 1];
+            const w = reviews.totalReviews ? (n / reviews.totalReviews) * 100 : 0;
+            return (
+              <div key={star} className="flex items-center gap-2 text-xs">
+                <span className="w-10 text-ink-soft">{star} ดาว</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${w}%` }} />
+                </div>
+                <span className="w-10 text-right text-ink">{n}</span>
+              </div>
+            );
+          })}
+        </div>
+        <Findings items={reviews.findings} />
+      </div>
+    </Card>
+  );
+}
+
+/** ราคาเทียบช่วงอ้างอิง — ใช้ผลจาก analyzePrices (P3, D9) */
+export function PricePanel({ price, className }: { price: Analysis['price']; className?: string }) {
+  return (
+    <Card className={className}>
+      <CardHeader title="ราคาเทียบช่วงอ้างอิงของประเภทสินค้า" subtitle={`วิเคราะห์ ${price.listingsAnalyzed} รายการ — ราคาถูกหรือแพงไม่ใช่หลักฐานว่าร้านทุจริต`} />
+      <div className="p-4">
+        {price.findings.length ? (
+          <ul className="space-y-2">
+            {price.findings.map((f) => (
+              <li key={f.id} className={cn('rounded-xl border p-3 text-sm', f.level === 'watch' ? 'border-warning/40 bg-warning-50/50' : 'border-line')}>
+                <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+                  {f.level === 'watch' && <AlertTriangle className="h-4 w-4 text-warning" />}
+                  {f.title}
+                  <Badge tone={f.productRisk === 'high' ? 'error' : f.productRisk === 'medium' ? 'warning' : 'neutral'}>{PRODUCT_RISK_LABEL[f.productRisk]}</Badge>
+                </p>
+                <p className="text-ink-soft">{f.detail}</p>
+                {f.mitigations.length > 0 && <p className="mt-1 text-xs text-success">หลักฐานสนับสนุน: {f.mitigations.join(' · ')}</p>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-ink-soft">ราคาทุกรายการอยู่ในช่วงอ้างอิงของประเภทสินค้า</p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 /** ผลวิเคราะห์ราคา ยอดขาย และรีวิว (ร้านค้าและเจ้าหน้าที่) */
 export function AnalysisPanels({ result }: { result: AssessmentResult }) {
   const { price, sales, reviews } = result.analysis;
   if (!result.dataSources.length) return null;
-  const now = new Date(result.computedAt);
-  const months = sales.monthlyOrders.map((value, i) => {
-    const dt = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
-    return { name: TH_MONTHS[dt.getMonth()], value };
-  });
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader title="ยอดขายและการจัดส่ง" subtitle={`รวม ${result.dataSources.map((p) => PLATFORMS[p].label).join(' + ')}`} icon={Store} />
-        <div className="space-y-3 p-4">
-          <TimeBarChart data={months} label="คำสั่งซื้อ" height={180} />
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Stat2 label="อัตรายกเลิก" value={pct(sales.cancelRate)} />
-            <Stat2 label="อัตราคืนสินค้า" value={pct(sales.returnRate)} />
-            <Stat2 label="จัดส่งตรงเวลา" value={pct(sales.onTimeShipRate)} />
-            <Stat2 label="ตอบแชต" value={pct(sales.chatResponseRate)} />
-          </div>
-          <Findings items={sales.findings} />
-        </div>
-      </Card>
-      <Card>
-        <CardHeader title="คะแนนและรีวิว" subtitle={`${reviews.totalReviews.toLocaleString('th-TH')} รีวิว · เฉลี่ย ${reviews.avgRating.toFixed(2)} ดาว`} />
-        <div className="space-y-3 p-4">
-          <div className="space-y-1">
-            {[5, 4, 3, 2, 1].map((star) => {
-              const n = reviews.histogram[star - 1];
-              const w = reviews.totalReviews ? (n / reviews.totalReviews) * 100 : 0;
-              return (
-                <div key={star} className="flex items-center gap-2 text-xs">
-                  <span className="w-10 text-ink-soft">{star} ดาว</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${w}%` }} />
-                  </div>
-                  <span className="w-10 text-right text-ink">{n}</span>
-                </div>
-              );
-            })}
-          </div>
-          <Findings items={reviews.findings} />
-        </div>
-      </Card>
-      <Card className="lg:col-span-2">
-        <CardHeader title="ราคาเทียบช่วงอ้างอิงของประเภทสินค้า" subtitle={`วิเคราะห์ ${price.listingsAnalyzed} รายการ — ราคาถูกหรือแพงไม่ใช่หลักฐานว่าร้านทุจริต`} />
-        <div className="p-4">
-          {price.findings.length ? (
-            <ul className="space-y-2">
-              {price.findings.map((f) => (
-                <li key={f.id} className={cn('rounded-xl border p-3 text-sm', f.level === 'watch' ? 'border-warning/40 bg-warning-50/50' : 'border-line')}>
-                  <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
-                    {f.level === 'watch' && <AlertTriangle className="h-4 w-4 text-warning" />}
-                    {f.title}
-                    <Badge tone={f.productRisk === 'high' ? 'error' : f.productRisk === 'medium' ? 'warning' : 'neutral'}>{PRODUCT_RISK_LABEL[f.productRisk]}</Badge>
-                  </p>
-                  <p className="text-ink-soft">{f.detail}</p>
-                  {f.mitigations.length > 0 && <p className="mt-1 text-xs text-success">หลักฐานสนับสนุน: {f.mitigations.join(' · ')}</p>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-ink-soft">ราคาทุกรายการอยู่ในช่วงอ้างอิงของประเภทสินค้า</p>
-          )}
-        </div>
-      </Card>
+      <SalesPanel sales={sales} sources={result.dataSources} asOf={new Date(result.computedAt)} />
+      <ReviewPanel reviews={reviews} />
+      <PricePanel price={price} className="lg:col-span-2" />
     </div>
   );
 }
 
-function Findings({ items }: { items: { id: string; level: string; title: string; detail: string }[] }) {
+export function Findings({ items }: { items: { id: string; level: string; title: string; detail: string }[] }) {
   if (!items.length) return <p className="text-xs text-ink-soft">ไม่พบข้อสังเกต</p>;
   return (
     <ul className="space-y-1 text-xs">

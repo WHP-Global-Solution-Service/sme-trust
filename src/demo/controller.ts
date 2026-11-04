@@ -10,8 +10,8 @@ import { useAiWorkspaceStore } from '@/stores/aiWorkspace';
 import { useDemoStore, type DemoCtx } from '@/stores/demo';
 import { resetAllDemoData } from '@/stores/workflows';
 import { STORAGE_PREFIX } from '@/stores/createEntityStore';
-import { findScenario, scenarios } from '@/mock/scenarios';
-import type { ContinuityIssue, DemoStep, GateInput, ScenarioDef } from './types';
+import { findScenario, journeyScenarios, trackOf } from '@/mock/scenarios';
+import type { ContinuityIssue, DemoStep, GateInput, ScenarioDef, Track } from './types';
 
 export const SNAPSHOT_KEY = `${STORAGE_PREFIX}demo-snapshot`;
 
@@ -125,6 +125,8 @@ export function startScenario(id: string, nav: NavigateFunction, opts: { carry?:
   const carry = !!opts.carry;
   const prev = useDemoStore.getState();
   const journeyMode = opts.journey ?? (carry ? prev.journeyMode : false);
+  // เส้นทางทางเลือกเล่นระหว่าง Journey ได้โดยไม่เปลี่ยนชุดของ Journey
+  const journeyTrack = journeyMode && sc.branch ? prev.journeyTrack : trackOf(sc);
   const journey = carry ? effectiveJourney(id) : {};
   const completed = carry ? prev.completed : [];
   const results = carry ? prev.results : {};
@@ -136,10 +138,12 @@ export function startScenario(id: string, nav: NavigateFunction, opts: { carry?:
     stepIndex: 0,
     status: 'running',
     journeyMode,
+    journeyTrack,
     journey,
     completed,
     results,
     current,
+    startCtx: current,
     startedAt: new Date().toISOString(),
     signals: {},
     passed: [],
@@ -154,7 +158,8 @@ export function restartScenario(nav: NavigateFunction) {
   const sc = activeScenario() ?? findScenario(d.activeScenario);
   if (!sc) return;
   if (restoreSnapshot()) {
-    const current = prepareWithNotice(sc, d.journey, true);
+    // ข้อมูลกลับเป็นจุดเริ่มต้นแล้ว — ใช้บริบทตอนเริ่มเดิม (Fixture บางชุดสร้างรายการใหม่ทุกครั้งที่เรียก)
+    const current = d.startCtx ?? prepareWithNotice(sc, d.journey, true);
     d.set({ current, stepIndex: 0, status: 'running', startedAt: new Date().toISOString(), signals: {}, passed: [] });
     enterStep(sc, 0, nav, undefined, true);
   } else {
@@ -211,8 +216,21 @@ export function completeScenario(nav: NavigateFunction) {
   nav(`/demo/complete/${sc.id}`);
 }
 
-export const nextScenarioId = (id: string) => scenarios[scenarios.findIndex((s) => s.id === id) + 1]?.id;
-export const prevScenarioId = (id: string) => scenarios[scenarios.findIndex((s) => s.id === id) - 1]?.id;
+/** Scenario ถัดไป/ก่อนหน้าในลำดับของชุดเดียวกัน — เส้นทางทางเลือกไม่มีลำดับต่อ */
+function neighbour(id: string, delta: 1 | -1) {
+  const sc = findScenario(id);
+  if (!sc || sc.branch) return undefined;
+  const seq = journeyScenarios(trackOf(sc));
+  return seq[seq.findIndex((s) => s.id === id) + delta]?.id;
+}
+export const nextScenarioId = (id: string) => neighbour(id, 1);
+export const prevScenarioId = (id: string) => neighbour(id, -1);
+
+/** Scenario แรกของ Journey ที่ยังไม่จบ (ใช้กลับเข้าสู่ Journey หลังเล่นเส้นทางทางเลือก) */
+export function nextUnfinished(track: Track) {
+  const done = useDemoStore.getState().completed;
+  return journeyScenarios(track).find((s) => !done.includes(s.id))?.id;
+}
 
 /** ดำเนินการต่อ Scenario ถัดไปโดยใช้ข้อมูลที่สร้างไว้ (ไม่ Reset) */
 export function continueToNext(fromId: string, nav: NavigateFunction) {
@@ -222,11 +240,14 @@ export function continueToNext(fromId: string, nav: NavigateFunction) {
 }
 
 // ---------------- Full Journey ----------------
-export function startJourney(nav: NavigateFunction) {
+export function startJourney(nav: NavigateFunction, track: Track = 'v1') {
   resetAllDemoData();
-  useDemoStore.getState().set({ journeyMode: true, completed: [], journey: {} });
-  startScenario('s1', nav, { carry: true, journey: true });
+  useDemoStore.getState().set({ journeyMode: true, journeyTrack: track, completed: [], journey: {}, results: {} });
+  startScenario(journeyScenarios(track)[0].id, nav, { carry: true, journey: true });
 }
+
+/** เริ่ม Full Journey ชุดเดิมใหม่ทั้งหมด */
+export const restartJourney = (nav: NavigateFunction) => startJourney(nav, useDemoStore.getState().journeyTrack ?? 'v1');
 
 /** สถานะของแต่ละ Scenario ในภาพรวม */
 export function scenarioStatus(id: string): 'completed' | 'current' | 'not_started' {

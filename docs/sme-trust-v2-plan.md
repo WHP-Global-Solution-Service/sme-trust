@@ -287,7 +287,7 @@ interface TrustFactor {
 
 ---
 
-## สถานะการพัฒนา (Prompt 3.6 — P1–P5)
+## สถานะการพัฒนา (Prompt 3.6 — P1–P5 · Prompt 3.7 — P6)
 
 | Phase | สถานะ | สิ่งที่ทำ |
 |---|---|---|
@@ -298,17 +298,36 @@ interface TrustFactor {
 | P4 Trust Assessment Engine | ✅ | `trust-assessment/engine.ts` + `model.ts` (Config) — D2, D3, D5–D8 |
 | P5 UI | ✅ | ร้านค้า `/m/trust` · เจ้าหน้าที่ `/o/assessments`, `/o/assessments/:id` (ตารางคำนวณ + เกณฑ์ v1 + การตัดสิน) · ผู้ดูแลระบบ `/admin/assessment-model` · ผู้บริโภค: การ์ดผลประเมินในหน้าร้านและหน้าตรวจใบรับรอง · ข้อมูลประกอบในคำขอ Level 3–4 |
 | D4 | ✅ เตรียมแล้ว | `npm run build:v2` → `dist-v2/` (Base `/sme-trust/v2/`) — ไม่แก้ Workflow และยังไม่ Deploy |
-| P6 Demo v2 | ⏳ | ยังไม่ทำ (ตามขอบเขต) |
-| P7 Final QA | ⏳ | ยังไม่ทำ (ตามขอบเขต) |
+| P6 Demo v2 | ✅ | Scenario 9–13 + เส้นทางทางเลือก 9B (`mock/scenarios/v2.ts`), Full Journey v2 แยกจาก v1 (`journeyTrack`), Demo Selector แยกหมวด v1/v2, Executive Impact Summary `/demo/v2/summary` — รายละเอียดด้านล่าง |
+| P7 Final QA | ⏳ | ยังไม่ทำ (รอคำสั่ง) |
 
 ### เส้นทางใหม่
 
 | บทบาท | เส้นทาง |
 |---|---|
-| ผู้ประกอบการ | `/m/marketplace`, `/m/trust` · ปุ่มนำเข้าใน `/m/register-shop` |
+| ผู้ประกอบการ | `/m/marketplace` (ขั้นตอนเชื่อมต่อ: ยินยอม → เลือกร้าน → Preview → ยืนยันนำเข้า), `/m/marketplace/data/:id` (Data Overview), `/m/marketplace/analysis?tab=price\|sales\|reviews\|risk\|compare\|summary`, `/m/trust` · ปุ่มนำเข้าใน `/m/register-shop` |
 | เจ้าหน้าที่ / ผู้ดูแลระบบ | `/o/assessments`, `/o/assessments/:id` |
 | ผู้ดูแลระบบ | `/admin/assessment-model` |
-| ผู้บริโภค | การ์ด "ผลประเมินจากข้อมูลการขาย" ใน `/shop/:id` และ `/verify/:certId` |
+| ผู้บริโภค | การ์ด "ผลประเมินจากข้อมูลการขาย" ใน `/shop/:id` และ `/verify/:certId` · ร้านบน Marketplace ที่เชื่อมต่อแล้ว + ตัวอย่างหน้าร้าน (Mockup) ใน `/shop/:id` |
+| การสาธิต | `/demo` (แยกหมวด v1/v2), `/demo/complete/s9`…`s13`, `/demo/complete/s9b`, `/demo/v2/summary` |
+
+### P6 — Demo v2 (Prompt 3.7)
+
+| Scenario | ร้าน / บริบทที่ส่งต่อ | ประเด็นหลัก |
+|---|---|---|
+| 9 เชื่อมข้อมูลร้านค้าออนไลน์ | ร้านกาแฟดอยสูง (M-005) → Connection ID | ยินยอม → เลือกร้านตัวอย่าง → Preview → ยืนยันนำเข้า → สำเร็จ/ล้มเหลวแล้วลองใหม่ → Data Overview (Shop ID, หมวด, สินค้า, ราคา, คะแนน, รีวิว, ยอดขาย, วันที่อัปเดต, Data Source, Data Availability) |
+| 10 วิเคราะห์พฤติกรรมการขาย | Connection เดิม | ราคา/ยอดขาย/รีวิว/สัญญาณ/สรุป ด้วย Engine P3 + เปรียบเทียบ 4 กรณี (`analysis/comparison.ts` — ปรับเฉพาะข้อมูลตั้งต้น ไม่มีสูตรใหม่) และคำอธิบายว่าทำไมดาวเท่ากันแต่ผลต่างกัน |
+| 11 ประเมินความน่าเชื่อถือ | → Assessment ID, Application ID | 5 มิติ + น้ำหนักจาก Config, Risk Adjustment, Coverage/Confidence, Band, ข้อมูลที่ควรเพิ่ม · มุมร้าน (ไม่มีคะแนน) → มุมเจ้าหน้าที่ (คำนวณ) → มุมผู้บริโภค |
+| 12 เจ้าหน้าที่พิจารณา | ID เดิมทั้งหมด → Certificate ID | คิว → คำขอ (e-KYC, Marketplace Evidence) → ผลประเมิน → เกณฑ์ v1 → อนุมัติ/ขอข้อมูล/ไม่อนุมัติ → แจ้งร้าน → ใบรับรอง |
+| 13 ผู้บริโภคตรวจสอบ | Merchant เดียวกับ S12 | ค้นหา/QR → โปรไฟล์ → Band/Coverage/Confidence → ช่องทางที่ยืนยัน + ร้านบน Marketplace → ใบรับรอง → Marketplace Preview (Mockup) · "Badge ไม่ใช่การรับประกัน" |
+| 9B ทางเลือก: ไม่มี Marketplace | OP-012 (ยังไม่มีร้าน) | Self-Registration → Insufficient Data (ไม่ใช่ผลลบ, มิติ Marketplace ไม่นับเป็นศูนย์) → ส่งพิจารณา → เจ้าหน้าที่ขอหลักฐานเพิ่มผ่านคำขอลงทะเบียนเดิม |
+
+การเปลี่ยนแปลงที่เกี่ยวข้อง:
+- `submitAssessment` ผูกผลประเมินกับคำขอ v1 (`applicationId`): ใช้คำขอที่ค้างอยู่ หรือยื่นคำขอรับรองระดับที่แนะนำผ่าน `applyCertification` — `decideAssessment` อนุมัติ/ขอข้อมูล/ไม่อนุมัติคำขอเดิมผ่าน `approveApplication` / `requestInfo` / `rejectApplication` (ไม่สร้างคำขอซ้ำ)
+- ร้านส่งผลประเมินให้เจ้าหน้าที่ได้ทุกผลที่สถานะการรับรองปกติ (รวม Insufficient Data เพื่อขอหลักฐานเพิ่ม) — การยกระดับยังต้องผ่านเกณฑ์ v1 และเจ้าหน้าที่
+- Engine: ร้านที่ยังไม่มี Level 2 ไม่ได้รับข้อเสนอ "ประกอบการพิจารณา Level 3" (ก่อนหน้านี้ร้านที่รออนุมัติลงทะเบียนได้รับข้อเสนอนี้)
+- Demo Controller: `journeyTrack` แยก Full Journey v1/v2, เส้นทางทางเลือก (`branch`) เล่นแทรกระหว่าง Journey ได้, แสดง Context IDs และปุ่ม Restart Journey, Restart Scenario ใช้บริบทตอนเริ่ม (ไม่เรียก Fixture ซ้ำ)
+- ขั้นตอนเชื่อมต่อแสดงในหน้า (ไม่ใช่ Modal) เพื่อไม่บังตัวควบคุมการสาธิต
 
 ### ข้อจำกัดที่ยังเหลือ
 
@@ -319,6 +338,9 @@ interface TrustFactor {
 - Admin Dashboard ยังไม่มี KPI ของ v2 (มีสรุปจำนวนต่อ Band ในคิวของเจ้าหน้าที่แทน)
 - การเผยแพร่ `/sme-trust/v2/` บน GitHub Pages ต้องเพิ่มการส่งต่อลิงก์ตรงใน `404.html` ตอนรวม Artifact (ยังไม่ทำ)
 - E2E ของ v2 ทดสอบบน Chromium (ทั้ง `/`, `/sme-trust/v2/`) — ยังไม่รันบน Safari/WebKit (P7)
+- กรณีเปรียบเทียบใน Scenario 10 ใช้หมวด "ความงามและสุขภาพ" คงที่ (เพื่อให้เห็นผลของความเสี่ยงสินค้า) และใช้ข้อมูลตัวตน/การปฏิบัติตามของร้านปัจจุบันเป็นฐาน
+- เส้นทาง 9B ใช้บัญชี OP-012 — ถ้าเล่นซ้ำระหว่าง Journey โดยไม่ Restart บัญชีจะมีร้านแล้ว (Restart Scenario คืนสภาพได้)
+- Executive Impact Summary เป็นตัวเลขจากข้อมูลสาธิตในเบราว์เซอร์ ไม่ใช่การคาดการณ์ผลกระทบจริง
 
 ## ประเด็นที่ตัดสินใจแล้ว
 

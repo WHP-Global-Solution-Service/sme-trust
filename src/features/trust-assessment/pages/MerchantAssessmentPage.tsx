@@ -7,7 +7,7 @@ import { fmtDate } from '@/utils/format';
 import { MarketplaceDisclaimer } from '@/features/marketplace/components/MarketplaceParts';
 import { useAssessmentState } from '../hooks';
 import { ASSESSMENT_DISCLAIMER, ASSESSMENT_STATUS, BAND_LABEL, DECISION_LABEL, RECOMMENDATION_LABEL } from '../labels';
-import { AnalysisPanels, BandBadge, DataQuality, FactorList, SourcesLine, StandingBanner } from '../components/AssessmentParts';
+import { AnalysisPanels, BandBadge, DataQuality, DimensionGrid, FactorList, ImproveList, SourcesLine, StandingBanner } from '../components/AssessmentParts';
 
 /** มุมร้านค้า: Band, Coverage, Confidence, ปัจจัย (ทิศทาง +/−) และคำแนะนำ — ไม่แสดงคะแนนตัวเลข (D2) */
 export default function MerchantAssessmentPage() {
@@ -33,7 +33,9 @@ export default function MerchantAssessmentPage() {
     else toast.error('ส่งพิจารณาไม่ได้', r.error);
   };
   const rec = a?.result.recommendation;
-  const canSubmit = !!a && a.status === 'draft' && !stale && a.result.standing === 'normal' && (rec?.kind === 'consider_l3' || rec?.kind === 'consider_l4');
+  // ส่งได้ทุกผลที่สถานะการรับรองปกติ — ผลที่ข้อมูลยังไม่พอใช้ขอให้เจ้าหน้าที่พิจารณาหลักฐานเพิ่มเติม (ไม่ออก Badge อัตโนมัติ)
+  const canSubmit = !!a && a.status === 'draft' && !stale && a.result.standing === 'normal';
+  const forUpgrade = rec?.kind === 'consider_l3' || rec?.kind === 'consider_l4';
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
@@ -101,15 +103,41 @@ export default function MerchantAssessmentPage() {
                   <Button icon={Send} onClick={submit} disabled={!canSubmit}>
                     ส่งให้เจ้าหน้าที่พิจารณา
                   </Button>
-                  {!canSubmit && <span className="text-xs text-ink-soft">{stale ? 'ประเมินใหม่ก่อนส่ง' : a.result.standing !== 'normal' ? 'สถานะการรับรองไม่ปกติ จึงยังส่งไม่ได้' : 'ส่งได้เมื่อผลประเมินอยู่ในเกณฑ์ประกอบการพิจารณา Level 3–4'}</span>}
+                  <span className="text-xs text-ink-soft">
+                    {!canSubmit
+                      ? stale
+                        ? 'ประเมินใหม่ก่อนส่ง'
+                        : 'สถานะการรับรองไม่ปกติ จึงยังส่งไม่ได้'
+                      : forUpgrade
+                        ? 'ระบบยื่นคำขอรับรองระดับที่แนะนำผ่าน Workflow v1 (หรือใช้คำขอที่ค้างอยู่)'
+                        : 'ผลยังไม่ถึงเกณฑ์ยกระดับ — ส่งเพื่อให้เจ้าหน้าที่พิจารณาและแจ้งหลักฐานที่ควรเพิ่ม'}
+                  </span>
                 </div>
               )}
-              {a.status === 'pending_review' && <Alert tone="info">ส่งให้เจ้าหน้าที่พิจารณาแล้วเมื่อ {fmtDate(a.submittedAt!, true)}</Alert>}
+              {a.status === 'pending_review' && (
+                <Alert tone="info">
+                  ส่งให้เจ้าหน้าที่พิจารณาแล้วเมื่อ {fmtDate(a.submittedAt!, true)}
+                  {a.applicationId && ` · คำขอ ${a.applicationId}`}
+                </Alert>
+              )}
               {a.decision && (
                 <Alert tone={DECISION_LABEL[a.decision.kind].tone} title={`${DECISION_LABEL[a.decision.kind].label}${a.decision.level ? ` Level ${a.decision.level}` : ''}`}>
                   {a.decision.reason} — {a.decision.officerName} · {fmtDate(a.decision.at, true)}
                 </Alert>
               )}
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader title="5 Assessment Dimensions" subtitle="น้ำหนักจาก Assessment Configuration ปัจจุบัน — มิติที่ไม่มีข้อมูลไม่ถูกนับเป็นศูนย์" />
+            <div className="p-4 sm:p-5">
+              <DimensionGrid result={a.result} />
+            </div>
+          </Card>
+          <Card>
+            <CardHeader title="ข้อมูลที่ควรเพิ่มเติม" subtitle="สิ่งที่ร้านทำได้เพื่อเพิ่มความครอบคลุมและความน่าเชื่อถือของผลประเมิน" />
+            <div className="p-4 sm:p-5">
+              <ImproveList result={a.result} />
             </div>
           </Card>
 

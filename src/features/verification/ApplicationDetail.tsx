@@ -126,7 +126,7 @@ export default function ApplicationDetail() {
               </ul>
             </Card>
           )}
-          {app.type === 'certification' && app.requestedLevel >= 3 && <AssessmentSupportPanel merchantId={app.merchantId} />}
+          {(app.type === 'registration' || app.requestedLevel >= 3) && <AssessmentSupportPanel merchantId={app.merchantId} />}
           <Card>
             <CardHeader title="ข้อมูลผู้ประกอบการและร้านค้า" />
             <dl className="divide-y divide-line px-4 sm:px-5">

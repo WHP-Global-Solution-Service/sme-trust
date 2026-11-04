@@ -52,6 +52,7 @@ npm run test:e2e:safari   # E2E บน WebKit (Engine ของ Safari): Desktop
 - วิเคราะห์ราคา ยอดขาย รีวิว → **Trust Assessment** (Band A–D / Insufficient Data, Data Coverage, Data Confidence, คำอธิบายทุกปัจจัย)
 - ผู้บริโภคไม่เห็นคะแนนตัวเลข · Standing (ระงับ/เพิกถอน) แยกจาก Band · ยกระดับ Level 3–4 ผ่าน Officer Review และเกณฑ์ v1 เท่านั้น
 - `npm run build:v2` — Build สำหรับเผยแพร่ที่ `/sme-trust/v2/` ในอนาคต (`dist-v2/`)
+- **Demo v2** — Scenario 9–13 (เชื่อมข้อมูล → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ), เส้นทางทางเลือก 9B สำหรับร้านที่ไม่มี Marketplace, Full Journey v2 แยกจาก v1 และ Executive Impact Summary (`/demo/v2/summary`)
 
 ## เทคโนโลยี
 

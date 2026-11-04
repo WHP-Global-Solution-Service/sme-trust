@@ -105,6 +105,8 @@ export interface TrustAssessment {
   inputsKey: string;
   result: AssessmentResult;
   submittedAt?: ISODate;
+  /** คำขอ (v1) ที่ผูกกับผลประเมินตอนส่งพิจารณา — คำขอรับรอง Level 3–4 หรือคำขอลงทะเบียนที่ยังค้างอยู่ */
+  applicationId?: string;
   decision?: {
     kind: OfficerDecisionKind;
     level?: 3 | 4;

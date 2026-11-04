@@ -213,6 +213,7 @@ export function assessTrust(input: AssessmentInput, model: Model = MODEL_V2): As
   else if (band === 'insufficient') recommendation = { kind: 'need_more_data', reasons: insufficientReasons };
   else if (confidenceLevel === 'low') recommendation = { kind: 'need_more_data', reasons: ['ความเชื่อมั่นของข้อมูลต่ำ', ...confReasons] };
   else if (band === 'A' && confidenceLevel === 'high' && input.currentLevel >= 3) recommendation = { kind: 'consider_l4', level: 4, reasons: ['Band A และความเชื่อมั่นสูง — ประกอบการพิจารณา Level 4 (ต้องผ่านเกณฑ์ v1 ด้วย)'] };
+  else if (input.currentLevel < 2) recommendation = { kind: 'not_yet', reasons: ['ร้านต้องผ่านการลงทะเบียนและมีใบรับรอง Level 2 ที่ใช้งานได้ก่อน จึงจะใช้ผลประเมินประกอบการพิจารณา Level 3 ได้'] };
   else if ((band === 'A' || band === 'B') && input.currentLevel < 3) recommendation = { kind: 'consider_l3', level: 3, reasons: [`Band ${band} และความเชื่อมั่น${confidenceLevel === 'high' ? 'สูง' : 'ปานกลาง'} — ประกอบการพิจารณา Level 3 (ต้องผ่านเกณฑ์ v1 ด้วย)`] };
   else recommendation = { kind: 'not_yet', reasons: [input.currentLevel >= 3 ? 'มี Level 3 แล้ว — ผลประเมินยังไม่ถึงเกณฑ์ประกอบการพิจารณา Level 4' : `Band ${band} ยังไม่ถึงเกณฑ์ประกอบการพิจารณา Level 3`] };
 

@@ -5,12 +5,12 @@
 export type ComponentId = 'C1' | 'C2' | 'C3' | 'C4' | 'C5';
 export type Weights = Record<ComponentId, number>;
 
-export const COMPONENTS: Record<ComponentId, { label: string; source: string; desc: string }> = {
-  C1: { label: 'ตัวตนและธุรกิจ', source: 'ข้อมูล v1', desc: 'e-KYC, การอนุมัติร้าน, ใบรับรอง และช่องทางขายที่ยืนยันแล้ว' },
-  C2: { label: 'ผลการขายและการจัดส่ง', source: 'Marketplace (จำลอง)', desc: 'อายุร้าน ความสม่ำเสมอของยอดขาย การยกเลิก/คืนสินค้า การจัดส่งตรงเวลา การตอบแชต' },
-  C3: { label: 'เสียงลูกค้า', source: 'Marketplace (จำลอง)', desc: 'คะแนนรีวิวถ่วงความใหม่ และประเด็นเชิงลบที่พบบ่อย' },
-  C4: { label: 'ความสมเหตุสมผลของราคา', source: 'Marketplace (จำลอง)', desc: 'ราคาเทียบช่วงอ้างอิงของประเภทสินค้า โดยคำนึงถึงความเสี่ยงของสินค้าและหลักฐานสนับสนุน' },
-  C5: { label: 'การปฏิบัติตามและการแก้ไขปัญหา', source: 'ข้อมูล v1', desc: 'ข้อร้องเรียนที่แก้ไขสำเร็จ/ส่งต่อ คำเตือนที่ค้าง และการอบรม' },
+export const COMPONENTS: Record<ComponentId, { label: string; en: string; source: string; desc: string }> = {
+  C1: { label: 'ตัวตนและธุรกิจ', en: 'Identity & Business', source: 'ข้อมูล v1', desc: 'e-KYC, การอนุมัติร้าน, ใบรับรอง และช่องทางขายที่ยืนยันแล้ว' },
+  C2: { label: 'ผลการขายและการจัดส่ง', en: 'Sales Performance', source: 'Marketplace (จำลอง)', desc: 'อายุร้าน ความสม่ำเสมอของยอดขาย การยกเลิก/คืนสินค้า การจัดส่งตรงเวลา การตอบแชต' },
+  C3: { label: 'เสียงลูกค้า', en: 'Customer Experience', source: 'Marketplace (จำลอง)', desc: 'คะแนนรีวิวถ่วงความใหม่ และประเด็นเชิงลบที่พบบ่อย' },
+  C4: { label: 'ความสมเหตุสมผลของราคา', en: 'Price Transparency', source: 'Marketplace (จำลอง)', desc: 'ราคาเทียบช่วงอ้างอิงของประเภทสินค้า โดยคำนึงถึงความเสี่ยงของสินค้าและหลักฐานสนับสนุน' },
+  C5: { label: 'การปฏิบัติตามและการแก้ไขปัญหา', en: 'Compliance', source: 'ข้อมูล v1', desc: 'ข้อร้องเรียนที่แก้ไขสำเร็จ/ส่งต่อ คำเตือนที่ค้าง และการอบรม' },
 };
 
 export const MODEL_V2 = {

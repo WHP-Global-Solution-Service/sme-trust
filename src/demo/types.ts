@@ -36,9 +36,17 @@ export interface ContinuityIssue {
   fallbackLabel: string;
 }
 
+export type Track = 'v1' | 'v2';
+
 export interface ScenarioDef {
   id: string;
   no: number;
+  /** v1 = Consumer Protection (Scenario 1–8) · v2 = Marketplace Intelligence (Scenario 9–13) — ไม่ระบุ = v1 */
+  track?: Track;
+  /** รหัสที่แสดง เช่น "9B" — ไม่ระบุใช้เลข Scenario */
+  code?: string;
+  /** เส้นทางทางเลือก (Branch) — ไม่อยู่ในลำดับของ Full Journey */
+  branch?: boolean;
   title: string;
   objective: string;
   keyMessage: string;

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Info, Undo2 } from 'lucide-react';
 import type { ContinuityIssue } from '@/demo/types';
 import { continuityIssue, goFixScenario, startScenario } from '@/demo/controller';
-import { findScenario } from '@/mock/scenarios';
+import { findScenario, scenarioCode } from '@/mock/scenarios';
 import { useDemoStore } from '@/stores/demo';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/ui';
@@ -38,7 +38,7 @@ export function useScenarioLauncher() {
     <Modal
       open={!!pending}
       onClose={close}
-      title={pending?.issue ? `ข้อมูลสำหรับ Scenario ${sc?.no} ยังไม่ครบ` : `Scenario ${sc?.no} ใช้กรณีศึกษาแยก`}
+      title={pending?.issue ? `ข้อมูลสำหรับ Scenario ${sc && scenarioCode(sc)} ยังไม่ครบ` : `Scenario ${sc && scenarioCode(sc)} ใช้กรณีศึกษาแยก`}
       footer={
         pending?.issue ? (
           <>
@@ -49,7 +49,7 @@ export function useScenarioLauncher() {
               ใช้ข้อมูลตัวอย่าง
             </Button>
             <Button icon={Undo2} onClick={() => (close(), goFixScenario(pending.issue!.fixScenario, nav))}>
-              กลับไปทำ Scenario {fix?.no} ให้ครบ
+              กลับไปทำ Scenario {fix && scenarioCode(fix)} ให้ครบ
             </Button>
           </>
         ) : (
@@ -58,7 +58,7 @@ export function useScenarioLauncher() {
               ยกเลิก
             </Button>
             <Button icon={ArrowRight} onClick={() => pending && (close(), run(pending.id, pending.mode))}>
-              เริ่ม Scenario {sc?.no}
+              เริ่ม Scenario {sc && scenarioCode(sc)}
             </Button>
           </>
         )
@@ -71,7 +71,7 @@ export function useScenarioLauncher() {
             {pending.issue.message}
           </p>
           <p>
-            <b>กลับไปทำ Scenario {fix?.no} ให้ครบ</b> — สาธิตต่อด้วยข้อมูลเดียวกันทั้ง Journey
+            <b>กลับไปทำ Scenario {fix && scenarioCode(fix)} ให้ครบ</b> — สาธิตต่อด้วยข้อมูลเดียวกันทั้ง Journey
           </p>
           <p>
             <b>ใช้ข้อมูลตัวอย่าง</b> — ใช้{pending.issue.fallbackLabel}แทน ตัวควบคุมการสาธิตจะแสดงหมายเหตุนี้ตลอดทั้งเรื่อง

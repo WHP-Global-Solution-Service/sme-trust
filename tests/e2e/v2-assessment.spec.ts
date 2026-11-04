@@ -17,21 +17,30 @@ test('ร้านเชื่อมต่อ Lazada (จำลอง) → ป�
   await expect(main(page).getByText('ยังไม่มีการเชื่อมต่อ API จริง').first()).toBeVisible();
   await expect(main(page).getByText('Shopee (จำลอง)').first()).toBeVisible();
 
-  // เชื่อมต่อ Lazada (จำลอง): ความยินยอม → จำลองซิงก์ล้มเหลว → ซิงก์ใหม่สำเร็จ
+  // เชื่อมต่อ Lazada (จำลอง): ความยินยอม → เลือกร้าน → Preview → ยืนยันนำเข้า (จำลองซิงก์ล้มเหลว) → ลองใหม่สำเร็จ
   const lazada = main(page).locator('[data-platform="lazada"]');
   await lazada.getByRole('button', { name: 'เชื่อมต่อ Lazada (จำลอง)' }).click();
-  const dlg = page.getByRole('dialog');
+  const dlg = main(page).getByRole('region', { name: 'เชื่อมต่อ Lazada (จำลอง)' }); // แสดงในหน้า ไม่บังตัวควบคุมการสาธิต
   await expect(dlg.getByText('รายการสินค้าและราคา (ย้อนหลัง 6 เดือน)')).toBeVisible();
+  await expect(dlg.getByRole('button', { name: 'ถัดไป' })).toBeDisabled(); // ต้องให้ความยินยอมก่อน
+  await dlg.getByLabel(/ข้าพเจ้ายินยอม/).check();
+  await dlg.getByRole('button', { name: 'ถัดไป' }).click();
+  await expect(dlg.getByRole('radio', { name: /ร้านที่ขายมานาน ผลงานดี/ })).toHaveAttribute('aria-checked', 'true');
+  await dlg.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
+  await expect(dlg.getByText('คะแนนร้าน')).toBeVisible();
+  expect((await store<Conn>(page, 'marketplace-connections')).find((c) => c.merchantId === 'M-005' && c.platform === 'lazada')!.status).toBe('pending_consent'); // Preview ยังไม่ดึงข้อมูล
   await dlg.getByLabel(/จำลองการซิงก์ไม่สำเร็จ/).check();
-  await dlg.getByRole('button', { name: 'ยินยอมและเชื่อมต่อ (จำลอง)' }).click();
-  await expect(lazada.getByText('ซิงก์ไม่สำเร็จ').first()).toBeVisible();
-  await lazada.getByRole('button', { name: 'ซิงก์ใหม่' }).click();
+  await dlg.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
+  await expect(dlg.getByText('ซิงก์ไม่สำเร็จ').first()).toBeVisible();
+  await dlg.getByRole('button', { name: 'ลองซิงก์ใหม่' }).click();
+  await expect(dlg.getByText('เชื่อมต่อสำเร็จ (Connection Success)')).toBeVisible();
+  await dlg.getByRole('button', { name: 'ปิด', exact: true }).click();
   await expect(lazada.getByText('เชื่อมต่อแล้ว (จำลอง)')).toBeVisible();
   await expect(lazada.getByText('คำสั่งซื้อ 12 เดือน')).toBeVisible();
   expect((await store<Conn>(page, 'marketplace-connections')).filter((c) => c.merchantId === 'M-005' && c.status === 'connected').map((c) => c.platform).sort()).toEqual(['lazada', 'shopee']);
 
   // ผลประเมินเดิมล้าสมัย → ประเมินใหม่ → ไม่มีคะแนนตัวเลขในมุมร้าน
-  await main(page).getByRole('link', { name: 'ดูผลประเมินความน่าเชื่อถือ' }).click();
+  await main(page).getByRole('link', { name: 'ผลประเมินความน่าเชื่อถือ', exact: true }).click();
   await expect(main(page).getByText('ข้อมูลเปลี่ยนแปลงหลังการประเมิน')).toBeVisible();
   await expect(main(page).getByRole('button', { name: 'ส่งให้เจ้าหน้าที่พิจารณา' })).toBeDisabled();
   await main(page).getByRole('button', { name: 'ประเมินใหม่' }).first().click();

@@ -5,7 +5,7 @@ import { useSessionStore, toast, confirmDialog } from '@/stores';
 import { resetAllDemoData } from '@/stores/workflows';
 import { useOperatorStore } from '@/stores';
 import { consumers, officers } from '@/mock/data';
-import { demoMerchantAccounts, scenarios } from '@/mock/scenarios';
+import { allScenarios, demoMerchantAccounts, scenarioCode, trackOf } from '@/mock/scenarios';
 import { ROLE_LABEL } from '@/constants/labels';
 import { Button } from '@/components/common/ui';
 import { Select } from '@/components/forms/Field';
@@ -194,19 +194,22 @@ export function DemoPanel() {
               </button>
             </div>
             <ul className="space-y-2">
-              {scenarios.map((sc) => (
+              {allScenarios.map((sc, k) => (
                 <li key={sc.id}>
+                  {(k === 0 || trackOf(allScenarios[k - 1]) !== trackOf(sc)) && (
+                    <p className="mb-1.5 mt-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">{trackOf(sc) === 'v2' ? 'v2 — Marketplace Intelligence' : 'v1 — Consumer Protection'}</p>
+                  )}
                   <button
                     onClick={async () => {
-                      const r = await confirmDialog({ title: `เริ่ม Scenario ${sc.no}: ${sc.title}`, body: 'ระบบจะรีเซ็ตข้อมูลสาธิตทั้งหมดเป็นค่าเริ่มต้นก่อนเริ่มเรื่องราวนี้', confirmText: 'เริ่มสาธิต' });
+                      const r = await confirmDialog({ title: `เริ่ม Scenario ${scenarioCode(sc)}: ${sc.title}`, body: 'ระบบจะรีเซ็ตข้อมูลสาธิตทั้งหมดเป็นค่าเริ่มต้นก่อนเริ่มเรื่องราวนี้', confirmText: 'เริ่มสาธิต' });
                       if (r.ok) {
                         startScenario(sc.id, nav);
-                        toast.success(`เริ่ม Scenario ${sc.no}`, sc.title);
+                        toast.success(`เริ่ม Scenario ${scenarioCode(sc)}`, sc.title);
                       }
                     }}
                     className={cn('flex w-full items-start gap-3 rounded-xl border p-3 text-left hover:bg-bg', activeScenario === sc.id ? 'border-primary bg-primary-50/60' : 'border-line')}
                   >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-sm font-bold text-white">{sc.no}</span>
+                    <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white', trackOf(sc) === 'v2' ? 'bg-info' : 'bg-primary')}>{scenarioCode(sc)}</span>
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-ink">{sc.title}</span>
                       <span className="block text-xs text-ink-soft">{sc.duration} · {sc.steps.length} ขั้นตอน</span>

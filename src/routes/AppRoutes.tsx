@@ -55,11 +55,14 @@ import DevicePreview from '@/features/preview/DevicePreview';
 import DemoScenariosPage from '@/features/demo/DemoScenariosPage';
 import DemoCompletePage from '@/features/demo/DemoCompletePage';
 import DemoOverviewPage from '@/features/demo/DemoOverviewPage';
+import DemoV2SummaryPage from '@/features/demo/DemoV2SummaryPage';
 import AIAssistantHome from '@/features/ai-assistant/pages/AIAssistantHome';
 import AdvertisingChecker from '@/features/ai-assistant/pages/AdvertisingChecker';
 import ComplaintAssistant from '@/features/ai-assistant/pages/ComplaintAssistant';
 import AIHistory from '@/features/ai-assistant/pages/AIHistory';
 import MarketplacePage from '@/features/marketplace/pages/MarketplacePage';
+import MarketplaceDataPage from '@/features/marketplace/pages/MarketplaceDataPage';
+import MarketplaceAnalysisPage from '@/features/marketplace/pages/MarketplaceAnalysisPage';
 import MerchantAssessmentPage from '@/features/trust-assessment/pages/MerchantAssessmentPage';
 import OfficerAssessmentList from '@/features/trust-assessment/pages/OfficerAssessmentList';
 import OfficerAssessmentDetail from '@/features/trust-assessment/pages/OfficerAssessmentDetail';
@@ -81,6 +84,7 @@ export function AppRoutes() {
       <Route path="/demo" element={<DemoScenariosPage />} />
       <Route path="/demo/complete/:id" element={<DemoCompletePage />} />
       <Route path="/demo/overview" element={<DemoOverviewPage />} />
+      <Route path="/demo/v2/summary" element={<DemoV2SummaryPage />} />
 
       <Route element={<AppShell />}>
         {/* Merchant */}
@@ -101,6 +105,8 @@ export function AppRoutes() {
         <Route path="/m/notifications" element={gate(M, <NotificationsPage />)} />
         <Route path="/m/ai" element={gate(M, <AIAssistantHome />)} />
         <Route path="/m/marketplace" element={gate(M, <MarketplacePage />)} />
+        <Route path="/m/marketplace/data/:id" element={gate(M, <MarketplaceDataPage />)} />
+        <Route path="/m/marketplace/analysis" element={gate(M, <MarketplaceAnalysisPage />)} />
         <Route path="/m/trust" element={gate(M, <MerchantAssessmentPage />)} />
         <Route path="/m/ai/ad-checker" element={gate(M, <AdvertisingChecker />)} />
         <Route path="/m/ai/complaint" element={gate(M, <ComplaintAssistant />)} />

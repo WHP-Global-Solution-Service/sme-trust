@@ -9,6 +9,7 @@ import { Alert, Card, CardHeader, InfoRow, LinkButton, PageHeader, StatusBadge }
 import { DemoLabel, TrustSeal, VerdictPanel } from '@/components/common/Trust';
 import { ChannelButtons, NotFoundExplain } from './shared';
 import { PublicAssessmentCard } from '@/features/trust-assessment/components/AssessmentParts';
+import { PublicMarketplaceChannels } from '@/features/marketplace/components/PublicMarketplaceChannels';
 
 /** Merchant Detail (Public) — ไม่แสดงข้อมูลผู้ร้องเรียนหรือหลักฐานส่วนตัว */
 export default function ShopPublicPage() {
@@ -68,6 +69,7 @@ export default function ShopPublicPage() {
               <ChannelButtons channels={m.channels} shopName={m.shopName} certId={cert?.id} usable={verdict.usable} level={level} />
             </div>
           </Card>
+          <PublicMarketplaceChannels merchant={m} />
           <Alert tone="neutral" icon={Lock}>
             หน้าสาธารณะไม่แสดงข้อมูลผู้ร้องเรียน หลักฐานส่วนตัว หรือข้อกล่าวหาที่ยังไม่ได้ข้อสรุป
           </Alert>

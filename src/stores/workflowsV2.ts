@@ -26,16 +26,20 @@ import {
   useRiskStore,
   useSessionStore,
   useTrainingStore,
+  useVerificationStore,
   useWarningStore,
 } from '.';
 import { currentModel } from './assessmentConfig';
-import { applyCertification, approveApplication, audit, currentActor, notify, notifyMerchant, openRiskCase, type WorkflowResult } from './workflows';
+import { applyCertification, approveApplication, audit, currentActor, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, type WorkflowResult } from './workflows';
 
 const mk = () => useMarketplaceStore.getState();
 const conn = (id: string) => mk().items.find((c) => c.id === id);
 const merchantOf = (id: string) => useMerchantStore.getState().items.find((m) => m.id === id);
 
 // ================================================================ Marketplace Connection (จำลอง)
+
+/** Seed ของข้อมูลจำลอง — ใช้แสดงตัวอย่างข้อมูลก่อนยืนยันนำเข้า (ได้ข้อมูลเดียวกับที่จะนำเข้าจริง) */
+export const seedFor = (merchantId: string, platform: Platform, archetype: Archetype, connectionId: string) => hashString(`${merchantId}:${platform}:${archetype}:${connectionId}`);
 
 /** เริ่มเชื่อมต่อ — สร้างคำขอความยินยอม (ยังไม่ดึงข้อมูล) */
 export function connectMarketplace(merchantId: string, platform: Platform, archetype: Archetype = 'established_good'): MarketplaceConnection {
@@ -51,7 +55,7 @@ export function connectMarketplace(merchantId: string, platform: Platform, arche
     status: 'pending_consent',
     scopes: [],
     archetype,
-    seed: hashString(`${merchantId}:${platform}:${archetype}:${id}`),
+    seed: seedFor(merchantId, platform, archetype, id),
     createdAt: nowISO(),
   };
   mk().add(c);
@@ -67,7 +71,7 @@ export function grantConsent(connectionId: string, archetype?: Archetype) {
     scopes: [...CONSENT_SCOPES],
     consentAt: nowISO(),
     failReason: undefined,
-    ...(archetype && archetype !== c.archetype ? { archetype, seed: hashString(`${c.merchantId}:${c.platform}:${archetype}:${c.id}`) } : {}),
+    ...(archetype && archetype !== c.archetype ? { archetype, seed: seedFor(c.merchantId, c.platform, archetype, c.id) } : {}),
   });
   audit('ให้ความยินยอมเชื่อมต่อ Marketplace (จำลอง)', connectionId, PLATFORMS[c.platform].label);
 }
@@ -177,10 +181,31 @@ export function submitAssessment(assessmentId: string): WorkflowResult {
   const cur = currentInputs(a.merchantId);
   if (cur && cur.key !== a.inputsKey) return { ok: false, error: 'ข้อมูลเปลี่ยนแปลงหลังการประเมิน — กรุณาประเมินใหม่ก่อนส่ง' };
   if (a.result.standing !== 'normal') return { ok: false, error: 'สถานะการรับรองไม่ปกติ จึงยังส่งพิจารณาไม่ได้' };
-  useAssessmentStore.getState().update(assessmentId, { status: 'pending_review', submittedAt: nowISO() });
-  audit('ส่งผลประเมินให้เจ้าหน้าที่พิจารณา', assessmentId);
+  const applicationId = linkApplication(a);
+  useAssessmentStore.getState().update(assessmentId, { status: 'pending_review', submittedAt: nowISO(), applicationId });
+  audit('ส่งผลประเมินให้เจ้าหน้าที่พิจารณา', assessmentId, applicationId ? `คำขอ ${applicationId}` : undefined);
   notify('officer', undefined, 'ผลประเมินความน่าเชื่อถือรอพิจารณา', `${assessmentId} ${merchantOf(a.merchantId)?.shopName}`, `/o/assessments/${assessmentId}`);
   return { ok: true };
+}
+
+const appOf = (id?: string) => useVerificationStore.getState().items.find((x) => x.id === id);
+const isOpen = (status?: string) => !!status && !['approved', 'rejected'].includes(status);
+
+/**
+ * ผูกผลประเมินกับคำขอ v1 เดิม (ใช้ Application ID เดียวกันตลอดการพิจารณา)
+ * - มีคำขอที่ยังค้างอยู่ (ลงทะเบียน/ขอรับรอง) → ใช้คำขอนั้น
+ * - ร้านมี Level 2 ขึ้นไป และผลประเมินอยู่ในเกณฑ์ประกอบการพิจารณา → ยื่นคำขอรับรองระดับที่แนะนำผ่าน Workflow v1
+ * - นอกนั้นไม่สร้างคำขอ (เจ้าหน้าที่ยังพิจารณาผลประเมินได้ตามปกติ)
+ */
+function linkApplication(a: TrustAssessment): string | undefined {
+  const open = useVerificationStore
+    .getState()
+    .items.filter((x) => x.merchantId === a.merchantId && isOpen(x.status))
+    .sort((x, y) => y.submittedAt.localeCompare(x.submittedAt))[0];
+  if (open) return open.id;
+  const rec = a.result.recommendation;
+  if (rec.kind === 'consider_l3' || rec.kind === 'consider_l4') return applyCertification(a.merchantId, rec.level).id;
+  return undefined;
 }
 
 /** เกณฑ์ v1 ของระดับที่จะยกระดับ (ต้องผ่านด้วย — D3) */
@@ -223,7 +248,13 @@ export function decideAssessment(assessmentId: string, kind: OfficerDecisionKind
     if (unmet.length) return { ok: false, error: `ยังไม่ผ่านเกณฑ์ v1 ของ Level ${level}: ${unmet.map((c) => c.label).join(', ')}` };
     const cert = currentCert(useCertificationStore.getState().items, a.merchantId);
     if (cert?.status === 'active' && cert.level >= level) return { ok: false, error: `ร้านมีใบรับรองระดับ ${cert.level} อยู่แล้ว` };
-    const app = applyCertification(a.merchantId, level);
+    // ใช้คำขอที่ผูกไว้ตอนส่งพิจารณา (ถ้าเป็นคำขอรับรองที่ยังค้าง) — ไม่สร้างคำขอซ้ำ
+    const linked = appOf(a.applicationId);
+    const useLinked = linked && linked.type === 'certification' && isOpen(linked.status);
+    if (useLinked && linked.requestedLevel !== level) {
+      useVerificationStore.getState().update(linked.id, (x) => ({ requestedLevel: level, timeline: [...x.timeline, { id: `tl-${Date.now()}`, at: nowISO(), actor: 'officer', actorName: actor.name, title: `ปรับระดับที่พิจารณาเป็น Level ${level}`, note: assessmentId }] }));
+    }
+    const app = useLinked ? linked : applyCertification(a.merchantId, level);
     const r = approveApplication(app.id, `อนุมัติจากการพิจารณาผลประเมิน ${assessmentId}`);
     if (!r.ok) return r;
     applicationId = app.id;
@@ -231,6 +262,11 @@ export function decideAssessment(assessmentId: string, kind: OfficerDecisionKind
   } else if (kind === 'escalated') {
     const open = useComplaintStore.getState().items.filter((c) => c.merchantId === a.merchantId && !['resolved', 'closed'].includes(c.status)).map((c) => c.id);
     riskCaseId = openRiskCase(a.merchantId, `จากการพิจารณาผลประเมิน ${assessmentId}: ${reason}`, open).id;
+  } else if (isOpen(appOf(a.applicationId)?.status)) {
+    // คำขอ v1 ที่ผูกไว้: ขอข้อมูลเพิ่ม/ไม่อนุมัติผ่าน Workflow เดิม (แจ้งร้านค้าและบันทึก Timeline ของคำขอ)
+    applicationId = a.applicationId;
+    if (kind === 'need_info') requestInfo(a.applicationId!, `${reason.trim()} (ผลประเมิน ${assessmentId})`);
+    else rejectApplication(a.applicationId!, `${reason.trim()} (ผลประเมิน ${assessmentId})`);
   } else {
     notifyMerchant(
       a.merchantId,

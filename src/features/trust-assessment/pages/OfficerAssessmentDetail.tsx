@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Calculator, CheckCircle2, Circle, Gavel, Gauge } from 'lucide-react';
-import { toast, useAssessmentStore, useMerchantStore } from '@/stores';
+import { Calculator, CheckCircle2, Circle, FileText, Gavel, Gauge } from 'lucide-react';
+import { toast, useAssessmentStore, useMerchantStore, useOperatorStore, useVerificationStore } from '@/stores';
+import { REGISTRATION_STATUS, TRUST_LEVELS } from '@/constants/labels';
 import { decideAssessment, v1CriteriaFor } from '@/stores/workflowsV2';
-import { Alert, Button, Card, CardHeader, EmptyState, PageHeader, StatusBadge } from '@/components/common/ui';
+import { Alert, Badge, Button, Card, CardHeader, EmptyState, PageHeader, StatusBadge } from '@/components/common/ui';
 import { Textarea } from '@/components/forms/Field';
 import { fmtDate } from '@/utils/format';
 import { MarketplaceDisclaimer } from '@/features/marketplace/components/MarketplaceParts';
@@ -11,6 +12,7 @@ import { useAssessmentState } from '../hooks';
 import { ASSESSMENT_DISCLAIMER, ASSESSMENT_STATUS, BAND_LABEL, DECISION_LABEL, RECOMMENDATION_LABEL } from '../labels';
 import type { OfficerDecisionKind } from '../types';
 import { AnalysisPanels, BandBadge, CalculationTable, DataQuality, FactorList, SourcesLine, StandingBanner } from '../components/AssessmentParts';
+import { MarketplaceEvidence } from '../components/AssessmentSupportPanel';
 
 const KINDS: OfficerDecisionKind[] = ['approved', 'need_info', 'rejected', 'escalated'];
 
@@ -19,6 +21,8 @@ export default function OfficerAssessmentDetail() {
   const a = useAssessmentStore((s) => s.items.find((x) => x.id === id));
   const m = useMerchantStore((s) => s.items.find((x) => x.id === a?.merchantId));
   const { latest, stale } = useAssessmentState(a?.merchantId);
+  const op = useOperatorStore((s) => s.items.find((o) => o.id === m?.operatorId));
+  const app = useVerificationStore((s) => s.items.find((x) => x.id === (a?.decision?.applicationId ?? a?.applicationId)));
   const [kind, setKind] = useState<OfficerDecisionKind>();
   const [level, setLevel] = useState<3 | 4>(3);
   const [reason, setReason] = useState('');
@@ -85,6 +89,31 @@ export default function OfficerAssessmentDetail() {
         </div>
 
         <div className="space-y-4">
+          <Card>
+            <CardHeader title="คำขอ ตัวตน และหลักฐาน" icon={FileText} />
+            <div className="space-y-3 p-4 text-sm">
+              <p>
+                คำขอ:{' '}
+                {app ? (
+                  <>
+                    <Link to={`/o/applications/${app.id}`} className="font-mono text-primary hover:underline">
+                      {app.id}
+                    </Link>{' '}
+                    · {app.type === 'registration' ? 'ลงทะเบียนร้านค้า' : `ขอรับรอง ${TRUST_LEVELS[app.requestedLevel].name}`} <StatusBadge map={REGISTRATION_STATUS} value={app.status} />
+                  </>
+                ) : (
+                  <span className="text-ink-soft">ไม่มีคำขอที่ผูกกับผลประเมินนี้</span>
+                )}
+              </p>
+              <p>
+                ยืนยันตัวตนเจ้าของร้าน: <Badge tone={op?.kycStatus === 'verified' ? 'success' : 'warning'}>{op?.kycStatus === 'verified' ? 'e-KYC ผ่าน (จำลอง)' : 'ยังไม่ยืนยันตัวตน'}</Badge>
+              </p>
+              <div>
+                <p className="mb-1.5 text-xs font-semibold text-ink-soft">Marketplace Evidence</p>
+                <MarketplaceEvidence merchantId={m.id} />
+              </div>
+            </div>
+          </Card>
           <Card>
             <CardHeader title="ข้อเสนอของระบบ" subtitle="ข้อมูลประกอบ — ไม่ออก Badge อัตโนมัติ" />
             <div className="space-y-2 p-4 text-sm">
