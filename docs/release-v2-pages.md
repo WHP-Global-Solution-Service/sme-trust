@@ -3,8 +3,7 @@
 URL: https://whp-global-solution-service.github.io/sme-trust/
 Source: `sme-trustv.2` → Merge เข้า `main` → GitHub Actions (`deploy-pages.yml`) Deploy จาก `main` เท่านั้น
 
-> สถานะ: **เผยแพร่แล้ว 2 รอบ** — รอบที่ 1 (v2 แทน v1) Merge `7e6df10` · Run #3 · ข้อ 9 · รอบที่ 2 (Marketplace Auto-Fill) Merge `4eed1d9` · Run #4 · ข้อ 10
-> งานที่อยู่ใน `sme-trustv.2` แต่**ยังไม่เผยแพร่**แยกไว้ในข้อ 11
+> สถานะ: **เผยแพร่แล้ว 3 รอบ** — รอบที่ 1 (v2 แทน v1) Merge `7e6df10` · Run #3 · ข้อ 9 · รอบที่ 2 (Marketplace Auto-Fill) Merge `4eed1d9` · Run #4 · ข้อ 10 · รอบที่ 3 (หน้าแรก Concept v2 + คำขอเปลี่ยนข้อมูลร้าน) Merge `304d247` · Run #5 · ข้อ 11–12
 > Prototype นี้เป็น Frontend Only ด้วยข้อมูลจำลอง — **ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)**
 
 ## 1. ผล Preflight
@@ -189,13 +188,30 @@ Not Tested: Safari/อุปกรณ์มือถือจริง, Screen r
 
 Not Tested (รอบที่ 2): Safari / อุปกรณ์มือถือจริง · ชุด v1 (Lifecycle, Scenario 1–8 แบบ Journey) บน Firefox/WebKit ของเว็บจริง
 
-## 11. อยู่ระหว่างพัฒนา — ยังไม่เผยแพร่ (Branch `sme-trustv.2`)
+## 11. งานในรอบที่ 3 (เผยแพร่แล้ว — ดูข้อ 12)
 
-งานด้านล่างอยู่ใน `sme-trustv.2` หลัง `1051045` และ**ยังไม่ได้ Merge เข้า `main`** — เว็บไซต์จริงยังเป็น `4eed1d9`
+งานด้านล่างพัฒนาใน `sme-trustv.2` (`447a9fa`) และเผยแพร่ด้วย Merge `304d247`
 
 | งาน | สรุป |
 |---|---|
 | หน้าแรก Concept v2 | Hero ใหม่ ("เชื่อมข้อมูลร้านค้าออนไลน์ ประเมินความน่าเชื่อถืออย่างโปร่งใส") · CTA 4 ปุ่มไปยัง Flow จริง · Section การเชื่อม Marketplace / Trust Assessment 7 ปัจจัย / Trust Badge (แยก Band, Level, สถานะ) / ผู้บริโภค / Demo 15 เส้นทาง (เน้น Full Journey v2) · `/demo?track=v1|v2` เลือกแท็บ · หลังสมัครจากปุ่ม "เชื่อมร้านค้าออนไลน์"/"ลงทะเบียนด้วยตนเอง" ไปต่อที่ขั้นตอนนั้น |
 | คำขอเปลี่ยนข้อมูลร้าน (ปิด KI-V2-15) | Merchant Edit → Change Request → Officer Review → อนุมัติ / ไม่อนุมัติ / ขอข้อมูลเพิ่ม → แจ้งร้าน → อัปเดตโปรไฟล์ → Audit Log · หน้า `/o/profile-changes`, `/o/profile-changes/:id`, `/m/profile-changes`, `/m/profile-changes/:id` |
 
-ก่อนเผยแพร่รอบถัดไปให้ทำตามข้อ 3–7 และบันทึกผลเป็นข้อ 12
+## 12. Release 3 — หน้าแรก Concept v2 + คำขอเปลี่ยนข้อมูลร้าน (เผยแพร่แล้ว)
+
+| รายการ | ค่า |
+|---|---|
+| Rollback Tag | `sme-trust-v2.1-before-homepage-refresh` (annotated) → `4eed1d9` · Push แล้ว |
+| Source | `sme-trustv.2` @ `447a9fa` (Push แล้ว) |
+| Merge Commit | `304d247` (`--no-ff`, ไม่ Force Push / ไม่ Rewrite History) · ต้นไม้ไฟล์เท่ากับ `447a9fa` |
+| ตรวจหลัง Merge | `npm ci` ✅ · TypeScript ✅ · `npm test` 15 ชุด ✅ (render 123 เส้นทาง) · Build `/sme-trust/` ✅ (`index-_gZqWRBa.js`, `404.html`) · E2E Pages จำลอง 9/9 ✅ · Chromium ครบทุกชุด 70/70 ✅ |
+| GitHub Actions | Run #5 `42108759719` · build ✅ 21:01:25–21:02:45 · deploy ✅ 21:02:49–21:03:39 (UTC, 5 พ.ย. 2569) |
+| เว็บจริง | Bundle `index-_gZqWRBa.js` (ตรงกับ Build ในเครื่อง) · Asset 122 ไฟล์ตอบ 200 |
+| Live smoke | Chromium ครบทุกชุด + Live 3 = 73/73 ✅ · Firefox 39/39 ✅ (home, profile-change, autofill, v2-journey, scenarios 1–8, secondary, live) · WebKit 13/13 ✅ (home, profile-change, autofill, live) |
+| Rollback (ถ้าจำเป็น) | `git revert -m 1 304d247` → Push `main` (ไม่ Force) · ตรวจ `git diff sme-trust-v2.1-before-homepage-refresh HEAD --stat` ว่าง |
+
+หมายเหตุการตรวจในเครื่อง: รอบแรกหลัง Merge มี 1 Test (`continuity` Restart Scenario) ไม่ผ่านขณะรัน 4 Worker และ Build ของ Pages จำลองล้มเหลวจาก `ENOTEMPTY` ที่ `distssets` (ไฟล์ถูกล็อกบน Windows) · รัน `continuity` ซ้ำ 3 รอบผ่าน 6/6 · ล้าง `dist` แล้วรันครบทุกชุดผ่าน 70/70 · Pages จำลองรันซ้ำผ่าน 9/9
+
+หมายเหตุ Live smoke: Test เฉพาะเว็บจริงข้อ Deep link รอบแรกไม่ผ่านเพราะ Test เปิด `/m/marketplace` ในมุมมองผู้บริโภค (เว็บแสดงหน้า "ไม่มีสิทธิ์เข้าถึง" ถูกต้อง) · แก้ Test ให้ตั้งบทบาทตามเส้นทางแล้วผ่าน · ตรวจบัญชีสาธิตล่าสุด: บทบาทเจ้าหน้าที่/ผู้ดูแล/ผู้บริโภคกดปุ่มร้านค้าบนหน้าแรก → หน้าเข้าสู่ระบบที่ระบุชื่อบัญชีและมีปุ่ม "ใช้บัญชีอื่น" (ไม่เข้า Workflow ร้านค้าโดยเงียบ) · ไม่พบปัญหาร้ายแรง จึง**ไม่ Rollback**
+
+Not Tested (รอบที่ 3): Safari / อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
