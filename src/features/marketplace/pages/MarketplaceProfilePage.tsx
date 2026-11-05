@@ -8,6 +8,7 @@ import { fieldRows, profileUpdateRules, summarize, FIELD_LABEL, type FieldKey, t
 import { PLATFORMS } from '../data/platforms';
 import { FieldDiffTable, FieldStatusBadge, ImportSummaryBar, SourceDataCard } from '../components/ImportProvenance';
 import { useCurrentOperator } from '@/hooks/useCurrent';
+import { ChangeRequestNotice } from '@/features/profile-change/ProfileChangeParts';
 import { currentCert } from '@/utils/trust';
 import { uid } from '@/utils/id';
 import { BUSINESS_CATEGORIES, PROVINCES } from '@/constants/labels';
@@ -37,8 +38,11 @@ export default function MarketplaceProfilePage() {
 
   const source = useMemo(() => (ready ? sourceOfConnection(c!, m!) : undefined), [ready, c, m]);
   const registered = useMemo(() => (m ? registeredValues(m) : undefined), [m]);
-  /** Auto-Fill: คำอธิบายร้านจากข้อมูลที่นำเข้า · ชื่อร้าน/หมวดตามต้นฉบับ (ตรงกับข้อมูลที่ลงทะเบียน) · ช่องติดต่อ/ที่อยู่ไม่มีในแหล่งข้อมูล → ใช้ข้อมูลเดิมในระบบ */
-  const autofill = useMemo<FieldValues | undefined>(() => (source && registered ? { ...registered, shopName: source.shopName, category: source.category, description: source.description } : undefined), [source, registered]);
+  /**
+   * Auto-Fill: คำอธิบายร้านจากข้อมูลที่นำเข้า · ชื่อร้าน/หมวดใช้ข้อมูลที่อนุมัติแล้วในระบบ (ผูกกับใบรับรอง — เปลี่ยนได้ผ่านคำขอให้เจ้าหน้าที่อนุมัติ)
+   * ช่องติดต่อ/ที่อยู่ไม่มีในแหล่งข้อมูล → ใช้ข้อมูลเดิมในระบบ
+   */
+  const autofill = useMemo<FieldValues | undefined>(() => (source && registered ? { ...registered, description: source.description } : undefined), [source, registered]);
 
   const saved = draft?.data as { values?: FieldValues; draftId?: string } | undefined;
   const [values, setValues] = useState<FieldValues | undefined>(saved?.values);
@@ -107,8 +111,9 @@ export default function MarketplaceProfilePage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <PageHeader title={`เติมข้อมูลโปรไฟล์ร้านจาก ${PLATFORMS[c!.platform].label}`} subtitle={`ร้าน ${m!.shopName} (${m!.id}) · อัปเดตข้อมูลร้านเดิม — ไม่ใช่การสมัครร้านใหม่`} back={{ to: '/m/marketplace', label: 'Marketplace' }} />
       <Alert tone="info">
-        {cert ? `ร้านได้รับการรับรอง Level ${cert.level} อยู่แล้ว — ` : ''}การอัปเดตนี้ไม่สร้างคำขอลงทะเบียนใหม่และไม่เปลี่ยนใบรับรอง · คำอธิบาย ช่องทางติดต่อ และที่อยู่ บันทึกทันที · ชื่อร้านและหมวดที่ผูกกับใบรับรอง ถ้าเปลี่ยนจะรอเจ้าหน้าที่ตรวจ
+        {cert ? `ร้านได้รับการรับรอง Level ${cert.level} อยู่แล้ว — ` : ''}การอัปเดตนี้ไม่สร้างคำขอลงทะเบียนใหม่และไม่เปลี่ยนใบรับรอง · คำอธิบาย ช่องทางติดต่อ และที่อยู่ บันทึกทันที · ชื่อร้านและหมวดที่ผูกกับใบรับรอง ถ้าเปลี่ยนจะเป็นคำขอให้เจ้าหน้าที่อนุมัติ (ข้อมูลเดิมยังใช้อยู่จนกว่าอนุมัติ)
       </Alert>
+      {!done && <ChangeRequestNotice merchantId={m!.id} role="merchant" />}
 
       {done && last ? (
         <Card className="space-y-3 p-5" >
@@ -119,6 +124,7 @@ export default function MarketplaceProfilePage() {
           <ImportSummaryBar summary={last.summary} />
           <p className="text-sm text-ink">บันทึกลงโปรไฟล์: {last.applied.length ? last.applied.map((k) => FIELD_LABEL[k]).join(', ') : 'ไม่มีช่องที่เปลี่ยน'}</p>
           {last.pending.length > 0 && <p className="text-sm text-warning">รอเจ้าหน้าที่ตรวจ (ยังไม่เปลี่ยน): {last.pending.map((k) => FIELD_LABEL[k]).join(', ')}</p>}
+          {last.changeRequestId && <ChangeRequestNotice merchantId={m!.id} role="merchant" />}
           <FieldDiffTable rows={last.rows} source={last.source} showRegistered />
           <div className="flex flex-wrap gap-2">
             <LinkButton to={`/m/marketplace/data/${id}`} icon={ChevronRight}>

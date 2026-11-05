@@ -92,7 +92,7 @@ export const scenarios: ScenarioDef[] = [
     prepare: () => ({ operatorId: '', consumerId: 'CS-001', officerId: 'OF-001' }),
     exports: (c) => ({ operatorId: c.operatorId }),
     steps: [
-      { id: 's1-welcome', role: 'merchant', route: () => '/', title: 'หน้าเริ่มต้น', instruction: 'แนะนำระบบ แล้วกด "ถัดไป" (หรือปุ่ม "เริ่มลงทะเบียน")', tip: 'ผู้บริโภคตรวจสอบร้านได้จากหน้านี้โดยไม่ต้องสมัครสมาชิก', nextLabel: 'เริ่มลงทะเบียน' },
+      { id: 's1-welcome', role: 'merchant', route: () => '/', title: 'หน้าเริ่มต้น', instruction: 'แนะนำแนวคิด SME Trust แล้วกด "ถัดไป" (หรือปุ่ม "ลงทะเบียนด้วยตนเอง")', tip: 'ผู้บริโภคตรวจสอบร้านได้จากหน้านี้โดยไม่ต้องสมัครสมาชิก', nextLabel: 'เริ่มลงทะเบียน' },
       { id: 's1-phone', role: 'merchant', route: () => '/register', title: 'กรอกเบอร์โทรศัพท์', instruction: 'กรอกเบอร์ เช่น 0891234567 ติ๊กยอมรับเงื่อนไข แล้วกด "ขอรหัส OTP"', gate: { check: (g) => num(g, 'register.step') >= 1, hint: 'กรอกเบอร์โทรและกด "ขอรหัส OTP"' } },
       { id: 's1-otp', role: 'merchant', route: () => '/register', title: 'ยืนยันรหัส OTP', instruction: 'กรอก OTP ที่แสดงในกล่องสีเหลือง แล้วกด "ยืนยัน" (ลองกรอกผิดเพื่อแสดงข้อความเตือน)', tip: 'ระบบจริงส่งทาง SMS — ระบบสาธิตแสดงรหัสบนจอ', gate: { check: (g) => num(g, 'register.step') >= 2, hint: 'กรอก OTP ให้ถูกต้องแล้วกด "ยืนยัน"' } },
       { id: 's1-profile', role: 'merchant', route: () => '/register', title: 'ข้อมูลเริ่มต้น', instruction: 'กรอกชื่อ นามสกุล อีเมล และจังหวัด (ข้อมูลสมมติ) แล้วกด "ถัดไป"', gate: { check: (g) => num(g, 'register.step') >= 3, hint: 'กรอกข้อมูลให้ครบแล้วกด "ถัดไป"' } },

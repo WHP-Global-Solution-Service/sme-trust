@@ -69,7 +69,7 @@ for (const s of scenarios) {
 describe('Full Journey — Scenario 1: สมัครสมาชิกและยืนยันตัวตน');
 C.startJourney(nav);
 check(demo().journeyMode && demo().status === 'running' && demo().activeScenario === 's1', 'Start Full Journey → เริ่ม Scenario 1 ในโหมด Journey');
-check(assertStep('').includes('เริ่มลงทะเบียน'), '  หน้าเริ่มต้นมีปุ่ม "เริ่มลงทะเบียน"');
+check(assertStep('').includes('ลงทะเบียนด้วยตนเอง'), '  หน้าเริ่มต้นมีปุ่ม "ลงทะเบียนด้วยตนเอง"');
 go();
 assertStep('');
 assertBlocked();

@@ -1,5 +1,5 @@
 /**
- * Demo Controller — ควบคุมขั้นตอนการสาธิตทั้ง 8 Scenario (แบบเดี่ยวและ Full Journey)
+ * Demo Controller — ควบคุมขั้นตอนการสาธิตทุก Scenario (v1: 1–8, v2: 9–13, 9A, 9B — แบบเดี่ยวและ Full Journey)
  * หลักการ: ไม่เปลี่ยนหน้าด้วย Timer, ไม่เปลี่ยนข้อมูลธุรกิจแทนผู้ใช้ (ยกเว้น Fixture ตอนเริ่ม Scenario),
  * ทุกการเปลี่ยนบทบาทผ่าน Role Transition ที่ผู้ใช้กดยืนยัน
  */

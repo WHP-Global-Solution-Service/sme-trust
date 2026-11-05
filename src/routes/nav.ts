@@ -1,4 +1,4 @@
-import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal, FilePen } from 'lucide-react';
 import type { Role } from '@/types';
 
 export interface NavItem {
@@ -25,6 +25,7 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
       { to: '/m/training', label: 'ศูนย์อบรม', short: 'อบรม', icon: GraduationCap, mobile: true },
       { to: '/m/marketplace', label: 'เชื่อมต่อ Marketplace (จำลอง)', icon: Link2 },
       { to: '/m/trust', label: 'ผลประเมินความน่าเชื่อถือ', icon: Gauge },
+      { to: '/m/profile-changes', label: 'คำขอเปลี่ยนข้อมูลร้าน', icon: FilePen },
       { to: '/m/ai', label: 'AI ผู้ช่วย SME', icon: Sparkles },
       { to: '/m/toolkit', label: 'เครื่องมือส่งเสริมร้านค้า', icon: Megaphone },
       { to: '/m/notifications', label: 'การแจ้งเตือน', icon: Bell },
@@ -52,6 +53,7 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
       { to: '/o/warnings', label: 'Warnings', icon: AlertTriangle },
       { to: '/o/corrective', label: 'Corrective Actions', icon: Wrench },
       { to: '/o/assessments', label: 'Trust Assessment Review', icon: Gauge },
+      { to: '/o/profile-changes', label: 'คำขอเปลี่ยนข้อมูลร้าน', icon: FilePen },
       { to: '/o/risk', label: 'Risk Reviews', short: 'ความเสี่ยง', icon: ShieldAlert, mobile: true },
       { to: '/o/training', label: 'Training Records', icon: BookOpen },
       { to: '/o/reports', label: 'Reports', icon: FileBarChart },
@@ -74,6 +76,7 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
         { to: '/o/complaints', label: 'Complaint Cases', icon: MessageSquareWarning },
         { to: '/o/warnings', label: 'Warnings', icon: AlertTriangle },
         { to: '/o/assessments', label: 'Trust Assessment Review', icon: Gauge },
+        { to: '/o/profile-changes', label: 'คำขอเปลี่ยนข้อมูลร้าน', icon: FilePen },
         { to: '/o/risk', label: 'Risk Reviews', icon: ShieldAlert },
         { to: '/o/reports', label: 'Reports', icon: FileBarChart },
       ],

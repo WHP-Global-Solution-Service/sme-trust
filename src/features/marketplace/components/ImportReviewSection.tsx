@@ -1,6 +1,7 @@
 import { useAssessmentStore, useImportRecordStore, useMarketplaceStore, useMerchantStore, useOperatorStore } from '@/stores';
 import { BAND_LABEL, CONFIDENCE_LABEL } from '@/features/trust-assessment/labels';
 import { ImportReviewPanel } from './ImportProvenance';
+import { ChangeRequestNotice } from '@/features/profile-change/ProfileChangeParts';
 
 /**
  * มุมเจ้าหน้าที่: ข้อมูลที่ร้านนำเข้าจาก Marketplace (จำลอง) เทียบกับข้อมูลที่ส่ง
@@ -20,6 +21,7 @@ export function ImportReviewSection({ merchantId, importId, className }: { merch
   const assessmentLabel = latest ? `${BAND_LABEL[latest.result.band].label} · ความเชื่อมั่น${CONFIDENCE_LABEL[latest.result.confidence.level].label} (${latest.id})` : undefined;
   return (
     <div className={className}>
+      {record.changeRequestId && <ChangeRequestNotice merchantId={merchantId} role="officer" className="mb-3" />}
       <ImportReviewPanel record={record} connection={connection} assessmentLabel={assessmentLabel} identityVerified={op?.kycStatus === 'verified'} />
     </div>
   );

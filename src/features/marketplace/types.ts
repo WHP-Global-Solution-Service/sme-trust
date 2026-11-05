@@ -39,6 +39,11 @@ export interface MarketplaceConnection {
    * เพื่อให้การแก้ข้อมูลลงทะเบียน (เช่นหมวดธุรกิจ) ไม่เปลี่ยนข้อมูลต้นฉบับจาก Marketplace
    */
   sourceCategory?: string;
+  /**
+   * ชื่อร้านต้นฉบับบน Marketplace (จำลอง) — บันทึกไว้เมื่อเจ้าหน้าที่อนุมัติการเปลี่ยนชื่อร้าน
+   * เพื่อให้ข้อมูลต้นฉบับไม่เปลี่ยนตามชื่อร้านใหม่ในโปรไฟล์ (ไม่มีค่า = ใช้ชื่อร้านในโปรไฟล์ตามเดิม)
+   */
+  sourceShopName?: string;
 }
 
 export interface Listing {

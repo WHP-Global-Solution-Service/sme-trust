@@ -187,6 +187,11 @@ export function fieldStatus(key: FieldKey, current: string, r: StatusRules): Fie
   if (!cur) return required ? 'missing' : 'manual';
   const imp = r.imported[key];
   const reg = r.registered?.[key];
+  // ร้านเดิม: ช่องที่ผูกกับใบรับรองเทียบกับข้อมูลที่อนุมัติแล้วในระบบ (ชื่อร้านที่เจ้าหน้าที่อนุมัติให้เปลี่ยนแล้วไม่ต้องตรวจซ้ำ)
+  if (reg !== undefined && r.verifyOnChange.includes(key)) {
+    if (cur !== norm(reg)) return 'verification_required';
+    return imp !== undefined && cur === norm(imp) ? 'imported' : 'manual';
+  }
   const reference = imp !== undefined ? norm(imp) : reg !== undefined ? norm(reg) : undefined;
   if (reference === undefined) return 'manual';
   if (cur === reference) return imp !== undefined ? 'imported' : 'manual';
@@ -269,5 +274,7 @@ export interface MarketplaceImportRecord {
   /** ช่องที่บันทึกลงโปรไฟล์ร้านแล้ว และช่องที่รอเจ้าหน้าที่ตรวจ (ยังไม่เปลี่ยน) */
   applied: FieldKey[];
   pending: FieldKey[];
+  /** คำขอเปลี่ยนข้อมูลที่ผูกกับใบรับรอง (ถ้ามีช่องที่รอการตรวจสอบ) */
+  changeRequestId?: string;
   createdAt: ISODate;
 }

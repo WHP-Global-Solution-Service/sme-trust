@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, CheckCircle2, Circle, Clock, GitBranch, MonitorPlay, Play, PlayCircle, RotateCcw, Route, ShieldCheck, Store, Trophy, User, UserCog, type LucideIcon } from 'lucide-react';
 import type { Role } from '@/types';
 import { confirmDialog, toast } from '@/stores';
@@ -39,7 +39,10 @@ export default function DemoScenariosPage() {
   const { launch, dialog } = useScenarioLauncher();
   const active = findScenario(d.activeScenario);
   const inProgress = !!active && (d.status === 'running' || d.status === 'paused');
-  const [tab, setTab] = useState<Track>(() => (d.journeyMode ? d.journeyTrack ?? 'v1' : active ? trackOf(active) : 'v1'));
+  const [params] = useSearchParams();
+  const asked = params.get('track');
+  // ?track=v1|v2 (ลิงก์จากหน้าแรก) เลือกแท็บเริ่มต้น — ไม่เช่นนั้นใช้ชุดที่กำลังสาธิตอยู่
+  const [tab, setTab] = useState<Track>(() => (asked === 'v1' || asked === 'v2' ? asked : d.journeyMode ? d.journeyTrack ?? 'v1' : active ? trackOf(active) : 'v1'));
 
   const startSingle = async (sc: ScenarioDef) => {
     if (d.journeyMode && inProgress) {
