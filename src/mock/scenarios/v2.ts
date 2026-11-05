@@ -8,6 +8,7 @@ import {
   useAssessmentStore,
   useCertificationStore,
   useImportRecordStore,
+  useProfileChangeStore,
   useMarketplaceStore,
   useMerchantStore,
   useNotificationStore,
@@ -17,7 +18,7 @@ import {
 } from '@/stores';
 import { seed } from '@/mock/data';
 import type { DemoCtx } from '@/stores/demo';
-import { attachImportedMarketplaces, decideAssessment, importFlowKey, latestAssessment, profileDraftKey, runAssessment, submitAssessment } from '@/stores/workflowsV2';
+import { attachImportedMarketplaces, changeRequestDraftKey, decideAssessment, importFlowKey, latestAssessment, profileDraftKey, runAssessment, submitAssessment } from '@/stores/workflowsV2';
 import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { BAND_LABEL, CONFIDENCE_LABEL, DECISION_LABEL, RECOMMENDATION_LABEL } from '@/features/trust-assessment/labels';
 import { currentCert } from '@/utils/trust';
@@ -85,6 +86,14 @@ export function fixtureV2Clean(merchantId = V2_MERCHANT) {
   // Scenario 9: ล้างบันทึกการนำเข้าและคืนโปรไฟล์ร้านเป็นข้อมูลตั้งต้น (เล่นซ้ำแล้วไม่ซ้อนการอัปเดต) — ใบรับรองไม่ถูกแตะ
   const im = useImportRecordStore.getState();
   im.items.filter((r) => r.merchantId === merchantId).forEach((r) => im.remove(r.id));
+  // คำขอเปลี่ยนชื่อร้าน/หมวดที่เกิดจาก Scenario 9 (และฉบับร่างการส่งใหม่)
+  const pc = useProfileChangeStore.getState();
+  pc.items
+    .filter((r) => r.merchantId === merchantId)
+    .forEach((r) => {
+      session.saveDraft(changeRequestDraftKey(r.id), undefined);
+      pc.remove(r.id);
+    });
   const original = seed.merchants().find((m) => m.id === merchantId);
   if (original) {
     const { shopName, description, category, phone, email, province, district, address } = original;
@@ -143,6 +152,7 @@ export function fixtureBranchClean(operatorId = BRANCH_OPERATOR) {
     drop(useMerchantStore, (m) => shops.has(m.id));
   }
   drop(useImportRecordStore, (r) => r.operatorId === operatorId);
+  drop(useProfileChangeStore, (r) => r.operatorId === operatorId);
   // ฉบับร่างการสมัครและขั้นตอนเชื่อมบัญชีของบัญชีนี้ — เริ่มใหม่จากหน้าแรกของแบบฟอร์ม
   const session = useSessionStore.getState();
   session.saveDraft(operatorId, undefined);

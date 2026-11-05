@@ -46,15 +46,22 @@ npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/s
 | AI Simulation (ผู้ประกอบการ) | AI-01 ตรวจสอบข้อความโฆษณา (Highlight, ระดับความเสี่ยงเบื้องต้น, ข้อความเสนอแก้ไข, เปรียบเทียบก่อน–หลัง), AI-02 ช่วยจัดการข้อร้องเรียน (สรุปประเด็น, ข้อมูลที่ควรขอ, ร่างคำตอบ 3 Tone นำไปใส่เคสโดยไม่ส่งอัตโนมัติ), ประวัติการใช้งาน — **Rule-based ในเบราว์เซอร์ ไม่ใช่ AI Model จริง** |
 | ผู้ดูแลระบบ | Admin Dashboard (12 KPI + 7 กราฟ คำนวณจาก Mock State), บัญชีทั้งหมด, Audit Log, Export/Reset ข้อมูลสาธิต |
 
-## SME Trust v2 (Branch `sme-trustv.2` — อยู่ระหว่างพัฒนา)
+## SME Trust v2
 
-ต่อยอดจาก v1 โดยไม่ลบฟังก์ชันเดิม — รายละเอียดใน [docs/sme-trust-v2-plan.md](docs/sme-trust-v2-plan.md)
+ต่อยอดจาก v1 โดยไม่ลบฟังก์ชันเดิม — รายละเอียดใน [docs/sme-trust-v2-plan.md](docs/sme-trust-v2-plan.md) · บันทึกการเผยแพร่ใน [docs/release-v2-pages.md](docs/release-v2-pages.md)
+
+**เผยแพร่แล้ว** ที่ https://whp-global-solution-service.github.io/sme-trust/ (Merge `4eed1d9`, GitHub Actions Run #4):
 
 - เชื่อมต่อ **Shopee (จำลอง) / Lazada (จำลอง)** — ยังไม่มีการเชื่อมต่อ API จริง ข้อมูลการขายสร้างแบบ Deterministic ในเบราว์เซอร์
 - วิเคราะห์ราคา ยอดขาย รีวิว → **Trust Assessment** (Band A–D / Insufficient Data, Data Coverage, Data Confidence, คำอธิบายทุกปัจจัย)
 - ผู้บริโภคไม่เห็นคะแนนตัวเลข · Standing (ระงับ/เพิกถอน) แยกจาก Band · ยกระดับ Level 3–4 ผ่าน Officer Review และเกณฑ์ v1 เท่านั้น
 - **ลงทะเบียนด้วยข้อมูลจาก Marketplace (จำลอง)** — เลือก Shopee/Lazada (จำลอง) → อนุญาต (จำลอง) → เลือกร้าน → Preview → เติมแบบฟอร์มอัตโนมัติ พร้อมป้ายที่มาของข้อมูล ฉบับร่างอัตโนมัติ และตารางเทียบต้นฉบับกับข้อมูลที่แก้ให้เจ้าหน้าที่ (Scenario 9 สำหรับร้านเดิม, 9A สำหรับร้านใหม่)
-- **Demo v2** — Scenario 9–13 (เชื่อมข้อมูล → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ), เส้นทางทางเลือก 9B สำหรับร้านที่ไม่มี Marketplace, Full Journey v2 แยกจาก v1 และ Executive Impact Summary (`/demo/v2/summary`)
+- **Demo v2** — Scenario 9–13 (เชื่อมข้อมูล → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ), เส้นทางทางเลือก 9A (ร้านใหม่ Auto-Fill) และ 9B (ร้านที่ไม่มี Marketplace), Full Journey v2 แยกจาก v1 และ Executive Impact Summary (`/demo/v2/summary`)
+
+**อยู่ใน Branch `sme-trustv.2` — ยังไม่เผยแพร่:**
+
+- **หน้าแรก Concept v2** — แพลตฟอร์มกลางประเมินความน่าเชื่อถือ (ไม่ใช่ Marketplace ไม่ขายสินค้า ไม่รับชำระเงิน) · CTA เชื่อมร้านค้าออนไลน์ / ลงทะเบียนด้วยตนเอง / เข้าสู่ระบบ / ตรวจสอบร้านค้า · Trust Assessment 7 ปัจจัย · Trust Badge · Demo 15 เส้นทาง
+- **คำขอเปลี่ยนข้อมูลร้าน** — ชื่อร้าน/หมวดของร้านที่ได้รับการรับรองต้องให้เจ้าหน้าที่อนุมัติ (อนุมัติ / ไม่อนุมัติ / ขอข้อมูลเพิ่ม) พร้อมประวัติ การแจ้งเตือน และ Audit Log · ข้อมูลต้นฉบับ Marketplace และระดับใบรับรองไม่เปลี่ยน
 
 ## เทคโนโลยี
 

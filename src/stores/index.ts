@@ -15,6 +15,7 @@ import type { AiHistoryEntry } from '@/features/ai-assistant/types/ai.types';
 import type { MarketplaceConnection } from '@/features/marketplace/types';
 import type { TrustAssessment } from '@/features/trust-assessment/types';
 import type { MarketplaceImportRecord } from '@/features/marketplace/autofill';
+import type { ProfileChangeRequest } from '@/features/profile-change/types';
 import { createEntityStore } from './createEntityStore';
 
 // ===== Domain stores (แหล่งข้อมูลเดียวของทุกหน้าจอ) =====
@@ -36,6 +37,8 @@ export const useMarketplaceStore = createEntityStore<MarketplaceConnection>('mar
 export const useAssessmentStore = createEntityStore<TrustAssessment>('trust-assessments', seed.assessments);
 /** v2: บันทึกการนำเข้าข้อมูลร้านจาก Marketplace (จำลอง) — ต้นฉบับเทียบกับข้อมูลที่ผู้สมัครแก้ไข */
 export const useImportRecordStore = createEntityStore<MarketplaceImportRecord>('marketplace-imports', () => []);
+/** v2: คำขอเปลี่ยนชื่อร้าน/หมวดของร้านที่ได้รับการรับรอง — รอเจ้าหน้าที่พิจารณา (KI-V2-15) */
+export const useProfileChangeStore = createEntityStore<ProfileChangeRequest>('profile-changes', () => []);
 
 export const domainStores = [
   useOperatorStore,
@@ -52,6 +55,7 @@ export const domainStores = [
   useMarketplaceStore,
   useAssessmentStore,
   useImportRecordStore,
+  useProfileChangeStore,
 ];
 
 export { useSessionStore } from './session';

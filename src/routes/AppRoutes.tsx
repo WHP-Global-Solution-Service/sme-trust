@@ -57,6 +57,9 @@ const AuditPage = lazyPage(() => import('@/features/admin/AuditPage'));
 const DemoDataPage = lazyPage(() => import('@/features/admin/DemoDataPage'));
 import NotFoundPage from '@/features/onboarding/NotFoundPage';
 const DevicePreview = lazyPage(() => import('@/features/preview/DevicePreview'));
+const OfficerProfileChanges = lazyPage(() => import('@/features/profile-change/pages/OfficerProfileChanges'));
+const OfficerProfileChangeDetail = lazyPage(() => import('@/features/profile-change/pages/OfficerProfileChangeDetail'));
+const MerchantProfileChanges = lazyPage(() => import('@/features/profile-change/pages/MerchantProfileChanges'));
 const DemoScenariosPage = lazyPage(() => import('@/features/demo/DemoScenariosPage'));
 const DemoCompletePage = lazyPage(() => import('@/features/demo/DemoCompletePage'));
 const DemoOverviewPage = lazyPage(() => import('@/features/demo/DemoOverviewPage'));
@@ -116,6 +119,8 @@ export function AppRoutes() {
         <Route path="/m/marketplace/analysis" element={gate(M, <MarketplaceAnalysisPage />)} />
         <Route path="/m/marketplace/profile/:id" element={gate(M, <MarketplaceProfilePage />)} />
         <Route path="/m/trust" element={gate(M, <MerchantAssessmentPage />)} />
+        <Route path="/m/profile-changes" element={gate(M, <MerchantProfileChanges />)} />
+        <Route path="/m/profile-changes/:id" element={gate(M, <MerchantProfileChanges />)} />
         <Route path="/m/ai/ad-checker" element={gate(M, <AdvertisingChecker />)} />
         <Route path="/m/ai/complaint" element={gate(M, <ComplaintAssistant />)} />
         <Route path="/m/ai/history" element={gate(M, <AIHistory />)} />
@@ -145,6 +150,8 @@ export function AppRoutes() {
         <Route path="/o/corrective" element={gate(O, <OfficerWarnings corrective />)} />
         <Route path="/o/assessments" element={gate(O, <OfficerAssessmentList />)} />
         <Route path="/o/assessments/:id" element={gate(O, <OfficerAssessmentDetail />)} />
+        <Route path="/o/profile-changes" element={gate(O, <OfficerProfileChanges />)} />
+        <Route path="/o/profile-changes/:id" element={gate(O, <OfficerProfileChangeDetail />)} />
         <Route path="/o/risk" element={gate(O, <OfficerRiskList />)} />
         <Route path="/o/risk/:id" element={gate(O, <OfficerRiskDetail />)} />
         <Route path="/o/training" element={gate(O, <TrainingRecords />)} />

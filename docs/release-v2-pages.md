@@ -3,7 +3,8 @@
 URL: https://whp-global-solution-service.github.io/sme-trust/
 Source: `sme-trustv.2` → Merge เข้า `main` → GitHub Actions (`deploy-pages.yml`) Deploy จาก `main` เท่านั้น
 
-> สถานะ: **เผยแพร่แล้ว (5 พ.ย. 2569 เวลา 00:01 น. ตามเวลาไทย)** — Merge Commit `7e6df10` · GitHub Actions Run #3 สำเร็จ · ตรวจเว็บจริงผ่าน · ดูบันทึกข้อ 9
+> สถานะ: **เผยแพร่แล้ว 2 รอบ** — รอบที่ 1 (v2 แทน v1) Merge `7e6df10` · Run #3 · ข้อ 9 · รอบที่ 2 (Marketplace Auto-Fill) Merge `4eed1d9` · Run #4 · ข้อ 10
+> งานที่อยู่ใน `sme-trustv.2` แต่**ยังไม่เผยแพร่**แยกไว้ในข้อ 11
 > Prototype นี้เป็น Frontend Only ด้วยข้อมูลจำลอง — **ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)**
 
 ## 1. ผล Preflight
@@ -160,3 +161,41 @@ git push origin main                          # Workflow (ของ v1) Deploy v
 
 Not Tested: Safari/อุปกรณ์มือถือจริง, Screen reader, ผู้ใช้จริงที่เคยเปิด v1 (จำลองด้วย localStorage แทน)
 
+## 10. Release 2 — Marketplace Auto-Fill Registration (เผยแพร่แล้ว)
+
+| รายการ | ค่า |
+|---|---|
+| ขอบเขต | Marketplace-Assisted Registration & Auto-Fill (`1051045`): ทางเข้า A/B, หน้าอนุญาตจำลอง, Auto-Fill พร้อมป้ายที่มา, ฉบับร่าง, ตารางเทียบสำหรับเจ้าหน้าที่, Scenario 9 (อัปเดตร้านเดิม M-005) และ 9A (ร้านใหม่) |
+| ตรวจก่อน Merge | `origin/main` = `7e6df10` ตามที่คาด · `sme-trustv.2` = `1051045` ไม่มีงานค้าง · Commit บน `main` ที่ Branch ไม่มีคือ Merge Commit `7e6df10` เท่านั้น (ต้นไม้ไฟล์ตรงกับ `c7d5fa0` ซึ่งอยู่ใน Branch แล้ว) → ไม่มีฟังก์ชันบน `main` สูญหาย |
+| Rollback Tag (Push แล้ว) | `sme-trust-v2.0-before-autofill` → `7e6df10` (annotated) · Tag เดิม `v1-before-sme-trust-v2` ยังอยู่ |
+| Source Branch (Push แล้ว) | `sme-trustv.2` `35f416d..1051045` |
+| Merge Commit (`--no-ff`) | `4eed1d9` "Release SME Trust v2 Marketplace Auto-Fill registration to GitHub Pages" — ไม่มี Conflict · ต้นไม้ไฟล์ตรงกับ `1051045` · ไม่มี Force Push / Rewrite History |
+| ตรวจหลัง Merge (ในเครื่อง) | TypeScript ✅ · `npm test` 14 ชุด ✅ (render 117 เส้นทาง) · Production Build ✅ — หมายเหตุ: คำสั่งในเครื่องรันผ่าน Git Bash ซึ่งแปลง `VITE_BASE=/sme-trust/` เป็น Path ของ Windows จึงไม่ใช่ Build ด้วย Base `/sme-trust/` (Build ที่ Deploy จริงทำโดย GitHub Actions ด้วย Base ที่ถูกต้อง และตรวจบนเว็บจริงแล้ว) · ครั้งถัดไปใช้ `MSYS_NO_PATHCONV=1` |
+| GitHub Actions | Run #4 `41930692056` — build ✅ deploy ✅ · 23:04:16–23:05:23 UTC 4 พ.ย. 2569 (06:04 น. 5 พ.ย. ตามเวลาไทย) · https://github.com/WHP-Global-Solution-Service/sme-trust/actions/runs/41930692056 |
+| เว็บไซต์จริง | https://whp-global-solution-service.github.io/sme-trust/ — Bundle `index-DMiRSbhj.js` มี Chunk ของหน้าใหม่ (`MarketplaceRegistrationPage`, `MarketplaceProfilePage`) · Static Asset ที่อ้างอิงทั้งหมด 119 ไฟล์ตอบ 200 · Deep link ตอบ App Shell (HTTP 404 ตาม KI-03) |
+| หมายเหตุ Hash | ชื่อไฟล์ Bundle บนเว็บจริงไม่ตรงกับ Build ในเครื่อง (`index-iMM7KFdW.js`) เพราะ Base ของ Build ในเครื่องถูก Git Bash แปลง (ดูแถวด้านบน) — จึงตรวจแทนด้วยการพบ Chunk ของหน้าใหม่และ Smoke Test บนเว็บจริง |
+| Rollback (ถ้าจำเป็น) | `git revert -m 1 4eed1d9` แล้ว Push `main` → กลับเป็นเว็บไซต์ `7e6df10` (ไม่ Force Push) |
+
+### Live Smoke Test รอบที่ 2 (Playwright กับ URL จริง)
+
+| ชุด | Chromium | Firefox | WebKit |
+|---|---|---|---|
+| E2E ทุกชุด (Scenario 1–8, Full Journey v1/v2, 9B, Auto-Fill, Trust Assessment, Officer, Consumer, Admin, Lifecycle, จอ 375/768/1440) | ✅ 65/65 | — | — |
+| v2-autofill, v2-journey, v2-assessment, v2-p7, Scenario 1–8 เดี่ยว, Pages (Direct links/Assets/v1 storage) | ✅ (รวมอยู่ข้างบน) | ✅ 27/27 | — |
+| Scenario 9A เริ่มจากการ์ด Demo จนถึงหน้าเจ้าหน้าที่ (Test เฉพาะเว็บจริง) | ✅ | ✅ | ✅ |
+| v2-autofill + Pages | ✅ | ✅ | ✅ 6/6 (รวม 9A) |
+
+หมายเหตุ: รอบแรกของ Chromium มี 12 Test ไม่ผ่านโดยไม่ใช่ปัญหาของเว็บไซต์ — 8 Test จากการรัน Test 9A พร้อมกันในโฟลเดอร์ผลลัพธ์เดียวกัน (ไฟล์ Trace ถูกลบ), 3 Test จาก `ERR_SSL_PROTOCOL_ERROR` ของเครือข่ายเครื่องทดสอบ และ 2 Spec ที่กำหนดให้ Request ต้องอยู่บน `localhost` (ปรับเป็นโดเมน Pages ในสำเนาสำหรับเว็บจริงเท่านั้น) · รันซ้ำทีละไฟล์แล้วผ่านทั้งหมด 39/39 · ตัวตรวจ Console ยอมเฉพาะข้อความ 404 ที่จับคู่กับ Document 404 ของ Deep link (KI-V2-14) · ไม่พบปัญหาร้ายแรง จึง**ไม่ Rollback**
+
+Not Tested (รอบที่ 2): Safari / อุปกรณ์มือถือจริง · ชุด v1 (Lifecycle, Scenario 1–8 แบบ Journey) บน Firefox/WebKit ของเว็บจริง
+
+## 11. อยู่ระหว่างพัฒนา — ยังไม่เผยแพร่ (Branch `sme-trustv.2`)
+
+งานด้านล่างอยู่ใน `sme-trustv.2` หลัง `1051045` และ**ยังไม่ได้ Merge เข้า `main`** — เว็บไซต์จริงยังเป็น `4eed1d9`
+
+| งาน | สรุป |
+|---|---|
+| หน้าแรก Concept v2 | Hero ใหม่ ("เชื่อมข้อมูลร้านค้าออนไลน์ ประเมินความน่าเชื่อถืออย่างโปร่งใส") · CTA 4 ปุ่มไปยัง Flow จริง · Section การเชื่อม Marketplace / Trust Assessment 7 ปัจจัย / Trust Badge (แยก Band, Level, สถานะ) / ผู้บริโภค / Demo 15 เส้นทาง (เน้น Full Journey v2) · `/demo?track=v1|v2` เลือกแท็บ · หลังสมัครจากปุ่ม "เชื่อมร้านค้าออนไลน์"/"ลงทะเบียนด้วยตนเอง" ไปต่อที่ขั้นตอนนั้น |
+| คำขอเปลี่ยนข้อมูลร้าน (ปิด KI-V2-15) | Merchant Edit → Change Request → Officer Review → อนุมัติ / ไม่อนุมัติ / ขอข้อมูลเพิ่ม → แจ้งร้าน → อัปเดตโปรไฟล์ → Audit Log · หน้า `/o/profile-changes`, `/o/profile-changes/:id`, `/m/profile-changes`, `/m/profile-changes/:id` |
+
+ก่อนเผยแพร่รอบถัดไปให้ทำตามข้อ 3–7 และบันทึกผลเป็นข้อ 12

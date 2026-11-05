@@ -37,7 +37,7 @@ type Complaint = { id: string; status: string; messages: { from: string; text: s
 // ------------------------------------------------------------------ S1
 export async function playS1(page: Page, who = { phone: '0891112233', first: 'ทดสอบ', last: 'อีทูอี', email: 'e2e@demo.local' }) {
   await expectStep(page, 1);
-  await expect(main(page).getByRole('button', { name: 'เริ่มลงทะเบียน' })).toBeVisible();
+  await expect(main(page).getByRole('button', { name: 'ลงทะเบียนด้วยตนเอง' })).toBeVisible();
   await next(page);
   await expect(page).toHaveURL(/\/register$/);
   await expectBlocked(page);

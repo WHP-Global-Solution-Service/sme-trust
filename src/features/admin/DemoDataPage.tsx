@@ -6,7 +6,7 @@ import { resetAllDemoData } from '@/stores/workflows';
 import { downloadText } from '@/utils/download';
 import { Alert, Button, Card, CardHeader, PageHeader } from '@/components/common/ui';
 
-const NAMES = ['ผู้ประกอบการ', 'ร้านค้า', 'คำขอตรวจสอบ', 'ใบรับรอง', 'ข้อร้องเรียน', 'คำเตือน', 'เรื่องพิจารณาความเสี่ยง', 'การอบรม', 'การแจ้งเตือน', 'Audit Log', 'ประวัติ AI Simulation', 'การเชื่อมต่อ Marketplace (จำลอง)', 'ผลประเมินความน่าเชื่อถือ', 'บันทึกการนำเข้าข้อมูลร้าน (จำลอง)'];
+const NAMES = ['ผู้ประกอบการ', 'ร้านค้า', 'คำขอตรวจสอบ', 'ใบรับรอง', 'ข้อร้องเรียน', 'คำเตือน', 'เรื่องพิจารณาความเสี่ยง', 'การอบรม', 'การแจ้งเตือน', 'Audit Log', 'ประวัติ AI Simulation', 'การเชื่อมต่อ Marketplace (จำลอง)', 'ผลประเมินความน่าเชื่อถือ', 'บันทึกการนำเข้าข้อมูลร้าน (จำลอง)', 'คำขอเปลี่ยนข้อมูลร้าน'];
 
 export default function DemoDataPage() {
   const nav = useNavigate();

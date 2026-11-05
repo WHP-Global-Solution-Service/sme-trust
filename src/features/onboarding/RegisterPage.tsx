@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,6 +16,12 @@ import { Field, Input, Select } from '@/components/forms/Field';
 import { OtpInput, PinDots, PinPad } from '@/components/forms/PinPad';
 import { AuthFrame } from './AuthFrame';
 import { EKycFlow } from './EKycFlow';
+
+/** ปลายทางหลังสมัครที่เลือกจากหน้าแรก (เชื่อมร้านค้าออนไลน์ / ลงทะเบียนด้วยตนเอง) */
+const NEXT_LABEL: Record<string, string> = {
+  '/m/register-shop/marketplace': 'ไปต่อ: เชื่อมร้านค้าออนไลน์',
+  '/m/register-shop': 'ไปต่อ: ลงทะเบียนร้านค้าด้วยตนเอง',
+};
 
 const STEPS = ['เบอร์โทรศัพท์', 'ยืนยัน OTP', 'ข้อมูลเริ่มต้น', 'ยืนยันตัวตน', 'ตั้ง PIN', 'สำเร็จ'];
 
@@ -34,6 +40,9 @@ type ProfileForm = z.infer<typeof profileSchema>;
 
 export default function RegisterPage() {
   const nav = useNavigate();
+  const loc = useLocation();
+  const asked = (loc.state as { next?: string } | null)?.next;
+  const nextTarget = asked && asked in NEXT_LABEL ? asked : undefined;
   const operators = useOperatorStore((s) => s.items);
   const setSession = useSessionStore((s) => s.set);
   const [step, setStep] = useState(0);
@@ -294,10 +303,10 @@ export default function RegisterPage() {
             onClick={() => {
               setSession({ role: 'merchant', operatorId: newOpId, merchantLoggedIn: true, activeMerchantId: undefined });
               toast.success('เข้าสู่ระบบแล้ว');
-              nav('/m');
+              nav(nextTarget ?? '/m');
             }}
           >
-            เข้าสู่หน้าหลัก
+            {nextTarget ? NEXT_LABEL[nextTarget] ?? 'ไปต่อ' : 'เข้าสู่หน้าหลัก'}
           </Button>
           <LinkButton to="/check" variant="ghost" block>
             ไปหน้าตรวจสอบร้านค้า

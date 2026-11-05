@@ -5,8 +5,9 @@
  */
 import type { MarketplaceConnection, Platform, Archetype, FailKind } from '@/features/marketplace/types';
 import type { Merchant } from '@/types';
-import { buildImportSource, fieldRows, FIELD_KEYS, FIELD_LABEL, newRegistrationRules, profileUpdateRules, summarize, type FieldValues, type ImportSource, type MarketplaceImportRecord } from '@/features/marketplace/autofill';
+import { buildImportSource, fieldRows, FIELD_KEYS, newRegistrationRules, profileUpdateRules, summarize, type FieldValues, type ImportSource, type MarketplaceImportRecord } from '@/features/marketplace/autofill';
 import type { OfficerDecisionKind, TrustAssessment } from '@/features/trust-assessment/types';
+import { isOpenChange, PROFILE_CHANGE_FIELD_LABEL, type ProfileChange, type ProfileChangeAction, type ProfileChangeField, type ProfileChangeRequest } from '@/features/profile-change/types';
 import { CONSENT_SCOPES, PLATFORMS } from '@/features/marketplace/data/platforms';
 import { productsOfCategory } from '@/features/marketplace/data/catalog';
 import { hashString, mulberry32, pick } from '@/features/marketplace/services/prng';
@@ -26,6 +27,7 @@ import {
   useImportRecordStore,
   useMerchantStore,
   useOperatorStore,
+  useProfileChangeStore,
   useRiskStore,
   useSessionStore,
   useTrainingStore,
@@ -200,7 +202,7 @@ export function sourceOfConnection(c: MarketplaceConnection, m: Merchant): Impor
     archetype: c.archetype,
     seed: c.seed,
     mockShopId: c.mockShopId,
-    shopName: m.shopName,
+    shopName: c.sourceShopName ?? m.shopName,
     category: c.sourceCategory ?? m.category,
     lastSyncAt: c.lastSyncAt,
   });
@@ -302,8 +304,142 @@ export function confirmProfileUpdate(connectionId: string, values: FieldValues, 
   };
   imp().add(record);
   audit('อัปเดตโปรไฟล์ร้านจากข้อมูลที่นำเข้า (จำลอง)', record.id, `${m.id} · บันทึก ${applied.length} ช่อง${pending.length ? ` · รอตรวจสอบ ${pending.length} ช่อง` : ''}`);
-  if (pending.length) notify('officer', 'OF-001', 'ร้านค้าขอเปลี่ยนข้อมูลที่ผูกกับใบรับรอง', `${m.shopName} (${m.id}): ${pending.map((k) => FIELD_LABEL[k]).join(', ')} — ตรวจได้ในหน้าผลประเมินของร้าน`, '/o/assessments', 'warning');
+  if (pending.length) {
+    const changes: ProfileChange[] = (pending as ProfileChangeField[]).map((f) => ({ field: f, from: registered[f], to: values[f].trim(), source: src[f] }));
+    const req = fileChangeRequest(m, changes, { connectionId: c.id, importId: record.id, source: { platform: src.platform, mockShopId: src.mockShopId } });
+    imp().update(record.id, { changeRequestId: req.id });
+    record.changeRequestId = req.id;
+  }
   return { ok: true, record };
+}
+
+// ================================================================ คำขอเปลี่ยนข้อมูลที่ผูกกับใบรับรอง (KI-V2-15)
+// Merchant Edit → Change Request → Officer Review → Approve / Reject / Request Info → แจ้งร้าน → อัปเดตโปรไฟล์ → Audit Log
+// ข้อมูลเดิมไม่เปลี่ยนจนกว่าอนุมัติ · ไม่อนุมัติอัตโนมัติ · ไม่แตะใบรับรอง (ระดับ/สถานะ) · ข้อมูลต้นฉบับ Marketplace คงเดิม
+
+const pcs = () => useProfileChangeStore.getState();
+const byNewest = (a: ProfileChangeRequest, b: ProfileChangeRequest) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
+
+export const changeRequestsOf = (merchantId: string) => pcs().items.filter((r) => r.merchantId === merchantId).sort(byNewest);
+export const openChangeRequest = (merchantId: string) => pcs().items.find((r) => r.merchantId === merchantId && isOpenChange(r));
+export const changeRequestDraftKey = (id: string) => `pcr:${id}`;
+
+const describeChanges = (changes: ProfileChange[]) => changes.map((x) => `${PROFILE_CHANGE_FIELD_LABEL[x.field]}: "${x.from}" → "${x.to}"`).join(' · ');
+
+function changeEvent(req: Pick<ProfileChangeRequest, 'operatorId'>, action: ProfileChangeAction, note?: string, changes?: ProfileChange[]) {
+  const merchantSide = action === 'submitted' || action === 'updated' || action === 'resubmitted';
+  const a = currentActor();
+  const actorName = merchantSide ? useOperatorStore.getState().items.find((o) => o.id === req.operatorId)?.name ?? 'ผู้ประกอบการ' : a.role === 'officer' || a.role === 'admin' ? a.name : 'เจ้าหน้าที่';
+  return { at: nowISO(), actorRole: merchantSide ? ('merchant' as const) : ('officer' as const), actorName, action, ...(note ? { note } : {}), ...(changes ? { changes } : {}) };
+}
+
+/** ยื่นคำขอ (หรือปรับคำขอที่ยังเปิดอยู่ของร้านเดียวกัน — ไม่สร้างรายการซ้ำ) */
+function fileChangeRequest(m: Merchant, changes: ProfileChange[], extra: Pick<ProfileChangeRequest, 'connectionId' | 'importId' | 'source'>): ProfileChangeRequest {
+  const open = openChangeRequest(m.id);
+  const now = nowISO();
+  if (open) {
+    pcs().update(open.id, { ...extra, changes, status: 'pending', revision: open.revision + 1, updatedAt: now, history: [...open.history, changeEvent(open, 'updated', undefined, changes)] });
+    audit('ร้านปรับคำขอเปลี่ยนข้อมูลร้าน', open.id, `${m.id} · ${describeChanges(changes)}`);
+    notify('officer', 'OF-001', 'ร้านค้าปรับคำขอเปลี่ยนข้อมูลร้าน', `${m.shopName} (${m.id}) · ${open.id}`, `/o/profile-changes/${open.id}`, 'warning');
+    return pcs().items.find((r) => r.id === open.id)!;
+  }
+  const req: ProfileChangeRequest = {
+    id: nextRef('PCR', pcs().items.map((r) => r.id), 3),
+    merchantId: m.id,
+    operatorId: m.operatorId,
+    ...extra,
+    status: 'pending',
+    changes,
+    revision: 1,
+    history: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  req.history = [changeEvent(req, 'submitted', undefined, changes)];
+  pcs().add(req);
+  audit('ร้านยื่นคำขอเปลี่ยนข้อมูลที่ผูกกับใบรับรอง', req.id, `${m.id} · ${describeChanges(changes)}`);
+  notify('officer', 'OF-001', 'ร้านค้าขอเปลี่ยนข้อมูลที่ผูกกับใบรับรอง', `${m.shopName} (${m.id}): ${changes.map((x) => PROFILE_CHANGE_FIELD_LABEL[x.field]).join(', ')} — ${req.id}`, `/o/profile-changes/${req.id}`, 'warning');
+  return req;
+}
+
+/** บันทึกชื่อร้าน/หมวดต้นฉบับลงการเชื่อมต่อของร้าน ก่อนเปลี่ยนโปรไฟล์ — ข้อมูลต้นฉบับและ Snapshot ไม่เปลี่ยนตามโปรไฟล์ใหม่ */
+function pinMarketplaceSource(m: Merchant) {
+  mk()
+    .items.filter((c) => c.merchantId === m.id)
+    .forEach((c) => {
+      const patch: Partial<MarketplaceConnection> = {};
+      if (c.sourceShopName === undefined) patch.sourceShopName = m.shopName;
+      if (c.sourceCategory === undefined) patch.sourceCategory = m.category;
+      if (Object.keys(patch).length) mk().update(c.id, patch);
+    });
+}
+
+const pendingReq = (id: string): { req?: ProfileChangeRequest; error?: string } => {
+  const req = pcs().items.find((r) => r.id === id);
+  if (!req) return { error: 'ไม่พบคำขอเปลี่ยนข้อมูล' };
+  if (req.status !== 'pending') return { req, error: 'คำขอนี้ไม่ได้อยู่ในสถานะรอพิจารณา' };
+  return { req };
+};
+
+/** เจ้าหน้าที่อนุมัติ — เปลี่ยนเฉพาะช่องในคำขอ ไม่เปลี่ยนระดับ/สถานะใบรับรอง */
+export function approveProfileChange(id: string, note?: string): WorkflowResult {
+  const { req, error } = pendingReq(id);
+  if (error || !req) return { ok: false, error: error ?? 'ไม่พบคำขอเปลี่ยนข้อมูล' };
+  const m = merchantOf(req.merchantId);
+  if (!m) return { ok: false, error: 'ไม่พบร้านค้า' };
+  pinMarketplaceSource(m);
+  useMerchantStore.getState().update(m.id, Object.fromEntries(req.changes.map((x) => [x.field, x.to])) as Partial<Merchant>);
+  const now = nowISO();
+  const n = note?.trim() || undefined;
+  const ev = changeEvent(req, 'approved', n);
+  pcs().update(id, { status: 'approved', officerNote: n, decidedAt: now, decidedBy: ev.actorName, updatedAt: now, history: [...req.history, ev] });
+  audit('อนุมัติการเปลี่ยนข้อมูลร้าน', id, `${m.id} · ${describeChanges(req.changes)} · ใบรับรองไม่เปลี่ยน`);
+  notifyMerchant(m.id, 'อนุมัติการเปลี่ยนข้อมูลร้านแล้ว', `${describeChanges(req.changes)} — ระดับใบรับรองไม่เปลี่ยน`, `/m/profile-changes/${id}`, 'success');
+  return { ok: true };
+}
+
+/** เจ้าหน้าที่ไม่อนุมัติ (ต้องมีเหตุผล) — ข้อมูลเดิมไม่เปลี่ยน */
+export function rejectProfileChange(id: string, reason: string): WorkflowResult {
+  if (!reason.trim()) return { ok: false, error: 'กรุณาระบุเหตุผลการไม่อนุมัติ' };
+  const { req, error } = pendingReq(id);
+  if (error || !req) return { ok: false, error: error ?? 'ไม่พบคำขอเปลี่ยนข้อมูล' };
+  const now = nowISO();
+  const ev = changeEvent(req, 'rejected', reason.trim());
+  pcs().update(id, { status: 'rejected', officerNote: reason.trim(), decidedAt: now, decidedBy: ev.actorName, updatedAt: now, history: [...req.history, ev] });
+  audit('ไม่อนุมัติการเปลี่ยนข้อมูลร้าน', id, `${req.merchantId} · ${reason.trim()}`);
+  notifyMerchant(req.merchantId, 'ไม่อนุมัติการเปลี่ยนข้อมูลร้าน', `${reason.trim()} — ข้อมูลร้านยังเป็นข้อมูลเดิม`, `/m/profile-changes/${id}`, 'error');
+  return { ok: true };
+}
+
+/** เจ้าหน้าที่ขอข้อมูลเพิ่ม (ต้องระบุสิ่งที่ต้องการ) — ร้านแก้ไขและส่งใหม่ได้ */
+export function requestProfileChangeInfo(id: string, message: string): WorkflowResult {
+  if (!message.trim()) return { ok: false, error: 'กรุณาระบุข้อมูลที่ต้องการเพิ่มเติม' };
+  const { req, error } = pendingReq(id);
+  if (error || !req) return { ok: false, error: error ?? 'ไม่พบคำขอเปลี่ยนข้อมูล' };
+  pcs().update(id, { status: 'info_requested', officerNote: message.trim(), updatedAt: nowISO(), history: [...req.history, changeEvent(req, 'info_requested', message.trim())] });
+  audit('ขอข้อมูลเพิ่มเติมสำหรับการเปลี่ยนข้อมูลร้าน', id, `${req.merchantId} · ${message.trim()}`);
+  notifyMerchant(req.merchantId, 'เจ้าหน้าที่ขอข้อมูลเพิ่มเติม (คำขอเปลี่ยนข้อมูลร้าน)', message.trim(), `/m/profile-changes/${id}`, 'warning');
+  return { ok: true };
+}
+
+/**
+ * ร้านแก้ไขและส่งใหม่หลังเจ้าหน้าที่ขอข้อมูลเพิ่ม — `revision` คือฉบับที่ร้านเห็นตอนแก้
+ * ส่งซ้ำ/Refresh หลังส่งแล้ว (ฉบับเปลี่ยนแล้ว) คืนผลเดิมโดยไม่บันทึกซ้ำ
+ */
+export function resubmitProfileChange(id: string, values: Partial<Record<ProfileChangeField, string>>, note: string, revision: number): WorkflowResult & { duplicate?: boolean } {
+  const req = pcs().items.find((r) => r.id === id);
+  if (!req) return { ok: false, error: 'ไม่พบคำขอเปลี่ยนข้อมูล' };
+  if (req.revision !== revision) return { ok: true, duplicate: true };
+  if (req.status !== 'info_requested') return { ok: false, error: 'คำขอนี้ไม่ได้รอข้อมูลเพิ่มเติม' };
+  const changes = req.changes.map((x) => ({ ...x, to: (values[x.field] ?? x.to).trim() }));
+  if (changes.some((x) => !x.to)) return { ok: false, error: 'กรุณากรอกข้อมูลใหม่ให้ครบ' };
+  if (changes.every((x) => x.to === x.from)) return { ok: false, error: 'ข้อมูลใหม่เหมือนข้อมูลเดิม — ไม่มีสิ่งที่ต้องเปลี่ยน' };
+  if (!note.trim()) return { ok: false, error: 'กรุณาอธิบายข้อมูลเพิ่มเติมที่เจ้าหน้าที่ขอ' };
+  pcs().update(id, { changes, merchantNote: note.trim(), status: 'pending', revision: req.revision + 1, updatedAt: nowISO(), history: [...req.history, changeEvent(req, 'resubmitted', note.trim(), changes)] });
+  useSessionStore.getState().saveDraft(changeRequestDraftKey(id), undefined);
+  audit('ร้านส่งข้อมูลเพิ่มเติมสำหรับการเปลี่ยนข้อมูลร้าน', id, `${req.merchantId} · ${describeChanges(changes)}`);
+  notify('officer', 'OF-001', 'ร้านค้าส่งข้อมูลเพิ่มเติม (คำขอเปลี่ยนข้อมูลร้าน)', `${merchantOf(req.merchantId)?.shopName} (${req.merchantId}) · ${id}`, `/o/profile-changes/${id}`, 'warning');
+  return { ok: true };
 }
 
 // ================================================================ Trust Assessment

@@ -67,9 +67,10 @@ test.describe('ดาวน์โหลด / พิมพ์ / Export', () => {
     await as(page, { role: 'admin', officerId: 'AD-001' }, '/admin/data');
     const json = await readDownload(page, () => page.getByRole('button', { name: 'Export Demo State (JSON)' }).click());
     const data = JSON.parse(json.text);
-    expect(Object.keys(data)).toHaveLength(14); // 11 Store ของ v1 + การเชื่อมต่อ Marketplace ผลประเมิน และบันทึกการนำเข้าของ v2
+    expect(Object.keys(data)).toHaveLength(15); // 11 Store ของ v1 + การเชื่อมต่อ Marketplace ผลประเมิน บันทึกการนำเข้า และคำขอเปลี่ยนข้อมูลร้านของ v2
     expect(Object.keys(data)).not.toContain('undefined');
     expect(data['บันทึกการนำเข้าข้อมูลร้าน (จำลอง)']).toEqual([]);
+    expect(data['คำขอเปลี่ยนข้อมูลร้าน']).toEqual([]);
     expect(data['ร้านค้า']).toHaveLength(12);
     expect(data['ประวัติ AI Simulation']).toHaveLength(4);
   });

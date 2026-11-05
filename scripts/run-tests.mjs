@@ -18,6 +18,7 @@ const SUITES = [
   'tests/v2/validation.test.mts',
   'tests/v2/p7.test.mts',
   'tests/v2/autofill.test.mts',
+  'tests/v2/profile-change.test.mts',
   'tests/render.test.mts',
 ];
 
