@@ -5,6 +5,9 @@
  */
 import { REGISTRATION_STATUS, TRUST_LEVELS } from '@/constants/labels';
 import {
+  useAssessmentBadgeStore,
+  useAutomationRunStore,
+  useOfficerTaskStore,
   useAssessmentStore,
   useCertificationStore,
   useImportRecordStore,
@@ -57,7 +60,8 @@ const newConnection = (g: GateInput) =>
 /** ผลประเมินที่สร้าง/ประเมินใหม่ระหว่างการสาธิตครั้งนี้ */
 const newAssessment = (g: GateInput) => {
   const a = latestAssessment(g.ctx.merchantId ?? '');
-  return a && a.createdAt >= g.startedAt ? a : undefined;
+  // ผลที่ระบบประเมินอัตโนมัติตอนซิงก์ไม่นับ — ขั้นนี้สาธิตการกดประเมินเอง
+  return a && a.createdAt >= g.startedAt && a.origin !== 'automation' ? a : undefined;
 };
 
 const connected = (id?: string) => connection(id)?.status === 'connected';
@@ -94,6 +98,12 @@ export function fixtureV2Clean(merchantId = V2_MERCHANT) {
       session.saveDraft(changeRequestDraftKey(r.id), undefined);
       pc.remove(r.id);
     });
+  // Automation First: Badge งานกรณียกเว้น และบันทึกการประมวลผลของร้านนี้ (เล่นซ้ำแล้วเริ่มจาก "ยังไม่เคยประมวลผล")
+  const bs = useAssessmentBadgeStore.getState();
+  bs.items.filter((b) => b.merchantId === merchantId).forEach((b) => bs.remove(b.id));
+  const ts = useOfficerTaskStore.getState();
+  ts.items.filter((t) => t.merchantId === merchantId).forEach((t) => ts.remove(t.id));
+  useAutomationRunStore.setState({ items: useAutomationRunStore.getState().items.filter((r) => r.merchantId !== merchantId) });
   const original = seed.merchants().find((m) => m.id === merchantId);
   if (original) {
     const { shopName, description, category, phone, email, province, district, address } = original;
@@ -397,7 +407,7 @@ export const v2Scenarios: ScenarioDef[] = [
     track: 'v2',
     title: 'ประเมินความน่าเชื่อถือร้านค้า',
     objective: 'รวมข้อมูล 5 มิติเป็น Trust Band ที่อธิบายได้ แยก Data Coverage และ Confidence และแสดงผลตามสิทธิ์ของร้านค้า เจ้าหน้าที่ และผู้บริโภค',
-    keyMessage: 'ทุกผลประเมินอธิบายได้ ข้อมูลที่ขาดไม่ถูกนับเป็นศูนย์ และระบบไม่ออก Badge ให้อัตโนมัติ',
+    keyMessage: 'ทุกผลประเมินอธิบายได้ ข้อมูลที่ขาดไม่ถูกนับเป็นศูนย์ และใบรับรองไม่ออกให้อัตโนมัติ (Assessment Badge แยกต่างหาก)',
     audience: ['merchant', 'officer', 'consumer'],
     duration: '≈ 7 นาที',
     benefits: {
@@ -415,7 +425,7 @@ export const v2Scenarios: ScenarioDef[] = [
         role: 'merchant',
         route: () => '/m/trust',
         title: 'Trust Assessment',
-        instruction: 'กด "ประเมินความน่าเชื่อถือ" — ระบบใช้น้ำหนักจาก Assessment Configuration ปัจจุบัน',
+        instruction: 'ระบบประเมินอัตโนมัติแล้วตอนซิงก์ข้อมูล — กด "ประเมินใหม่" (หรือ "ประเมินความน่าเชื่อถือ") เพื่อสาธิตการประเมินด้วยน้ำหนักจาก Assessment Configuration ปัจจุบัน',
         gate: { check: (g) => !!newAssessment(g), hint: 'กด "ประเมินความน่าเชื่อถือ" (หรือ "ประเมินใหม่")' },
         capture: (g) => ({ assessmentId: newAssessment(g)?.id }),
       },
@@ -429,7 +439,7 @@ export const v2Scenarios: ScenarioDef[] = [
         role: 'merchant',
         route: () => '/m/trust',
         title: 'Assessment Summary และส่งพิจารณา',
-        instruction: 'กด "ส่งให้เจ้าหน้าที่พิจารณา" — ระบบผูกกับคำขอรับรองตาม Workflow v1 (ไม่ออก Badge อัตโนมัติ)',
+        instruction: 'กด "ส่งให้เจ้าหน้าที่พิจารณา" — ระบบผูกกับคำขอรับรองตาม Workflow v1 (ไม่ออกใบรับรองอัตโนมัติ)',
         tip: 'ถ้าส่งไม่ได้ เช่น ข้อมูลเปลี่ยนหลังประเมิน ให้กด "ประเมินใหม่" ก่อน — หรือกลับไป Scenario 9 เลือกร้านตัวอย่างอื่น',
         gate: { check: (g) => !!g.ctx.assessmentId && assessment(g.ctx.assessmentId)?.status !== 'draft', hint: 'กด "ส่งให้เจ้าหน้าที่พิจารณา" (ถ้าผลล้าสมัย กด "ประเมินใหม่" ก่อน)' },
         capture: (g) => ({ applicationId: assessment(g.ctx.assessmentId)?.applicationId }),
@@ -468,7 +478,7 @@ export const v2Scenarios: ScenarioDef[] = [
     steps: [
       { id: 's12-queue', role: 'officer', route: () => '/o/assessments', title: 'Officer Review Queue', instruction: (c) => `คิว "รอพิจารณา" มีผลประเมิน ${c.assessmentId} ของร้าน "${shopName(c)}"` },
       { id: 's12-app', role: 'officer', route: (c) => (c.applicationId ? `/o/applications/${c.applicationId}` : `/o/assessments/${c.assessmentId}`), title: 'Application Detail', instruction: (c) => (c.applicationId ? `คำขอ ${c.applicationId} (${REGISTRATION_STATUS[application(c.applicationId)?.status ?? 'submitted'].label}) — ร้าน ${c.merchantId} และสถานะการยืนยันตัวตน (e-KYC จำลอง)` : 'ผลประเมินนี้ไม่มีคำขอที่ผูกไว้ — พิจารณาจากหน้าผลประเมิน') },
-      { id: 's12-evidence', role: 'officer', route: (c) => (c.applicationId ? `/o/applications/${c.applicationId}` : `/o/assessments/${c.assessmentId}`), title: 'Marketplace Evidence', instruction: 'กล่อง "ข้อมูลประกอบ: Trust Assessment v2" แสดงแพลตฟอร์มที่เชื่อมต่อ Shop ID จำลอง วันที่ซิงก์ และผลประเมิน', tip: 'หลักฐานจาก Marketplace เป็นข้อมูลประกอบ ไม่ใช่เงื่อนไขอนุมัติอัตโนมัติ' },
+      { id: 's12-evidence', role: 'officer', route: (c) => (c.applicationId ? `/o/applications/${c.applicationId}` : `/o/assessments/${c.assessmentId}`), title: 'Marketplace Evidence', instruction: 'กล่อง "ข้อมูลประกอบ: Trust Assessment" แสดงแพลตฟอร์มที่เชื่อมต่อ Shop ID จำลอง วันที่ซิงก์ และผลประเมิน', tip: 'หลักฐานจาก Marketplace เป็นข้อมูลประกอบ ไม่ใช่เงื่อนไขอนุมัติอัตโนมัติ' },
       { id: 's12-assessment', role: 'officer', route: (c) => `/o/assessments/${c.assessmentId}`, title: 'Trust Assessment', instruction: 'คะแนน วิธีคำนวณ ปัจจัย และข้อเสนอของระบบ — ใช้ Assessment ID เดียวกับ Scenario 11' },
       { id: 's12-eligibility', role: 'officer', route: (c) => `/o/assessments/${c.assessmentId}`, title: 'Certification Eligibility', instruction: 'ตรวจ "เกณฑ์ v1" ของระดับที่จะอนุมัติ — ต้องผ่านครบจึงอนุมัติได้ (ความหมายของ Level 1–4 ไม่เปลี่ยน)', tip: 'ร้านที่ได้ Band A แต่ยังมีคำเตือนค้าง ระบบจะไม่ให้อนุมัติแม้คะแนนสูง' },
       {
@@ -577,7 +587,7 @@ export const v2Scenarios: ScenarioDef[] = [
     audience: ['merchant', 'officer'],
     duration: '≈ 6 นาที',
     caseNote: 'เส้นทางสมัครร้านใหม่ (ไม่ใช่การยกระดับร้านกาแฟดอยสูง M-005) — ใช้บัญชีตัวอย่าง OP-013 แยกจากร้านใน Scenario 9–13 · คำขอที่ได้คือคำขอลงทะเบียน (Level 2 เมื่ออนุมัติ) ไม่ได้ Level 3–4 อัตโนมัติ',
-    nextCta: 'กลับสู่ Demo v2',
+    nextCta: 'กลับสู่ Demo',
     prepare: () => {
       fixtureBranchClean(NEW_SHOP_OPERATOR);
       return { operatorId: NEW_SHOP_OPERATOR, consumerId: 'CS-001', officerId: 'OF-001' };
@@ -693,8 +703,8 @@ export const v2Scenarios: ScenarioDef[] = [
     keyMessage: 'SME Trust เปิดให้ผู้ประกอบการรายย่อยทุกช่องทางเข้าร่วมได้ — การไม่มีบัญชี Shopee/Lazada ไม่ทำให้เสียคะแนน',
     audience: ['merchant', 'officer'],
     duration: '≈ 6 นาที',
-    caseNote: 'เส้นทางทางเลือกใช้บัญชีตัวอย่างที่ยังไม่มีร้าน (OP-012) แยกจากร้านใน Scenario 9–13 — ข้อมูลของ Journey v2 ยังอยู่ครบ',
-    nextCta: 'กลับสู่ Demo v2',
+    caseNote: 'เส้นทางทางเลือกใช้บัญชีตัวอย่างที่ยังไม่มีร้าน (OP-012) แยกจากร้านใน Scenario 9–13 — ข้อมูลของ Journey Marketplace & Trust ยังอยู่ครบ',
+    nextCta: 'กลับสู่ Demo',
     prepare: () => {
       fixtureBranchClean();
       return { operatorId: BRANCH_OPERATOR, consumerId: 'CS-001', officerId: 'OF-001' };

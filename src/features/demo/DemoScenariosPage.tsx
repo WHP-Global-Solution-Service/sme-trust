@@ -69,7 +69,7 @@ export default function DemoScenariosPage() {
             <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-white/10 p-4 sm:flex-row sm:items-center">
               <p className="flex-1 text-sm">
                 {d.status === 'paused' ? 'หยุดไว้ที่' : 'กำลังสาธิต'} <b>Scenario {scenarioCode(active!)}: {active!.title}</b> · ขั้นที่ {d.stepIndex + 1}/{active!.steps.length}
-                {d.journeyMode && (d.journeyTrack === 'v2' ? ' · Full Journey v2' : ' · Full Journey')}
+                {d.journeyMode && (d.journeyTrack === 'v2' ? ' · Full Journey: Marketplace & Trust' : ' · Full Journey')}
               </p>
               <Button variant="inverse" icon={Play} onClick={() => resumeDemo(nav)}>
                 สาธิตต่อ
@@ -100,7 +100,7 @@ export default function DemoScenariosPage() {
                 onClick={() => setTab(t)}
                 className={cn('rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors sm:min-w-[240px]', tab === t ? 'bg-primary text-white' : 'text-ink-soft hover:bg-bg')}
               >
-                <span className="block">{t === 'v1' ? 'v1 — Consumer Protection' : 'v2 — Marketplace Intelligence'}</span>
+                <span className="block">{t === 'v1' ? 'Consumer Protection' : 'Marketplace & Trust Assessment'}</span>
                 <span className={cn('block text-xs font-normal', tab === t ? 'text-white/80' : 'text-ink-soft')}>
                   {TRACK_INFO[t].tagline}
                   {t === 'v2' && ' + ทางเลือก 9B'}
@@ -147,12 +147,12 @@ const JOURNEY_TEXT: Record<Track, { title: string; desc: string; start: string; 
     confirm: 'เริ่ม Full Journey',
   },
   v2: {
-    title: 'Full Journey v2 — Marketplace Intelligence',
+    title: 'Full Journey — Marketplace & Trust Assessment',
     desc: 'สาธิต Scenario 9 → 13 ต่อเนื่อง: เชื่อมข้อมูล Shopee/Lazada (จำลอง) → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ ใช้ร้าน การเชื่อมต่อ ผลประเมิน และคำขอเดียวกันตลอดทาง (≈ 30 นาที)',
-    start: 'เริ่ม Journey v2',
-    cont: 'สาธิต Journey v2 ต่อ',
-    restart: 'เริ่ม Journey v2 ใหม่',
-    confirm: 'เริ่ม Journey v2 จากต้น',
+    start: 'เริ่ม Journey Marketplace & Trust',
+    cont: 'สาธิต Journey Marketplace & Trust ต่อ',
+    restart: 'เริ่ม Journey Marketplace & Trust ใหม่',
+    confirm: 'เริ่ม Journey Marketplace & Trust จากต้น',
   },
 };
 
@@ -289,7 +289,7 @@ function ScenarioCard({ sc, onStart }: { sc: ScenarioDef; onStart: () => void })
             <Clock className="h-3.5 w-3.5" />
             {sc.duration} · {sc.steps.length} ขั้นตอน
             {!v2 && sc.no >= 7 && <Badge tone="error">AI Simulation</Badge>}
-            {v2 && <Badge tone="info">{sc.branch ? 'เส้นทางทางเลือก' : 'Marketplace (จำลอง)'}</Badge>}
+            {v2 && <Badge tone="info">{sc.no >= 14 ? 'Automation First' : sc.branch ? 'เส้นทางทางเลือก' : 'Marketplace (จำลอง)'}</Badge>}
             {st !== 'not_started' && <Badge tone={STATUS_CHIP[st].tone}>{STATUS_CHIP[st].label}</Badge>}
           </p>
         </div>

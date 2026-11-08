@@ -60,6 +60,14 @@ npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/s
 - **หน้าแรก Concept v2** — แพลตฟอร์มกลางประเมินความน่าเชื่อถือ (ไม่ใช่ Marketplace ไม่ขายสินค้า ไม่รับชำระเงิน) · CTA เชื่อมร้านค้าออนไลน์ / ลงทะเบียนด้วยตนเอง / เข้าสู่ระบบ / ตรวจสอบร้านค้า · Trust Assessment 7 ปัจจัย · Trust Badge · Demo 15 เส้นทาง
 - **คำขอเปลี่ยนข้อมูลร้าน** — ชื่อร้าน/หมวดของร้านที่ได้รับการรับรองต้องให้เจ้าหน้าที่อนุมัติ (อนุมัติ / ไม่อนุมัติ / ขอข้อมูลเพิ่ม) พร้อมประวัติ การแจ้งเตือน และ Audit Log · ข้อมูลต้นฉบับ Marketplace และระดับใบรับรองไม่เปลี่ยน
 
+**อยู่ใน Branch `sme-trustv.2` — ยังไม่เผยแพร่: Automation First, Human by Exception** ([docs/automation-first-workflow.md](docs/automation-first-workflow.md))
+
+- ระบบประเมินอัตโนมัติเมื่อร้านนำเข้า/ซิงก์ข้อมูล แล้วจัดเส้นทางด้วย **Decision Router**: AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW
+- **Trust Assessment Badge** ออกและอัปเดตอัตโนมัติ (แยกจากใบรับรอง — Level 2–4 ยังต้องให้เจ้าหน้าที่อนุมัติ)
+- **Exception Queue** สำหรับเจ้าหน้าที่ (`/o/exceptions`) — หนึ่งงานต่อประเด็น พร้อม Evidence Snapshot เหตุผล และ Approve / Reject / Request Info · KPI จาก Mock State (`/o/automation`)
+- ชื่อร้าน/หมวดที่ตรงกับต้นฉบับ Marketplace ตรวจสอบอัตโนมัติ · ค่าอื่นใช้ Workflow อนุมัติเดิม
+- Demo: Scenario 14 (เส้นทางปกติ ไม่มีเจ้าหน้าที่) · Scenario 15 (กรณียกเว้น) · ชื่อใน UI รวมเป็นระบบเดียว
+
 ## เทคโนโลยี
 
 React 18 + TypeScript, Vite 5, Tailwind CSS 3, React Router 6, Zustand 4 (persist → localStorage), React Hook Form + Zod, Lucide React, Recharts, date-fns

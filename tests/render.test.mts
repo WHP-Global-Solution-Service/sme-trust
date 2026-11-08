@@ -94,6 +94,11 @@ const routes: [string, string, Record<string, unknown>][] = [
   ['/m/marketplace/analysis?tab=compare', 'merchant', { operatorId: 'OP-001', merchantLoggedIn: true }], ['/m/marketplace/analysis?tab=summary', 'merchant', { operatorId: 'OP-001', merchantLoggedIn: true }],
   ['/m/marketplace/analysis', 'merchant', { operatorId: 'OP-010', merchantLoggedIn: true }], ['/m/marketplace/analysis', 'consumer', { __deny: true }],
   ['/o/applications/APP-2569-0002', 'officer', {}], ['/shop/M-001', 'consumer', {}],
+  // Automation First — Exception Queue, กฎอัตโนมัติ, Marketplace App Simulation, หน้าจบ Scenario 14/15
+  ['/o/exceptions', 'officer', {}], ['/o/exceptions?tab=completed', 'officer', {}], ['/o/exceptions', 'admin', { officerId: 'AD-001' }], ['/o/exceptions/TSK-9999-0001', 'officer', {}],
+  ['/o/automation', 'officer', {}], ['/m/marketplace-app', 'merchant', { operatorId: 'OP-005', merchantLoggedIn: true }], ['/m/trust', 'merchant', { operatorId: 'OP-002', merchantLoggedIn: true }],
+  ['/demo/complete/s14', 'consumer', {}], ['/demo/complete/s15', 'consumer', {}],
+  ['/o/exceptions', 'merchant', { __deny: true, operatorId: 'OP-001', merchantLoggedIn: true }], ['/o/automation', 'consumer', { __deny: true }],
   ['/nope', 'consumer', {}], ['/404', 'consumer', {}],
 ];
 

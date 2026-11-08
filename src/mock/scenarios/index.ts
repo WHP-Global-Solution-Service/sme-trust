@@ -17,6 +17,7 @@ import { currentCert, verdictFor } from '@/utils/trust';
 import { validateAdInput, AD_LEVEL_LABEL } from '@/features/ai-assistant/services/advertisingAnalyzer';
 import type { ContinuityIssue, GateInput, ScenarioDef, Track } from '@/demo/types';
 import { v2Scenarios } from './v2';
+import { automationScenarios } from './automation';
 import { fixtureAdChecker, fixtureBeforeSuspension, fixtureComplaintCase, fixtureWarningCaseStudy, operatorExists } from './fixtures';
 
 // ---------- ตัวช่วยอ่านข้อมูลธุรกิจ (อ่านอย่างเดียว) ----------
@@ -639,7 +640,7 @@ function latestWarning(g: GateInput) {
 
 export { v2Scenarios };
 /** ทุก Scenario — v1 (1–8) ตามด้วย v2 (9–13 และเส้นทางทางเลือก) */
-export const allScenarios: ScenarioDef[] = [...scenarios, ...v2Scenarios];
+export const allScenarios: ScenarioDef[] = [...scenarios, ...v2Scenarios, ...automationScenarios];
 export const findScenario = (id?: string) => allScenarios.find((s) => s.id === id);
 export const trackOf = (sc?: ScenarioDef): Track => sc?.track ?? 'v1';
 /** Scenario ทั้งหมดของชุด (รวมเส้นทางทางเลือก) */
@@ -649,8 +650,8 @@ export const journeyScenarios = (t: Track) => trackScenarios(t).filter((s) => !s
 /** รหัสที่แสดง เช่น "3", "9B" */
 export const scenarioCode = (sc: ScenarioDef) => sc.code ?? String(sc.no);
 export const TRACK_INFO: Record<Track, { name: string; tagline: string; desc: string }> = {
-  v1: { name: 'SME Trust v1 — Consumer Protection', tagline: 'Scenario 1–8', desc: 'ยืนยันตัวตน รับรองร้านค้า ร้องเรียน คำเตือน การระงับ/อุทธรณ์ และ AI Simulation ช่วยผู้ประกอบการ' },
-  v2: { name: 'SME Trust v2 — Marketplace Intelligence', tagline: 'Scenario 9–13', desc: 'เน้นการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิม (จำลอง) และประเมินความน่าเชื่อถือจากหลายปัจจัยอย่างอธิบายได้ — เจ้าหน้าที่ยังเป็นผู้ตัดสินการรับรอง' },
+  v1: { name: 'SME Trust — Consumer Protection', tagline: 'Scenario 1–8', desc: 'ยืนยันตัวตน รับรองร้านค้า ร้องเรียน คำเตือน การระงับ/อุทธรณ์ และ AI Simulation ช่วยผู้ประกอบการ' },
+  v2: { name: 'SME Trust — Marketplace & Trust Assessment', tagline: 'Scenario 9–13', desc: 'เน้นการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิม (จำลอง) และประเมินความน่าเชื่อถือจากหลายปัจจัยอย่างอธิบายได้ — เจ้าหน้าที่ยังเป็นผู้ตัดสินการรับรอง' },
 };
 export const stepInstruction = (ins: string | ((c: DemoCtx) => string), ctx: DemoCtx) => (typeof ins === 'function' ? ins(ctx) : ins);
 

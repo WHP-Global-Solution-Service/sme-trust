@@ -20,6 +20,8 @@ export interface ArchetypeParams {
   reviewBurst?: boolean;
   lowPricedHighRiskItem?: boolean;
   fulfillmentComplaints?: boolean;
+  /** ชื่อเจ้าของบัญชีร้านบน Marketplace (จำลอง) ไม่ตรงกับผู้ยืนยันตัวตน — ใช้สาธิตกรณีส่งเจ้าหน้าที่ (Exception) */
+  ownerMismatch?: boolean;
 }
 
 export const ARCHETYPES: Record<Archetype, ArchetypeParams> = {
@@ -57,5 +59,10 @@ export const ARCHETYPES: Record<Archetype, ArchetypeParams> = {
     shopAgeMonths: [4, 7], baseMonthlyOrders: [20, 35], growth: 0.05, volatility: 0.15,
     cancelRate: [0.02, 0.04], returnRate: [0.02, 0.04], onTimeShipRate: [0.9, 0.95], chatResponseRate: [0.85, 0.93],
     ratingMean: 4.5, reviewRate: 0.25, priceFactor: [0.85, 1.1], salesSpike: true,
+  },
+  owner_mismatch: {
+    shopAgeMonths: [20, 36], baseMonthlyOrders: [120, 180], growth: 0.01, volatility: 0.12,
+    cancelRate: [0.008, 0.02], returnRate: [0.008, 0.02], onTimeShipRate: [0.96, 0.99], chatResponseRate: [0.92, 0.98],
+    ratingMean: 4.7, reviewRate: 0.35, priceFactor: [0.9, 1.2], ownerMismatch: true,
   },
 };

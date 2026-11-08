@@ -35,6 +35,7 @@ import {
   useWarningStore,
 } from '.';
 import { currentModel } from './assessmentConfig';
+import { processMerchant } from './automation';
 import { applyCertification, approveApplication, audit, currentActor, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, submitShopRegistration, type ShopForm, type WorkflowResult } from './workflows';
 
 const mk = () => useMarketplaceStore.getState();
@@ -111,10 +112,13 @@ export function completeSync(connectionId: string, ok = true, failKind: FailKind
   if (ok) {
     mk().update(connectionId, { status: 'connected', lastSyncAt: nowISO(), syncSource: 'sync', syncCount, failReason: undefined, failKind: undefined });
     audit('ซิงก์ข้อมูล Marketplace (จำลอง)', connectionId, PLATFORMS[c.platform].label);
-    notifyMerchant(c.merchantId, `ซิงก์ข้อมูล ${PLATFORMS[c.platform].label} สำเร็จ`, 'ประเมินความน่าเชื่อถือใหม่เพื่อใช้ข้อมูลล่าสุด', '/m/trust', 'success');
+    notifyMerchant(c.merchantId, `ซิงก์ข้อมูล ${PLATFORMS[c.platform].label} สำเร็จ`, 'ระบบประเมินความน่าเชื่อถือใหม่อัตโนมัติด้วยข้อมูลล่าสุด', '/m/trust', 'success');
+    // Automation First: นำเข้า/ซิงก์สำเร็จ → ประเมินใหม่ → Decision Router → Badge (ขณะผู้ใช้เปิดระบบเท่านั้น)
+    processMerchant(c.merchantId, syncCount === 1 ? 'import' : 'sync');
   } else {
     mk().update(connectionId, { status: 'sync_failed', syncCount, failKind, failReason: FAIL_REASON[failKind] });
     audit(`${FAIL_TITLE[failKind]} (จำลอง)`, connectionId, PLATFORMS[c.platform].label);
+    processMerchant(c.merchantId, 'sync_failed');
   }
 }
 
@@ -141,6 +145,7 @@ export function simulateDataAge(connectionId: string, preset: DataAgePreset) {
   if (preset === 'sync_failed') completeSync(connectionId, false, 'sync');
   else mk().update(connectionId, { status: 'connected', lastSyncAt: new Date(Date.now() - p.days! * 86_400_000).toISOString(), syncSource: 'simulated_age', failReason: undefined, failKind: undefined });
   audit('จำลองอายุข้อมูล Marketplace (สำหรับการสาธิต)', connectionId, p.label);
+  if (preset !== 'sync_failed') processMerchant(c.merchantId, 'data_age');
 }
 
 /** ยกเลิกการเชื่อมต่อ — ข้อมูลจากแพลตฟอร์มนี้จะไม่ถูกใช้ประเมินอีก */
@@ -151,6 +156,7 @@ export function disconnectMarketplace(connectionId: string) {
   // ฉบับร่างอัปเดตโปรไฟล์จากการเชื่อมต่อนี้ใช้ต่อไม่ได้ (ไม่มีสิทธิ์เข้าถึงข้อมูลต้นฉบับแล้ว) — ข้อมูลที่ยืนยันบันทึกไปแล้วยังอยู่
   useSessionStore.getState().saveDraft(profileDraftKey(connectionId), undefined);
   audit('ยกเลิกการเชื่อมต่อ Marketplace (จำลอง)', connectionId, PLATFORMS[c.platform].label);
+  processMerchant(c.merchantId, 'disconnect');
 }
 
 /** ข้อมูลร้านจำลองสำหรับ "นำเข้าจาก Marketplace" ตอนลงทะเบียนร้าน (Self-Registration) */
@@ -303,6 +309,8 @@ export function confirmProfileUpdate(connectionId: string, values: FieldValues, 
     createdAt: nowISO(),
   };
   imp().add(record);
+  const autoVerified = rows.filter((r) => r.status === 'source_verified').map((r) => r.label);
+  if (autoVerified.length) audit('ตรวจสอบข้อมูลร้านอัตโนมัติ: ตรงกับข้อมูลต้นฉบับ Marketplace', record.id, `${m.id} · ${autoVerified.join(', ')} — บันทึกโดยไม่ต้องรอเจ้าหน้าที่`, true);
   audit('อัปเดตโปรไฟล์ร้านจากข้อมูลที่นำเข้า (จำลอง)', record.id, `${m.id} · บันทึก ${applied.length} ช่อง${pending.length ? ` · รอตรวจสอบ ${pending.length} ช่อง` : ''}`);
   if (pending.length) {
     const changes: ProfileChange[] = (pending as ProfileChangeField[]).map((f) => ({ field: f, from: registered[f], to: values[f].trim(), source: src[f] }));
@@ -310,6 +318,7 @@ export function confirmProfileUpdate(connectionId: string, values: FieldValues, 
     imp().update(record.id, { changeRequestId: req.id });
     record.changeRequestId = req.id;
   }
+  processMerchant(m.id, 'profile_update');
   return { ok: true, record };
 }
 
@@ -395,6 +404,7 @@ export function approveProfileChange(id: string, note?: string): WorkflowResult 
   pcs().update(id, { status: 'approved', officerNote: n, decidedAt: now, decidedBy: ev.actorName, updatedAt: now, history: [...req.history, ev] });
   audit('อนุมัติการเปลี่ยนข้อมูลร้าน', id, `${m.id} · ${describeChanges(req.changes)} · ใบรับรองไม่เปลี่ยน`);
   notifyMerchant(m.id, 'อนุมัติการเปลี่ยนข้อมูลร้านแล้ว', `${describeChanges(req.changes)} — ระดับใบรับรองไม่เปลี่ยน`, `/m/profile-changes/${id}`, 'success');
+  processMerchant(m.id, 'profile_update');
   return { ok: true };
 }
 
@@ -466,22 +476,29 @@ export function currentInputs(merchantId: string) {
 export const latestAssessment = (merchantId: string, items = useAssessmentStore.getState().items) =>
   items.filter((a) => a.merchantId === merchantId).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
 
-/** ประเมินใหม่ — ถ้าผลล่าสุดยังเป็นร่างจะแทนที่ร่างนั้น (ไม่สร้างร่างซ้ำ) */
-export function runAssessment(merchantId: string): TrustAssessment | undefined {
+/**
+ * ประเมินใหม่ — ถ้าผลล่าสุดยังเป็นร่างจะแทนที่ร่างนั้น (ไม่สร้างร่างซ้ำ)
+ * origin: automation = ระบบประเมินเองเมื่อข้อมูลเปลี่ยน · merchant = ร้านกดประเมินเอง (แล้วระบบจัดเส้นทางและอัปเดต Badge ต่อ)
+ */
+export function runAssessment(merchantId: string, origin: 'merchant' | 'automation' = 'merchant'): TrustAssessment | undefined {
   const cur = currentInputs(merchantId);
   if (!cur) return undefined;
   const result = assessTrust(cur.input, currentModel());
   const store = useAssessmentStore.getState();
   const last = latestAssessment(merchantId);
+  const system = origin === 'automation';
+  let out: TrustAssessment | undefined;
   if (last && last.status === 'draft') {
-    store.update(last.id, { result, inputsKey: cur.key, createdAt: nowISO() });
-    audit('ประเมินความน่าเชื่อถือใหม่', last.id, result.band);
-    return useAssessmentStore.getState().items.find((a) => a.id === last.id);
+    store.update(last.id, { result, inputsKey: cur.key, createdAt: nowISO(), origin });
+    audit(system ? 'ระบบประเมินความน่าเชื่อถือใหม่อัตโนมัติ' : 'ประเมินความน่าเชื่อถือใหม่', last.id, result.band, system);
+    out = useAssessmentStore.getState().items.find((a) => a.id === last.id);
+  } else {
+    out = { id: nextRef('TAS', store.items.map((x) => x.id)), merchantId, createdAt: nowISO(), status: 'draft', inputsKey: cur.key, result, origin };
+    store.add(out);
+    audit(system ? 'ระบบประเมินความน่าเชื่อถืออัตโนมัติ' : 'ประเมินความน่าเชื่อถือ', out.id, result.band, system);
   }
-  const a: TrustAssessment = { id: nextRef('TAS', store.items.map((x) => x.id)), merchantId, createdAt: nowISO(), status: 'draft', inputsKey: cur.key, result };
-  store.add(a);
-  audit('ประเมินความน่าเชื่อถือ', a.id, result.band);
-  return a;
+  if (!system) processMerchant(merchantId, 'merchant_assessment', { reassess: false });
+  return out;
 }
 
 /** ร้านส่งผลประเมินให้เจ้าหน้าที่พิจารณา (ประกอบการพิจารณา Level 3–4) */
@@ -604,5 +621,6 @@ export function decideAssessment(assessmentId: string, kind: OfficerDecisionKind
     },
   });
   audit('พิจารณาผลประเมินความน่าเชื่อถือ', assessmentId, `${DECISION_LABEL[kind].label}${level ? ` Level ${level}` : ''} — ${reason.trim()}`);
+  processMerchant(a.merchantId, 'officer_decision', { reassess: false });
   return { ok: true };
 }

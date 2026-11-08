@@ -8,7 +8,7 @@ export type FailKind = 'connect' | 'import' | 'sync';
 export type ProductRisk = 'low' | 'medium' | 'high';
 
 /** โปรไฟล์ข้อมูลจำลองของร้าน — กำหนดลักษณะข้อมูลที่ Generator สร้าง */
-export type Archetype = 'established_good' | 'growing_ok' | 'new_shop' | 'price_anomaly' | 'review_burst' | 'fulfillment_issue' | 'sales_spike';
+export type Archetype = 'established_good' | 'growing_ok' | 'new_shop' | 'price_anomaly' | 'review_burst' | 'fulfillment_issue' | 'sales_spike' | 'owner_mismatch';
 
 export interface MarketplaceConnection {
   id: string;
@@ -44,6 +44,11 @@ export interface MarketplaceConnection {
    * เพื่อให้ข้อมูลต้นฉบับไม่เปลี่ยนตามชื่อร้านใหม่ในโปรไฟล์ (ไม่มีค่า = ใช้ชื่อร้านในโปรไฟล์ตามเดิม)
    */
   sourceShopName?: string;
+  /**
+   * ผลการตรวจข้อมูลตัวตนโดยเจ้าหน้าที่ (เมื่อชื่อเจ้าของบัญชีร้านบน Marketplace ไม่ตรงกับผู้ยืนยันตัวตน)
+   * verified = ยืนยันว่าเป็นร้านเดียวกัน · rejected = ไม่ใช่ร้านของผู้ประกอบการ → ข้อมูลจากการเชื่อมต่อนี้ไม่ถูกใช้ประเมิน
+   */
+  identityReview?: { status: 'verified' | 'rejected'; by: string; at: ISODate; taskId: string };
 }
 
 export interface Listing {

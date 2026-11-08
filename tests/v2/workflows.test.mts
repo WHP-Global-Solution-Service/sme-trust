@@ -16,7 +16,7 @@ const merchantSession = (op: string) => S.useSessionStore.getState().set({ role:
 
 describe('ข้อมูลตั้งต้น v2');
 check(conns().length === 13 && S.useAssessmentStore.getState().items.length === 10, 'มีการเชื่อมต่อตัวอย่าง 13 รายการ และผลประเมินตัวอย่าง 10 รายการ');
-check(S.domainStores.length === 15 && [S.useMarketplaceStore, S.useAssessmentStore, S.useImportRecordStore, S.useProfileChangeStore].every((st) => (S.domainStores as unknown[]).includes(st)), 'Store v2 (การเชื่อมต่อ ผลประเมิน บันทึกการนำเข้า คำขอเปลี่ยนข้อมูลร้าน) รวมอยู่ใน domainStores (Reset / Export / Snapshot ครอบคลุม)');
+check(S.domainStores.length === 18 && [S.useMarketplaceStore, S.useAssessmentStore, S.useImportRecordStore, S.useProfileChangeStore, S.useAssessmentBadgeStore, S.useOfficerTaskStore, S.useAutomationRunStore].every((st) => (S.domainStores as unknown[]).includes(st)), 'Store v2 (การเชื่อมต่อ ผลประเมิน บันทึกการนำเข้า คำขอเปลี่ยนข้อมูลร้าน Badge งานเจ้าหน้าที่ บันทึกการประมวลผล) รวมอยู่ใน domainStores (Reset / Export / Snapshot ครอบคลุม)');
 check(integrityProblems().length === 0, `Integrity ผ่าน (รวม FK ของ Store v2)${integrityProblems().length ? ' — ' + integrityProblems().slice(0, 3).join(' | ') : ''}`);
 check(JSON.stringify(seed.assessments()) === JSON.stringify(seed.assessments()), 'ผลประเมินตัวอย่างสร้างซ้ำได้ผลเดิมทุกไบต์');
 

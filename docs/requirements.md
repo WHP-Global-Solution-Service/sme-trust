@@ -55,3 +55,27 @@
 17. **ร่างคำตอบจาก AI** ใส่ในช่องตอบกลับเท่านั้น ร้านค้าต้องเลือกรูปแบบการตอบกลับและกดส่งเองผ่าน `merchantRespond()` เดิม
 18. **ประวัติ AI** เก็บเฉพาะชื่อตัวอย่าง/เลขเคสและผลสรุป ไม่เก็บข้อความที่ผู้ใช้พิมพ์เอง
 19. **Full Journey** ใช้บัญชีเดียวกันใน Scenario 1–4 และ 7; Scenario 5, 6, 8 ใช้กรณีศึกษาแยกที่เตรียมไว้ เพราะต้องมีประวัติ (คำเตือน, ข้อร้องเรียนหลายเรื่อง) ที่ร้านใหม่ยังไม่มี
+
+## Automation First, Human by Exception (Branch `sme-trustv.2` — ยังไม่เผยแพร่)
+
+รายละเอียดเต็มใน [automation-first-workflow.md](automation-first-workflow.md)
+
+| ข้อกำหนด | การแมป |
+|---|---|
+| Automatic Merchant Processing | ร้านลงทะเบียน แก้ไข เชื่อม Marketplace นำเข้า/Auto-Fill และส่งข้อมูลเพิ่มเองได้ · ระบบประเมินและจัดเส้นทางเองเมื่อข้อมูลเปลี่ยน (`stores/automation.ts`) |
+| Automatic Assessment Badge | `useAssessmentBadgeStore` (หนึ่ง Badge ต่อร้าน) · แสดงที่ `/m/trust` และ `/shop/:id` ตามสิทธิ์ · ประวัติ + Model Version · Insufficient Data พร้อมคำแนะนำ |
+| Decision Router | `features/automation/router.ts` — AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW · แยกการคัดกรองจากการตัดสินว่าทุจริต |
+| Minimize Officer Workload | `/o` (Exception Queue + KPI), `/o/exceptions`, `/o/exceptions/:id`, `/o/automation` · หนึ่งงานต่อประเด็น ไม่มีงานซ้ำ |
+| Profile Change Automation | `source_verified` — ชื่อร้าน/หมวดที่ตรงกับต้นฉบับ Marketplace บันทึกเอง · ค่าอื่นใช้ Workflow อนุมัติเดิม (Exception) · Raw Source อ่านอย่างเดียว |
+| Certification Governance | `CERTIFICATION_POLICY` — Level 1 อัตโนมัติ (กฎเดิม) · Level 2–4 เจ้าหน้าที่อนุมัติ · ระบบอัตโนมัติไม่เปลี่ยนใบรับรอง |
+| Automatic Monitoring | Event-based ขณะเปิดระบบ (ซิงก์ นำเข้า อายุข้อมูล มาตรการ ยืนยันตัวตน) + Run Simulation — ไม่ใช่ Real-time |
+| Unified Demo | Scenario 14 (เส้นทางปกติ ไม่มีเจ้าหน้าที่) · Scenario 15 (กรณียกเว้น) · ชื่อใน UI ไม่แยก v1/v2 |
+
+สมมติฐานที่ตัดสินใจเอง:
+
+20. **Assessment Badge ต้องยืนยันตัวตน (Level 1) ก่อน** แต่ไม่ต้องรอใบรับรอง Level 2 — Badge เป็นผลประเมิน ไม่ใช่การรับรอง
+21. **สัญญาณทั่วไปข้อเดียวไม่ส่งเจ้าหน้าที่** (Engine จำกัด Band สูงสุด B อยู่แล้ว) · ตั้งแต่ 2 ข้อหรือสัญญาณร่วม/ข้อร้องเรียนเร่งด่วน → MANUAL_REVIEW
+22. **คำขอที่ต้องใช้อำนาจอนุมัติ** (ใบรับรอง Level 2–4, ชื่อร้านที่ตรวจไม่ได้) เป็นงานของเจ้าหน้าที่เสมอตามนโยบาย แต่ไม่ระงับ Assessment Badge — แสดงในหมวด Certification Requests ของ Exception Queue โดยลิงก์ไปที่เรื่องเดิม
+23. **เจ้าหน้าที่ไม่อนุมัติกรณีสัญญาณ/หลักฐานขัดแย้ง** → เปิดเรื่องพิจารณาความเสี่ยงตามกระบวนการเดิม (ร้านชี้แจง/อุทธรณ์ได้) ไม่ระงับใบรับรองอัตโนมัติ
+24. **ไม่อนุมัติกรณีข้อมูลตัวตนไม่ตรง** → ไม่ใช้ข้อมูลจากการเชื่อมต่อนั้นประเมิน (ไม่เปิดเรื่องความเสี่ยง และใบรับรองไม่เปลี่ยน)
+25. **ระหว่าง MANUAL_REVIEW จาก Decision Router ผู้บริโภคไม่เห็น Band** เพราะข้อมูลอาจไม่ใช่ของร้าน · กรณีมีเรื่องพิจารณาความเสี่ยงเดิมยังแสดง Band + Standing ตามแนวทางเดิม (D8)

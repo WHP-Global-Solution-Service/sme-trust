@@ -18,9 +18,9 @@ export interface DataBundle {
   connections: MarketplaceConnection[];
 }
 
-/** เฉพาะการเชื่อมต่อที่ซิงก์สำเร็จแล้วเท่านั้นที่ใช้ประเมิน */
+/** เฉพาะการเชื่อมต่อที่ซิงก์สำเร็จแล้วเท่านั้นที่ใช้ประเมิน — การเชื่อมต่อที่เจ้าหน้าที่ตรวจแล้วว่าไม่ใช่ร้านของผู้ประกอบการไม่ถูกใช้ */
 export const usableConnections = (connections: MarketplaceConnection[], merchantId: string) =>
-  connections.filter((c) => c.merchantId === merchantId && c.status === 'connected' && !!c.lastSyncAt);
+  connections.filter((c) => c.merchantId === merchantId && c.status === 'connected' && !!c.lastSyncAt && c.identityReview?.status !== 'rejected');
 
 export function buildAssessmentInput(merchantId: string, data: DataBundle, asOf: Date = new Date()): AssessmentInput | undefined {
   const merchant = data.merchants.find((m) => m.id === merchantId);

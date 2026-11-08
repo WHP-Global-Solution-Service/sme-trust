@@ -11,8 +11,8 @@ import { cn } from '@/utils/cn';
 
 const n = (x: number) => x.toLocaleString('th-TH');
 
-const STATUS_TONE: Record<FieldStatus, Tone> = { imported: 'info', user_edited: 'primary', manual: 'neutral', missing: 'error', verification_required: 'warning' };
-const STATUS_ICON = { imported: CheckCircle2, user_edited: PencilLine, manual: PenLine, missing: AlertTriangle, verification_required: Clock } as const;
+const STATUS_TONE: Record<FieldStatus, Tone> = { imported: 'info', user_edited: 'primary', manual: 'neutral', missing: 'error', verification_required: 'warning', source_verified: 'success' };
+const STATUS_ICON = { imported: CheckCircle2, user_edited: PencilLine, manual: PenLine, missing: AlertTriangle, verification_required: Clock, source_verified: ShieldCheck } as const;
 
 /** ป้ายที่มาของข้อมูล — "นำเข้าจาก Shopee (จำลอง)" / "ผู้สมัครแก้ไข" / "ต้องกรอกเพิ่ม" / "รอการตรวจสอบ" */
 export function FieldStatusBadge({ status, source, registeredLabel }: { status: FieldStatus; source?: ImportSource; registeredLabel?: boolean }) {

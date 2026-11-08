@@ -5,7 +5,9 @@ import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { PRODUCT_RISK_LABEL } from '@/features/marketplace/data/catalog';
 import { Badge, Card, CardHeader, StatusBadge } from '@/components/common/ui';
 import { TimeBarChart } from '@/components/common/Charts';
-import { useAssessmentStore } from '@/stores';
+import { useAssessmentBadgeStore, useAssessmentStore } from '@/stores';
+import { PublicBadgeBlock } from '@/features/automation/components/AutomationParts';
+import { publicBadgeView } from '@/features/automation/router';
 import { weightSetLabel } from '@/stores/assessmentConfig';
 import { fmtDate } from '@/utils/format';
 import { cn } from '@/utils/cn';
@@ -111,20 +113,28 @@ export function SourcesLine({ result }: { result: AssessmentResult }) {
 export function PublicAssessmentCard({ merchantId }: { merchantId: string }) {
   const items = useAssessmentStore((s) => s.items);
   const a = latestAssessment(merchantId, items);
+  const badge = useAssessmentBadgeStore((s) => s.items.find((b) => b.merchantId === merchantId));
+  // ระหว่างเจ้าหน้าที่ตรวจข้อมูลตัวตน/หลักฐานที่ขัดแย้ง ข้อมูลอาจไม่ใช่ของร้านนี้ — ไม่แสดง Band
+  const showBand = !badge || publicBadgeView(badge.status).showBand;
   return (
     <Card>
-      <CardHeader title="ผลประเมินจากข้อมูลการขาย (Trust Assessment v2)" subtitle="ข้อมูลประกอบ — ไม่ใช่การรับรอง" icon={ShieldCheck} />
+      <CardHeader title="ผลประเมินจากข้อมูลการขาย (Trust Assessment)" subtitle="ข้อมูลประกอบ — ไม่ใช่การรับรอง" icon={ShieldCheck} />
       <div className="space-y-3 p-4 sm:p-5">
         {!a ? (
           <p className="text-sm text-ink-soft">ร้านยังไม่ได้เชื่อมต่อข้อมูล Marketplace (จำลอง) จึงยังไม่มีผลประเมิน — ไม่ได้หมายความว่าร้านมีปัญหา</p>
         ) : (
           <>
+            <PublicBadgeBlock merchantId={merchantId} />
             <StandingBanner standing={a.result.standing} reason={a.result.standingReason} />
-            <div>
-              <BandBadge band={a.result.band} large />
-              <p className="mt-1 text-sm text-ink-soft">{BAND_LABEL[a.result.band].desc}</p>
-            </div>
-            <DataQuality result={a.result} />
+            {showBand && (
+              <>
+                <div>
+                  <BandBadge band={a.result.band} large />
+                  <p className="mt-1 text-sm text-ink-soft">{BAND_LABEL[a.result.band].desc}</p>
+                </div>
+                <DataQuality result={a.result} />
+              </>
+            )}
             <ul className="space-y-1 text-sm text-ink">
               {a.result.publicSummary.map((s) => (
                 <li key={s} className="flex gap-2">

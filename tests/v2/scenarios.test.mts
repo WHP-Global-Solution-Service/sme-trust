@@ -300,7 +300,7 @@ C.completeScenario(nav);
 C.startScenario('s9b', nav, { carry: true });
 check(demo().journeyMode && demo().journeyTrack === 'v2' && demo().activeScenario === 's9b', 'เล่น 9B ระหว่าง Journey โดยไม่ออกจาก Journey v2');
 C.completeScenario(nav);
-check(C.nextUnfinished('v2') === 's10' && view(cur).includes('กลับสู่ Full Journey v2: Scenario 10'), 'หน้าสรุป 9B มีปุ่มกลับสู่ Journey ที่ Scenario 10');
+check(C.nextUnfinished('v2') === 's10' && view(cur).includes('กลับสู่ Full Journey: Marketplace & Trust: Scenario 10'), 'หน้าสรุป 9B มีปุ่มกลับสู่ Journey ที่ Scenario 10');
 
 // ================================================================ continuity
 describe('ความต่อเนื่อง — ข้อมูลจากขั้นก่อนหน้าไม่ครบ');

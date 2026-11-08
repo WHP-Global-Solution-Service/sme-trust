@@ -263,7 +263,7 @@ check(base.confidenceData.reduce((s, d) => s + d.value, 0) === k.assessed, '  �
 check(k.connectedMerchants + k.selfRegistered <= merchants.length, '  ร้านที่เชื่อม Marketplace + ลงทะเบียนเอง ไม่เกินจำนวนร้าน');
 check(k.revoked === 1, `  ใบรับรองที่ถูกเพิกถอนตามข้อมูลตัวอย่าง = ${k.revoked}`);
 const adminPage = view('/admin', { role: 'admin' });
-check(adminPage.includes('SME Trust v2') && adminPage.includes('ข้อมูลจำลองทั้งหมด') && adminPage.includes('จำนวน SME ทั้งหมด'), 'หน้า Admin มี KPI v2 พร้อมหมายเหตุข้อมูลจำลอง และ Dashboard v1 เดิมยังอยู่');
+check(adminPage.includes('SME Trust — Marketplace & Trust Assessment') && adminPage.includes('ข้อมูลจำลองทั้งหมด') && adminPage.includes('จำนวน SME ทั้งหมด'), 'หน้า Admin มี KPI v2 พร้อมหมายเหตุข้อมูลจำลอง และ Dashboard v1 เดิมยังอยู่');
 // เปลี่ยนตาม Scenario
 C.startScenario('s13', nav, { journey: true });
 const afterJourney = stats().kpi;

@@ -50,8 +50,8 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
   const track = d.journeyMode ? d.journeyTrack ?? 'v1' : trackOf(sc);
   const seq = journeyScenarios(track);
   const pos = seq.findIndex((s) => s.id === sc.id) + 1;
-  const journeyLabel = track === 'v2' ? 'Full Journey v2 — Marketplace Intelligence' : 'Full Journey Demo';
-  const journeyPos = sc.branch ? 'เส้นทางทางเลือก' : track === 'v2' ? `Scenario ${pos}/${seq.length} ของ v2` : `Scenario ${sc.no}/${seq.length}`;
+  const journeyLabel = track === 'v2' ? 'Full Journey — Marketplace & Trust Assessment' : 'Full Journey Demo';
+  const journeyPos = sc.branch ? 'เส้นทางทางเลือก' : track === 'v2' ? `Scenario ${pos}/${seq.length} ของเส้นทาง Marketplace & Trust` : `Scenario ${sc.no}/${seq.length}`;
   // บริบทที่ส่งต่อตลอด Journey v2 (Merchant / Connection / Assessment / Application)
   const ids = trackOf(sc) === 'v2'
     ? ([

@@ -39,10 +39,12 @@ test('ร้านเชื่อมต่อ Lazada (จำลอง) → ป�
   await expect(lazada.getByText('คำสั่งซื้อ 12 เดือน')).toBeVisible();
   expect((await store<Conn>(page, 'marketplace-connections')).filter((c) => c.merchantId === 'M-005' && c.status === 'connected').map((c) => c.platform).sort()).toEqual(['lazada', 'shopee']);
 
-  // ผลประเมินเดิมล้าสมัย → ประเมินใหม่ → ไม่มีคะแนนตัวเลขในมุมร้าน
+  // Automation First: ซิงก์สำเร็จ → ระบบประเมินใหม่ด้วยข้อมูลทั้งสองแพลตฟอร์มเอง (ไม่ค้างเป็น "ผลล้าสมัย") → ไม่มีคะแนนตัวเลขในมุมร้าน
+  const auto = (await store<Assessment & { origin?: string; result: { dataSources: string[] } }>(page, 'trust-assessments')).filter((a) => a.merchantId === 'M-005');
+  expect(auto.some((a) => a.origin === 'automation' && [...a.result.dataSources].sort().join() === 'lazada,shopee')).toBe(true);
   await main(page).getByRole('link', { name: 'ผลประเมินความน่าเชื่อถือ', exact: true }).click();
-  await expect(main(page).getByText('ข้อมูลเปลี่ยนแปลงหลังการประเมิน')).toBeVisible();
-  await expect(main(page).getByRole('button', { name: 'ส่งให้เจ้าหน้าที่พิจารณา' })).toBeDisabled();
+  await expect(main(page).getByTestId('automation-panel')).toBeVisible();
+  await expect(main(page).getByText('ข้อมูลเปลี่ยนแปลงหลังการประเมิน')).toHaveCount(0);
   await main(page).getByRole('button', { name: 'ประเมินใหม่' }).first().click();
   await expect(main(page).getByText('ข้อมูลเปลี่ยนแปลงหลังการประเมิน')).toHaveCount(0);
   await expect(main(page).getByText('Data Coverage — ความครบถ้วนของข้อมูล')).toBeVisible();

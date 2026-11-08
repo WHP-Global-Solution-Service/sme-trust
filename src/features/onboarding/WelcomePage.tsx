@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BadgeCheck,
-  ClipboardCheck,
+  Bot,
   FlaskConical,
   Gauge,
   Link2,
@@ -27,7 +27,7 @@ import { DEMO_INSET, DemoController, useDemoActive } from '@/components/layout/D
 import { cn } from '@/utils/cn';
 import { switchRole } from '@/components/layout/demo';
 import { allScenarios, journeyScenarios, scenarioCode, trackScenarios } from '@/mock/scenarios';
-import { startJourney } from '@/demo/controller';
+import { startJourney, startScenario } from '@/demo/controller';
 import { TRUST_LEVELS } from '@/constants/labels';
 import { COMPONENTS, MODEL_V2 } from '@/features/trust-assessment/model';
 
@@ -55,9 +55,9 @@ const QUALITY: { en: string; th: string; desc: string }[] = [
 ];
 
 const BADGE_STEPS: { title: string; desc: string; icon: LucideIcon }[] = [
-  { title: 'ระบบประเมิน', desc: 'สร้างผลประเมินเพื่อประกอบการพิจารณา', icon: Gauge },
-  { title: 'เจ้าหน้าที่ตรวจสอบ', desc: 'ตรวจหลักฐานและข้อมูลประกอบ', icon: ClipboardCheck },
-  { title: 'อนุมัติใบรับรอง', desc: 'โดยเจ้าหน้าที่เท่านั้น ไม่เกิดขึ้นอัตโนมัติ', icon: UserCheck },
+  { title: 'ระบบประเมินอัตโนมัติ', desc: 'ประเมินทันทีเมื่อร้านนำเข้าหรือซิงก์ข้อมูล', icon: Gauge },
+  { title: 'ออก Assessment Badge อัตโนมัติ', desc: 'เมื่อข้อมูลครบและไม่มีประเด็นที่ต้องตรวจ', icon: Bot },
+  { title: 'เจ้าหน้าที่ตรวจเฉพาะกรณียกเว้น', desc: 'ข้อมูลตัวตนขัดแย้ง สัญญาณที่ต้องพิจารณา และการอนุมัติใบรับรอง', icon: UserCheck },
   { title: 'ผู้บริโภคตรวจสอบ', desc: 'สแกน QR หรือค้นหาร้านค้า', icon: QrCode },
 ];
 
@@ -106,10 +106,18 @@ export default function WelcomePage() {
     switchRole('consumer');
     nav(to);
   };
+  const startAuto = async (id: 's14' | 's15') => {
+    const busy = demo.status === 'running' || demo.status === 'paused';
+    if (busy) {
+      const r = await confirmDialog({ title: `เริ่ม Scenario ${id.slice(1)}`, body: 'ระบบจะรีเซ็ตข้อมูลสาธิตเป็นค่าเริ่มต้น แล้วเริ่ม Scenario ที่เลือก', confirmText: 'เริ่ม' });
+      if (!r.ok) return;
+    }
+    startScenario(id, nav);
+  };
   const startV2 = async () => {
     const busy = demo.status === 'running' || demo.status === 'paused' || demo.completed.length > 0;
     if (busy) {
-      const r = await confirmDialog({ title: 'เริ่ม Full Journey v2', body: 'ระบบจะรีเซ็ตข้อมูลสาธิตเป็นค่าเริ่มต้นครั้งเดียว แล้วเริ่ม Scenario 9', confirmText: 'เริ่ม Journey v2' });
+      const r = await confirmDialog({ title: 'เริ่ม Full Journey: Marketplace & Trust', body: 'ระบบจะรีเซ็ตข้อมูลสาธิตเป็นค่าเริ่มต้นครั้งเดียว แล้วเริ่ม Scenario 9', confirmText: 'เริ่ม Journey Marketplace & Trust' });
       if (!r.ok) return;
     }
     startJourney(nav, 'v2');
@@ -130,7 +138,7 @@ export default function WelcomePage() {
       <main>
         {/* ---------------------------------------------------------------- Hero */}
         <div className="bg-gradient-to-b from-primary-dark to-primary text-white">
-          <section aria-label="SME Trust v2" className="mx-auto grid max-w-6xl gap-8 px-4 pb-12 pt-8 sm:px-6 md:pt-12 lg:grid-cols-[1.35fr_1fr] lg:items-center">
+          <section aria-label="SME Trust" className="mx-auto grid max-w-6xl gap-8 px-4 pb-12 pt-8 sm:px-6 md:pt-12 lg:grid-cols-[1.35fr_1fr] lg:items-center">
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
                 <FlaskConical className="h-3.5 w-3.5" />
@@ -249,7 +257,12 @@ export default function WelcomePage() {
         {/* ---------------------------------------------------------------- Trust badge */}
         <section aria-labelledby="home-badge" className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <div id="home-badge">
-            <SectionHead eyebrow="Trust Badge" title="ใบรับรองออกโดยเจ้าหน้าที่ ไม่ใช่ระบบอัตโนมัติ" />
+            <SectionHead eyebrow="Trust Badge" title="ระบบประเมินและแสดง Trust Assessment Badge อัตโนมัติจากข้อมูลร้านค้า โดยส่งเฉพาะกรณีที่ต้องตรวจสอบเพิ่มเติมให้เจ้าหน้าที่พิจารณา" />
+            <p className="-mt-2 mb-4 text-sm text-ink-soft">ใบรับรองที่ต้องได้รับอนุมัติอย่างเป็นทางการ (Certification Level 2–4) ยังมีกระบวนการพิจารณาของเจ้าหน้าที่แยกต่างหาก — Assessment Badge เป็นผลประเมิน ไม่ใช่การรับรอง</p>
+            <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary" data-testid="automation-tagline">
+              <Bot className="h-4 w-4" aria-hidden />
+              ลดขั้นตอนผู้ประกอบการ ลดงานตรวจสอบซ้ำ และให้เจ้าหน้าที่มุ่งเน้นกรณีที่จำเป็น
+            </p>
           </div>
           <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="ขั้นตอนการรับรอง">
             {BADGE_STEPS.map((s, i) => (
@@ -265,7 +278,12 @@ export default function WelcomePage() {
               </li>
             ))}
           </ol>
-          <div className="mt-4 grid gap-3 md:grid-cols-3" aria-label="ความแตกต่างของ Trust Band ระดับใบรับรอง และสถานะ">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="ความแตกต่างของ Trust Band ระดับใบรับรอง และสถานะ">
+            <Card className="p-4" data-concept="assessment-badge">
+              <p className="font-semibold text-ink">Assessment Badge</p>
+              <p className="text-xs font-medium text-primary">ผลประเมินอัตโนมัติ</p>
+              <p className="mt-1 text-sm text-ink-soft">ออกและอัปเดตเองเมื่อข้อมูลเปลี่ยน · ไม่แสดงระหว่างตรวจสอบเพิ่มเติม หรือเมื่อข้อมูลไม่พอ</p>
+            </Card>
             <Card className="p-4" data-concept="band">
               <p className="font-semibold text-ink">Trust Band</p>
               <p className="text-xs font-medium text-primary">ผลประเมินจากข้อมูล</p>
@@ -273,7 +291,7 @@ export default function WelcomePage() {
             </Card>
             <Card className="p-4" data-concept="level">
               <p className="font-semibold text-ink">Certification Level</p>
-              <p className="text-xs font-medium text-primary">ระดับใบรับรองที่เจ้าหน้าที่อนุมัติ</p>
+              <p className="text-xs font-medium text-primary">ระดับใบรับรอง (Level 1 จาก e-KYC · Level 2–4 เจ้าหน้าที่อนุมัติ)</p>
               <p className="mt-1 text-sm text-ink-soft">
                 {([1, 2, 3, 4] as const).map((l) => `Level ${l} ${TRUST_LEVELS[l].name}`).join(' · ')}
               </p>
@@ -326,17 +344,37 @@ export default function WelcomePage() {
             <SectionHead
               eyebrow="Interactive Demo"
               title={`สาธิตระบบ ${allScenarios.length} เส้นทาง`}
-              desc={`Scenario 1–${v1Count} (Consumer Protection) · Scenario ${v2Main[0]?.no}–${v2Main[v2Main.length - 1]?.no} (Marketplace Intelligence) · ทางเลือก ${branches.map(scenarioCode).join(' / ')}`}
+              desc={`Scenario 1–${v1Count} (Consumer Protection) · Scenario ${v2Main[0]?.no}–${v2Main[v2Main.length - 1]?.no} (Marketplace & Trust Assessment) · ทางเลือก ${branches.map(scenarioCode).join(' / ')}`}
             />
           </div>
+          <Card className="mb-3 border-2 border-primary/50 p-5" aria-label="Automation First (แนะนำ)">
+            <p className="text-xs font-semibold uppercase tracking-wide text-secondary">ใหม่ · เห็นความต่างของงานปกติกับกรณียกเว้น</p>
+            <p className="mt-1 text-lg font-bold text-ink">Automation First, Human by Exception</p>
+            <div className="mt-2 grid gap-3 text-sm md:grid-cols-2">
+              <div className="rounded-xl bg-success-50 p-3">
+                <p className="font-semibold text-ink">Scenario 14 — เส้นทางปกติ (ไม่ต้องใช้เจ้าหน้าที่)</p>
+                <p className="text-ink-soft">Marketplace App → SME Trust → Auto-Fill → ประเมินอัตโนมัติ → Assessment Badge → ผู้บริโภคตรวจสอบ</p>
+                <Button size="sm" className="mt-2" icon={Play} onClick={() => startAuto('s14')}>
+                  เริ่ม Scenario 14
+                </Button>
+              </div>
+              <div className="rounded-xl bg-warning-50 p-3">
+                <p className="font-semibold text-ink">Scenario 15 — กรณียกเว้น (ส่งเจ้าหน้าที่)</p>
+                <p className="text-ink-soft">เชื่อม Marketplace → ข้อมูลตัวตนขัดแย้ง → Manual Review Queue → เจ้าหน้าที่ตัดสิน → สถานะที่อัปเดต</p>
+                <Button size="sm" variant="outline" className="mt-2" icon={Play} onClick={() => startAuto('s15')}>
+                  เริ่ม Scenario 15
+                </Button>
+              </div>
+            </div>
+          </Card>
           <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-            <Card className="border-primary/40 p-5" aria-label="Full Journey v2 (แนะนำ)">
+            <Card className="border-primary/40 p-5" aria-label="Full Journey: Marketplace & Trust (แนะนำ)">
               <p className="text-xs font-semibold uppercase tracking-wide text-secondary">แนะนำสำหรับผู้บริหาร</p>
-              <p className="mt-1 text-lg font-bold text-ink">Full Journey v2 — Marketplace Intelligence</p>
+              <p className="mt-1 text-lg font-bold text-ink">Full Journey — Marketplace & Trust Assessment</p>
               <p className="mt-1 text-sm text-ink-soft">Scenario 9 → 13: เชื่อมข้อมูลร้าน → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ ใช้ร้านเดียวกันตลอดทาง (≈ 30 นาที)</p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <Button icon={Play} onClick={startV2}>
-                  เริ่ม Full Journey v2
+                  เริ่ม Full Journey: Marketplace & Trust
                 </Button>
                 <Button variant="outline" icon={MonitorPlay} onClick={() => nav('/demo?track=v2')}>
                   Scenario 9–13 · 9A · 9B
@@ -344,12 +382,12 @@ export default function WelcomePage() {
               </div>
             </Card>
             <Card className="p-5" aria-label="Demo อื่น">
-              <p className="font-semibold text-ink">Full Journey v1 และ Scenario เดี่ยว</p>
+              <p className="font-semibold text-ink">Full Journey: Consumer Protection และ Scenario เดี่ยว</p>
               <ul className="mt-2 space-y-2 text-sm">
                 <li>
                   <Link to="/demo?track=v1" className="flex items-center gap-2 text-primary hover:underline">
                     <MonitorPlay className="h-4 w-4" aria-hidden />
-                    Full Journey v1 · Scenario 1–{v1Count} เดิม
+                    Full Journey: Consumer Protection · Scenario 1–{v1Count} เดิม
                   </Link>
                 </li>
                 {branches.map((b) => (
