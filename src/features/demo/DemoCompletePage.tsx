@@ -29,10 +29,10 @@ export default function DemoCompletePage() {
   const prev = prevScenarioId(sc.id);
   const resume = sc.branch && d.journeyMode && d.journeyTrack === track ? nextUnfinished(track) : undefined;
   const resumeSc = findScenario(resume);
-  const position = sc.branch ? `เส้นทางทางเลือก ${code} ของ v2` : track === 'v2' ? `Scenario ${code} · ลำดับ ${seq.findIndex((s) => s.id === sc.id) + 1} จาก ${seq.length} ของ v2` : `Scenario ${code} จาก ${seq.length}`;
+  const position = sc.branch ? `เส้นทางทางเลือก ${code} ของเส้นทาง Marketplace & Trust` : track === 'v2' ? `Scenario ${code} · ลำดับ ${seq.findIndex((s) => s.id === sc.id) + 1} จาก ${seq.length} ของเส้นทาง Marketplace & Trust` : `Scenario ${code} จาก ${seq.length}`;
   const summaryPath = track === 'v2' ? '/demo/v2/summary' : '/demo/overview';
   const primary = resume
-    ? { label: `กลับสู่ Full Journey v2: Scenario ${resumeSc ? scenarioCode(resumeSc) : ''}`, icon: ArrowRight, run: () => launch(resume) }
+    ? { label: `กลับสู่ Full Journey: Marketplace & Trust: Scenario ${resumeSc ? scenarioCode(resumeSc) : ''}`, icon: ArrowRight, run: () => launch(resume) }
     : isLast || sc.branch
       ? { label: track === 'v2' ? 'ดูสรุปผลกระทบ (Executive Impact Summary)' : 'ดูสรุปภาพรวม SME Trust Platform', icon: Trophy, run: () => nav(summaryPath) }
       : { label: sc.nextCta ?? 'Continue Next Scenario', icon: ArrowRight, run: () => launch(nextId!) };
@@ -62,7 +62,7 @@ export default function DemoCompletePage() {
           <HeadIcon className={cn('mx-auto h-14 w-14', toneCls.split(' ')[1])} />
           <p className="mt-2 text-sm text-ink-soft">
             {position}
-            {d.journeyMode && (d.journeyTrack === 'v2' ? ' · Full Journey v2' : ' · Full Journey')}
+            {d.journeyMode && (d.journeyTrack === 'v2' ? ' · Full Journey: Marketplace & Trust' : ' · Full Journey')}
           </p>
           <h1 className="mt-1 text-xl font-bold text-ink sm:text-2xl">{sc.title}</h1>
           <div className="mt-2 flex justify-center">

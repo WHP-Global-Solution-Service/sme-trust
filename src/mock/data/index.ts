@@ -9,6 +9,7 @@ import { aiHistory } from './aiHistory';
 import { buildMarketplaceConnections } from './marketplace';
 import { demoAnchor } from './helpers';
 import { buildAssessments } from './assessments';
+import { buildSeedAutomation } from '@/features/automation/derive';
 
 export { DEMO_PIN } from './people';
 export { consumers, officers, courses };
@@ -30,15 +31,21 @@ export const seed = {
   aiHistory: () => clone(aiHistory),
   // ---- v2 ----
   marketplaceConnections: () => buildMarketplaceConnections(demoAnchor()),
-  assessments: () =>
-    buildAssessments({
-      operators: clone(operators),
-      merchants: clone(merchants),
-      certifications: clone(certifications),
-      complaints: buildComplaints(),
-      warnings: clone(warnings),
-      risks: clone(riskCases),
-      enrollments: clone(enrollments),
-      connections: buildMarketplaceConnections(demoAnchor()),
-    }, demoAnchor()),
+  assessments: () => buildAssessments(bundle(), demoAnchor()),
+  // ---- Automation First: Badge และบันทึกการประมวลผลเริ่มต้น (คำนวณจากผลประเมินตัวอย่างด้วยกฎเดียวกับแอป) ----
+  assessmentBadges: () => buildSeedAutomation(bundle(), buildAssessments(bundle(), demoAnchor()), demoAnchor()).badges,
+  automationRuns: () => buildSeedAutomation(bundle(), buildAssessments(bundle(), demoAnchor()), demoAnchor()).runs,
 };
+
+function bundle() {
+  return {
+    operators: clone(operators),
+    merchants: clone(merchants),
+    certifications: clone(certifications),
+    complaints: buildComplaints(),
+    warnings: clone(warnings),
+    risks: clone(riskCases),
+    enrollments: clone(enrollments),
+    connections: buildMarketplaceConnections(demoAnchor()),
+  };
+}

@@ -5,6 +5,7 @@ import { toast, useAssessmentStore, useMerchantStore, useOperatorStore, useVerif
 import { REGISTRATION_STATUS, TRUST_LEVELS } from '@/constants/labels';
 import { decideAssessment, v1CriteriaFor } from '@/stores/workflowsV2';
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, PageHeader, StatusBadge } from '@/components/common/ui';
+import { OfficerBadgeStatus } from '@/features/automation/components/AutomationParts';
 import { Textarea } from '@/components/forms/Field';
 import { fmtDate } from '@/utils/format';
 import { MarketplaceDisclaimer } from '@/features/marketplace/components/MarketplaceParts';
@@ -56,6 +57,7 @@ export default function OfficerAssessmentDetail() {
         action={<StatusBadge map={ASSESSMENT_STATUS} value={a.status} />}
       />
       <MarketplaceDisclaimer />
+      <OfficerBadgeStatus merchantId={m.id} />
       {stale && latest?.id === a.id && <Alert tone="warning">ข้อมูลของร้านเปลี่ยนแปลงหลังการประเมินนี้ — ผลอาจไม่ตรงกับข้อมูลปัจจุบัน</Alert>}
       {/* Scenario 9: ข้อมูลที่ร้านนำเข้าจาก Marketplace และแก้ไขก่อนยืนยัน (ต้นฉบับเทียบกับข้อมูลที่ส่ง) */}
       <ImportReviewSection merchantId={m.id} />

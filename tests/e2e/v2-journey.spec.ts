@@ -12,19 +12,19 @@ type App = { id: string; merchantId: string; type: string; status: string };
 async function continueTo(page: Page, no: string) {
   await main(page).getByRole('button').first().click();
   await expect(panel(page).getByText(`Scenario ${no}:`)).toBeVisible();
-  await expect(panel(page).getByText('Full Journey v2 — Marketplace Intelligence')).toBeVisible();
+  await expect(panel(page).getByText('Full Journey — Marketplace & Trust Assessment')).toBeVisible();
 }
 
 test('Demo Selector: แยก v1 / v2, Full Journey 2 ชุด และแท็บ Scenario เดี่ยว', async ({ page }) => {
   await fresh(page);
   await open(page, '/demo');
   await expect(page.getByRole('region', { name: 'สาธิตระบบแบบต่อเนื่อง (Full Journey Demo)' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Full Journey v2 — Marketplace Intelligence' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Full Journey v2 — Marketplace Intelligence' }).getByText(/เน้นการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิม/)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' }).getByText(/เน้นการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิม/)).toBeVisible();
   // แท็บ v1 แสดง 8 การ์ด, แท็บ v2 แสดง 5 + ทางเลือก 9A (ร้านใหม่ Auto-Fill) + 9B (ลงทะเบียนเอง)
   await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(8);
-  await page.getByRole('tab', { name: /v2 — Marketplace Intelligence/ }).click();
-  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(7);
+  await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
+  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(9);
   await expect(page.getByRole('tabpanel').getByText('ร้านที่ไม่มีบัญชี Marketplace — ลงทะเบียนด้วยตนเอง')).toBeVisible();
   await expect(page.getByRole('tabpanel').getByText('ร้านใหม่ — สมัครด้วยข้อมูลจาก Marketplace (Auto-Fill)')).toBeVisible();
 });
@@ -33,8 +33,8 @@ test('Full Journey v2: เชื่อมต่อ → วิเคราะห�
   test.setTimeout(600_000);
   await fresh(page);
   await open(page, '/demo');
-  await page.getByRole('button', { name: 'เริ่ม Journey v2', exact: true }).click();
-  await expect(panel(page).getByText('Full Journey v2 — Marketplace Intelligence')).toBeVisible();
+  await page.getByRole('button', { name: 'เริ่ม Journey Marketplace & Trust', exact: true }).click();
+  await expect(panel(page).getByText('Full Journey — Marketplace & Trust Assessment')).toBeVisible();
   await expect(panel(page).getByText('Scenario 9:')).toBeVisible();
   await expect(page).toHaveURL(/\/m$/);
 
@@ -109,8 +109,8 @@ test('Full Journey v2: เชื่อมต่อ → วิเคราะห�
 
   // ---------------- S11
   await continueTo(page, '11');
-  await expectBlocked(page);
-  await main(page).getByRole('button', { name: 'ประเมินความน่าเชื่อถือ' }).first().click();
+  await expectBlocked(page); // ผลที่ระบบประเมินอัตโนมัติตอนซิงก์ไม่ผ่าน Gate ของขั้นนี้ — ร้านต้องกดประเมินเอง
+  await main(page).getByRole('button', { name: /^(ประเมินความน่าเชื่อถือ|ประเมินใหม่)$/ }).first().click();
   await expect(main(page).getByText('5 Assessment Dimensions')).toBeVisible();
   await expect(main(page).getByText('Identity & Business')).toBeVisible();
   await expect(main(page).getByText('คะแนน (เฉพาะเจ้าหน้าที่)')).toHaveCount(0);
@@ -186,8 +186,8 @@ test('ทางเลือก 9B: ไม่มี Marketplace → ลงทะ�
   test.setTimeout(300_000);
   await fresh(page);
   await open(page, '/demo');
-  await page.getByRole('tab', { name: /v2 — Marketplace Intelligence/ }).click();
-  await page.getByRole('button', { name: 'Start Demo' }).last().click();
+  await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
+  await page.getByRole('article').filter({ hasText: 'ร้านที่ไม่มีบัญชี Marketplace — ลงทะเบียนด้วยตนเอง' }).getByRole('button', { name: 'Start Demo' }).click();
   await expect(panel(page).getByText('Scenario 9B:')).toBeVisible();
   await next(page);
   await expectBlocked(page);

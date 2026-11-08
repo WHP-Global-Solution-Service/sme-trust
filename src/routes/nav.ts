@@ -1,4 +1,4 @@
-import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal, FilePen } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal, FilePen, Bot, Smartphone } from 'lucide-react';
 import type { Role } from '@/types';
 
 export interface NavItem {
@@ -23,6 +23,7 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
       { to: '/m/warnings', label: 'คำเตือนและการแก้ไข', icon: FileWarning },
       { to: '/m/review', label: 'สถานะความเสี่ยง/อุทธรณ์', icon: Scale },
       { to: '/m/training', label: 'ศูนย์อบรม', short: 'อบรม', icon: GraduationCap, mobile: true },
+      { to: '/m/marketplace-app', label: 'Marketplace App (จำลอง)', icon: Smartphone },
       { to: '/m/marketplace', label: 'เชื่อมต่อ Marketplace (จำลอง)', icon: Link2 },
       { to: '/m/trust', label: 'ผลประเมินความน่าเชื่อถือ', icon: Gauge },
       { to: '/m/profile-changes', label: 'คำขอเปลี่ยนข้อมูลร้าน', icon: FilePen },
@@ -46,6 +47,8 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
     title: 'เจ้าหน้าที่',
     items: [
       { to: '/o', label: 'Dashboard', short: 'ภาพรวม', icon: LayoutDashboard, end: true, mobile: true },
+      { to: '/o/exceptions', label: 'Exception Queue', icon: Bot },
+      { to: '/o/automation', label: 'กฎอัตโนมัติและ KPI', icon: SlidersHorizontal },
       { to: '/o/applications', label: 'Merchant Applications', short: 'คำขอ', icon: ClipboardCheck, mobile: true },
       { to: '/o/verification', label: 'Verification (ช่องทางขาย)', icon: ListChecks },
       { to: '/o/certification', label: 'Certification', icon: BadgeCheck },
@@ -72,6 +75,8 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
       title: 'งานเจ้าหน้าที่',
       items: [
         { to: '/o', label: 'Officer Dashboard', short: 'งานเจ้าหน้าที่', icon: Building2, end: true, mobile: true },
+        { to: '/o/exceptions', label: 'Exception Queue', icon: Bot },
+        { to: '/o/automation', label: 'กฎอัตโนมัติและ KPI', icon: SlidersHorizontal },
         { to: '/o/applications', label: 'Merchant Applications', icon: ClipboardCheck },
         { to: '/o/complaints', label: 'Complaint Cases', icon: MessageSquareWarning },
         { to: '/o/warnings', label: 'Warnings', icon: AlertTriangle },

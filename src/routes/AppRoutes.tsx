@@ -58,6 +58,10 @@ const DemoDataPage = lazyPage(() => import('@/features/admin/DemoDataPage'));
 import NotFoundPage from '@/features/onboarding/NotFoundPage';
 const DevicePreview = lazyPage(() => import('@/features/preview/DevicePreview'));
 const OfficerProfileChanges = lazyPage(() => import('@/features/profile-change/pages/OfficerProfileChanges'));
+const OfficerExceptionQueue = lazyPage(() => import('@/features/automation/pages/OfficerExceptionQueue'));
+const OfficerTaskDetail = lazyPage(() => import('@/features/automation/pages/OfficerTaskDetail'));
+const AutomationPolicyPage = lazyPage(() => import('@/features/automation/pages/AutomationPolicyPage'));
+const MarketplaceAppSimulation = lazyPage(() => import('@/features/automation/pages/MarketplaceAppSimulation'));
 const OfficerProfileChangeDetail = lazyPage(() => import('@/features/profile-change/pages/OfficerProfileChangeDetail'));
 const MerchantProfileChanges = lazyPage(() => import('@/features/profile-change/pages/MerchantProfileChanges'));
 const DemoScenariosPage = lazyPage(() => import('@/features/demo/DemoScenariosPage'));
@@ -115,6 +119,7 @@ export function AppRoutes() {
         <Route path="/m/notifications" element={gate(M, <NotificationsPage />)} />
         <Route path="/m/ai" element={gate(M, <AIAssistantHome />)} />
         <Route path="/m/marketplace" element={gate(M, <MarketplacePage />)} />
+        <Route path="/m/marketplace-app" element={gate(M, <MarketplaceAppSimulation />)} />
         <Route path="/m/marketplace/data/:id" element={gate(M, <MarketplaceDataPage />)} />
         <Route path="/m/marketplace/analysis" element={gate(M, <MarketplaceAnalysisPage />)} />
         <Route path="/m/marketplace/profile/:id" element={gate(M, <MarketplaceProfilePage />)} />
@@ -151,6 +156,9 @@ export function AppRoutes() {
         <Route path="/o/assessments" element={gate(O, <OfficerAssessmentList />)} />
         <Route path="/o/assessments/:id" element={gate(O, <OfficerAssessmentDetail />)} />
         <Route path="/o/profile-changes" element={gate(O, <OfficerProfileChanges />)} />
+        <Route path="/o/exceptions" element={gate(O, <OfficerExceptionQueue />)} />
+        <Route path="/o/exceptions/:id" element={gate(O, <OfficerTaskDetail />)} />
+        <Route path="/o/automation" element={gate(O, <AutomationPolicyPage />)} />
         <Route path="/o/profile-changes/:id" element={gate(O, <OfficerProfileChangeDetail />)} />
         <Route path="/o/risk" element={gate(O, <OfficerRiskList />)} />
         <Route path="/o/risk/:id" element={gate(O, <OfficerRiskDetail />)} />

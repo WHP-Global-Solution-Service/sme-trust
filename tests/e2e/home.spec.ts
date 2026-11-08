@@ -9,7 +9,7 @@ const session = (page: Page, s: Record<string, unknown>) =>
     const cur = JSON.parse(localStorage.getItem(key) ?? '{"state":{},"version":1}');
     localStorage.setItem(key, JSON.stringify({ ...cur, state: { ...cur.state, ...patch } }));
   }, s);
-const cta = (page: Page, name: string) => main(page).getByRole('region', { name: 'SME Trust v2' }).getByRole('button', { name, exact: true });
+const cta = (page: Page, name: string) => main(page).getByRole('region', { name: 'SME Trust', exact: true }).getByRole('button', { name, exact: true });
 
 test('หน้าแรก: ข้อความตาม Concept v2 และไม่มีข้อความเก่า', async ({ page }) => {
   await fresh(page);
@@ -17,7 +17,7 @@ test('หน้าแรก: ข้อความตาม Concept v2 และ
   for (const t of ['ไม่ใช่ Marketplace', 'ไม่ขายสินค้า', 'ไม่รับชำระเงิน', 'ไม่ได้เชื่อมต่อ API จริง', 'Data Confidence', 'Certification Level', 'แนะนำสำหรับผู้บริหาร']) await expect(main(page).getByText(t, { exact: false }).first()).toBeVisible();
   await expect(main(page)).not.toContainText('8 เรื่อง');
   await expect(main(page)).not.toContainText('Prevention First');
-  await expect(main(page)).toContainText('สาธิตระบบ 15 เส้นทาง');
+  await expect(main(page)).toContainText('สาธิตระบบ 17 เส้นทาง');
 });
 
 test('หน้าแรก: CTA ไปยัง Route และ Flow จริง', async ({ page }) => {
@@ -55,15 +55,15 @@ test('หน้าแรก: ลิงก์ Demo — Full Journey v2 (แนะ
   await fresh(page);
   await main(page).getByRole('button', { name: 'Scenario 9–13 · 9A · 9B' }).click();
   await expect(page).toHaveURL(/\/demo\?track=v2$/);
-  await expect(page.getByRole('tab', { name: /v2 — Marketplace Intelligence/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /Marketplace & Trust Assessment/ })).toHaveAttribute('aria-selected', 'true');
   await open(page, '/');
-  await main(page).getByRole('link', { name: /Full Journey v1/ }).click();
+  await main(page).getByRole('link', { name: /Full Journey: Consumer Protection/ }).click();
   await expect(page).toHaveURL(/\/demo\?track=v1$/);
-  await expect(page.getByRole('tab', { name: /v1 — Consumer Protection/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /Consumer Protection/ })).toHaveAttribute('aria-selected', 'true');
   await open(page, '/');
-  await main(page).getByRole('button', { name: 'เริ่ม Full Journey v2' }).click();
+  await main(page).getByRole('button', { name: 'เริ่ม Full Journey: Marketplace & Trust' }).click();
   await expect(panel(page).getByText('Scenario 9:')).toBeVisible();
-  await expect(panel(page).getByText('Full Journey v2 — Marketplace Intelligence')).toBeVisible();
+  await expect(panel(page).getByText('Full Journey — Marketplace & Trust Assessment')).toBeVisible();
 });
 
 for (const width of [375, 768, 1440]) {

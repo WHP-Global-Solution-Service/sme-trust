@@ -31,7 +31,7 @@ async function expectNoOverflow(page: Page, label: string) {
 async function startV2(page: Page, index: number) {
   await fresh(page);
   await open(page, '/demo');
-  await page.getByRole('tab', { name: /v2 — Marketplace Intelligence/ }).click();
+  await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
   await page.getByRole('button', { name: 'Start Demo' }).nth(index).click();
 }
 

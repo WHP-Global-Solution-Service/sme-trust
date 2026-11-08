@@ -16,6 +16,7 @@ import type { MarketplaceConnection } from '@/features/marketplace/types';
 import type { TrustAssessment } from '@/features/trust-assessment/types';
 import type { MarketplaceImportRecord } from '@/features/marketplace/autofill';
 import type { ProfileChangeRequest } from '@/features/profile-change/types';
+import type { AssessmentBadge, AutomationRun, OfficerTask } from '@/features/automation/types';
 import { createEntityStore } from './createEntityStore';
 
 // ===== Domain stores (แหล่งข้อมูลเดียวของทุกหน้าจอ) =====
@@ -39,6 +40,12 @@ export const useAssessmentStore = createEntityStore<TrustAssessment>('trust-asse
 export const useImportRecordStore = createEntityStore<MarketplaceImportRecord>('marketplace-imports', () => []);
 /** v2: คำขอเปลี่ยนชื่อร้าน/หมวดของร้านที่ได้รับการรับรอง — รอเจ้าหน้าที่พิจารณา (KI-V2-15) */
 export const useProfileChangeStore = createEntityStore<ProfileChangeRequest>('profile-changes', () => []);
+/** Automation First: Trust Assessment Badge ที่ระบบออก/อัปเดตอัตโนมัติ (หนึ่ง Badge ต่อร้าน — ไม่ใช่ใบรับรอง) */
+export const useAssessmentBadgeStore = createEntityStore<AssessmentBadge>('assessment-badges', seed.assessmentBadges);
+/** Automation First: งานของเจ้าหน้าที่จาก Decision Router (เฉพาะกรณียกเว้น — หนึ่งงานต่อประเด็น) */
+export const useOfficerTaskStore = createEntityStore<OfficerTask>('officer-tasks', () => []);
+/** Automation First: บันทึกการประมวลผลอัตโนมัติแต่ละครั้ง (ใช้คำนวณ KPI จากข้อมูลจำลอง) */
+export const useAutomationRunStore = createEntityStore<AutomationRun>('automation-runs', seed.automationRuns);
 
 export const domainStores = [
   useOperatorStore,
@@ -56,6 +63,9 @@ export const domainStores = [
   useAssessmentStore,
   useImportRecordStore,
   useProfileChangeStore,
+  useAssessmentBadgeStore,
+  useOfficerTaskStore,
+  useAutomationRunStore,
 ];
 
 export { useSessionStore } from './session';

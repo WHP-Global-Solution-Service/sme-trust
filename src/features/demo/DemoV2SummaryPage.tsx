@@ -51,7 +51,7 @@ export default function DemoV2SummaryPage() {
       <section className="bg-primary text-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <Trophy className="h-9 w-9" />
-          <p className="mt-2 text-sm text-white/80">SME Trust v2 — Marketplace Intelligence</p>
+          <p className="mt-2 text-sm text-white/80">SME Trust — Marketplace & Trust Assessment</p>
           <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Executive Impact Summary</h1>
           <p className="mt-2 max-w-3xl text-white/85">ใช้ข้อมูลการขายจากแพลตฟอร์มที่ร้านค้าใช้อยู่แล้ว (จำลอง) ประเมินความน่าเชื่อถืออย่างอธิบายได้ โดยเจ้าหน้าที่ยังเป็นผู้ตัดสินการรับรอง และผู้บริโภคเห็นข้อมูลที่เข้าใจง่ายพร้อมข้อจำกัด</p>
           <p className="mt-3 text-sm text-white/80">
@@ -118,7 +118,7 @@ export default function DemoV2SummaryPage() {
           <Card>
             <CardHeader title="หลักการที่ระบบยึดถือ" icon={Scale} />
             <ul className="space-y-1.5 p-4 text-sm text-ink">
-              <li>• ไม่ออก Badge อัตโนมัติ — ต้องผ่านเจ้าหน้าที่และเกณฑ์ v1 (Level 1–4 ความหมายเดิม)</li>
+              <li>• ไม่ออกใบรับรองอัตโนมัติ — ต้องผ่านเจ้าหน้าที่และเกณฑ์ v1 (Level 1–4 ความหมายเดิม)</li>
               <li>• ผู้บริโภคไม่เห็นคะแนน 0–100 — เจ้าหน้าที่เห็นคะแนนและวิธีคำนวณ</li>
               <li>• ข้อมูลที่ขาดไม่เท่ากับศูนย์ — ข้อมูลน้อยแสดง Insufficient Data</li>
               <li>• Coverage แยกจาก Confidence — ครบแค่ไหน กับ เชื่อถือได้แค่ไหน</li>
@@ -206,11 +206,11 @@ export default function DemoV2SummaryPage() {
           <Button
             icon={RotateCcw}
             onClick={async () => {
-              const r = await confirmDialog({ title: 'เริ่ม Journey v2 ใหม่', body: 'ล้างข้อมูลทั้งหมดและเริ่ม Scenario 9 ใหม่', confirmText: 'เริ่มใหม่ทั้งหมด', tone: 'danger' });
+              const r = await confirmDialog({ title: 'เริ่ม Journey Marketplace & Trust ใหม่', body: 'ล้างข้อมูลทั้งหมดและเริ่ม Scenario 9 ใหม่', confirmText: 'เริ่มใหม่ทั้งหมด', tone: 'danger' });
               if (r.ok) startJourney(nav, 'v2');
             }}
           >
-            Restart Journey v2
+            Restart Journey
           </Button>
           <Button
             variant="outline"

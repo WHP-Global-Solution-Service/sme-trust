@@ -6,6 +6,7 @@ import { Alert, Button, Card, CardHeader, EmptyState, LinkButton, PageHeader, St
 import { fmtDate } from '@/utils/format';
 import { MarketplaceDisclaimer } from '@/features/marketplace/components/MarketplaceParts';
 import { useAssessmentState } from '../hooks';
+import { MerchantAutomationPanel } from '@/features/automation/components/AutomationParts';
 import { ASSESSMENT_DISCLAIMER, ASSESSMENT_STATUS, BAND_LABEL, DECISION_LABEL, RECOMMENDATION_LABEL } from '../labels';
 import { AnalysisPanels, BandBadge, DataQuality, DimensionGrid, FactorList, ImproveList, SourcesLine, StandingBanner } from '../components/AssessmentParts';
 
@@ -40,8 +41,8 @@ export default function MerchantAssessmentPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <PageHeader
-        title="ผลประเมินความน่าเชื่อถือ (Trust Assessment v2)"
-        subtitle={`${m.shopName} — ใช้ประกอบการพิจารณา Level 3–4 โดยเจ้าหน้าที่ ไม่ใช่การรับรองอัตโนมัติ`}
+        title="ผลประเมินความน่าเชื่อถือ (Trust Assessment)"
+        subtitle={`${m.shopName} — ระบบประเมินและออก Assessment Badge อัตโนมัติ · ใบรับรอง Level 3–4 ยังต้องให้เจ้าหน้าที่พิจารณา`}
         icon={Gauge}
         back={{ to: '/m', label: 'หน้าหลัก' }}
         action={
@@ -56,6 +57,7 @@ export default function MerchantAssessmentPage() {
         }
       />
       <MarketplaceDisclaimer />
+      <MerchantAutomationPanel merchantId={m.id} />
 
       {!a ? (
         <Card>

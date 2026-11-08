@@ -17,7 +17,7 @@ export default function V2KpiSection() {
   return (
     <section className="mt-8" aria-labelledby="v2-kpi" data-testid="v2-kpi">
       <h2 id="v2-kpi" className="text-lg font-bold text-ink">
-        SME Trust v2 — Marketplace Intelligence
+        SME Trust — Marketplace & Trust Assessment
       </h2>
       <p className="mb-3 text-sm text-ink-soft">การเชื่อมต่อ Marketplace (จำลอง) ผลประเมินความน่าเชื่อถือล่าสุดของแต่ละร้าน และผลการพิจารณาของเจ้าหน้าที่</p>
       <Alert tone="warning" className="mb-4">
@@ -32,7 +32,7 @@ export default function V2KpiSection() {
         <Stat label="Insufficient Data" value={k.insufficient} icon={FileQuestion} hint={`จาก ${k.assessed} ร้านที่มีผลประเมิน — ไม่ใช่ผลลบ`} />
         <Stat label="Data Coverage เฉลี่ย" value={`${k.avgCoverage}%`} icon={Gauge} tone="info" hint="ผลประเมินล่าสุดของแต่ละร้าน" />
         <Stat label="ผลประเมินรอพิจารณา" value={k.pendingReview} icon={ClipboardList} tone="warning" to="/o/assessments" />
-        <Stat label="อนุมัติการรับรอง (v2)" value={k.approved} icon={BadgeCheck} tone="success" hint={`ขอข้อมูลเพิ่ม ${k.needInfo} · ไม่อนุมัติ ${k.rejected}`} />
+        <Stat label="อนุมัติการรับรองจากผลประเมิน" value={k.approved} icon={BadgeCheck} tone="success" hint={`ขอข้อมูลเพิ่ม ${k.needInfo} · ไม่อนุมัติ ${k.rejected}`} />
         <Stat label="ขอข้อมูลเพิ่มเติม" value={k.needInfo} icon={Store} tone="warning" />
         <Stat label="ใบรับรองถูกระงับ / เพิกถอน" value={`${k.suspended} / ${k.revoked}`} icon={Ban} tone="error" hint="แยกจาก Trust Band" />
       </div>

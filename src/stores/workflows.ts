@@ -2,6 +2,7 @@
  * Workflow ข้าม Domain — ทุก Action ที่เปลี่ยนสถานะหลายส่วนพร้อมกันอยู่ที่นี่
  * เพื่อให้ Merchant / Consumer / Officer / Admin เห็นข้อมูลชุดเดียวกันเสมอ
  */
+import { emitMerchantChanged } from './events';
 import type {
   AppNotification,
   CertStatus,
@@ -137,6 +138,7 @@ export function setKycResult(operatorId: string, ok: boolean) {
   useOperatorStore.getState().update(operatorId, { kycStatus: ok ? 'verified' : 'failed', kycVerifiedAt: ok ? nowISO() : undefined });
   audit(ok ? 'ยืนยันตัวตนจำลองสำเร็จ' : 'ยืนยันตัวตนจำลองไม่สำเร็จ', operatorId, undefined, true);
   if (ok) notify('merchant', operatorId, 'ยืนยันตัวตนสำเร็จ', 'คุณได้รับสถานะ Level 1 — Identity Verified (ไม่ใช่การรับรองคุณภาพสินค้า)', '/m', 'success');
+  ms().items.filter((m) => m.operatorId === operatorId).forEach((m) => emitMerchantChanged(m.id, 'identity_change'));
 }
 
 export function resetPin(operatorId: string, pin: string) {
@@ -251,6 +253,7 @@ export function resubmitApplication(appId: string, note: string, docs: MockDocum
     timeline: [...a.timeline, ev(a.status === 'rejected' ? 'ยื่นคำขอใหม่' : 'ส่งข้อมูลเพิ่มเติม', note || `แนบเอกสาร ${docs.length} รายการ`, 'merchant')],
   }));
   ms().update(app.merchantId, (m) => ({ documents: [...m.documents, ...docs], registrationStatus: app.type === 'registration' ? 'submitted' : m.registrationStatus }));
+  emitMerchantChanged(app.merchantId, 'measure_change');
   audit('ส่งข้อมูลเพิ่มเติม/ยื่นใหม่', appId);
   notify('officer', undefined, 'ร้านค้าส่งข้อมูลเพิ่มเติม', `${appId} พร้อมตรวจสอบอีกครั้ง`, `/o/applications/${appId}`);
 }
@@ -296,6 +299,7 @@ export function requestInfo(appId: string, message: string) {
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'need_info', infoRequest: message }, 'ขอข้อมูล/เอกสารเพิ่มเติม', message);
   if (app.type === 'registration') ms().update(app.merchantId, { registrationStatus: 'need_info' });
+  emitMerchantChanged(app.merchantId, 'measure_change');
   audit('ขอเอกสารเพิ่มเติม', appId, message);
   notifyMerchant(app.merchantId, 'เจ้าหน้าที่ขอข้อมูลเพิ่มเติม', message, '/m/shop', 'warning');
 }
@@ -323,6 +327,7 @@ export function approveApplication(appId: string, note?: string): WorkflowResult
   if (app.type === 'registration') {
     ms().update(app.merchantId, { registrationStatus: 'approved', approvedAt: nowISO() });
   }
+  emitMerchantChanged(app.merchantId, 'measure_change');
   const cert = issueCertificate(app.merchantId, app.type === 'registration' ? 2 : app.requestedLevel);
   audit('อนุมัติคำขอ', appId, `ออกใบรับรอง ${cert.id}`);
   notifyMerchant(
@@ -339,6 +344,7 @@ export function rejectApplication(appId: string, reason: string) {
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'rejected', rejectReason: reason }, 'ไม่อนุมัติคำขอ', reason);
   if (app.type === 'registration') ms().update(app.merchantId, { registrationStatus: 'rejected' });
+  emitMerchantChanged(app.merchantId, 'measure_change');
   audit('ไม่อนุมัติคำขอ', appId, reason);
   notifyMerchant(app.merchantId, 'คำขอไม่ได้รับอนุมัติ', `${reason} — สามารถแก้ไขและยื่นใหม่ได้`, app.type === 'registration' ? '/m/shop' : '/m/certification', 'error');
 }
@@ -406,6 +412,7 @@ export function setCertStatus(certId: string, status: CertStatus, reason: string
   if (status === 'active') recomputeRisk(cert.merchantId);
   audit(labels[status], certId, reason);
   notifyMerchant(cert.merchantId, labels[status], `${certId}: ${reason}`, '/m/certification', status === 'active' ? 'success' : 'error');
+  emitMerchantChanged(cert.merchantId, 'measure_change');
   return { ok: true };
 }
 
@@ -416,6 +423,7 @@ export function renewCertificate(certId: string) {
   useCertificationStore.getState().update(certId, (c) => ({ status: 'active', expiresAt: exp.toISOString(), statusReason: undefined, history: [...c.history, ev('ต่ออายุใบรับรอง 1 ปี')] }));
   audit('ต่ออายุใบรับรอง', certId);
   notifyMerchant(cert.merchantId, 'ต่ออายุใบรับรองแล้ว', certId, '/m/certification', 'success');
+  emitMerchantChanged(cert.merchantId, 'measure_change');
 }
 
 export function expireCertificate(certId: string) {
@@ -423,6 +431,7 @@ export function expireCertificate(certId: string) {
   useCertificationStore.getState().update(certId, (c) => ({ status: 'expired', expiresAt: nowISO(), history: [...c.history, ev('จำลองใบรับรองหมดอายุ', undefined, 'system')] }));
   audit('จำลองใบรับรองหมดอายุ', certId);
   notifyMerchant(cert.merchantId, 'ใบรับรองหมดอายุ', `${certId} กรุณานำ Badge ออกจากช่องทางขายและยื่นต่ออายุ`, '/m/certification', 'warning');
+  emitMerchantChanged(cert.merchantId, 'measure_change');
 }
 
 // ---------- Complaints ----------
@@ -713,6 +722,7 @@ export function openRiskCase(merchantId: string, reason: string, complaintIds: s
   store.add(r);
   ms().update(merchantId, { riskStatus: 'allegation' });
   audit('เปิดเรื่องพิจารณาความเสี่ยง', r.id, reason);
+  emitMerchantChanged(merchantId, 'measure_change');
   return r;
 }
 
@@ -740,6 +750,7 @@ export function riskAction(caseId: string, status: RiskCaseStatus, note: string)
   else ms().update(r.merchantId, { riskStatus: status as Merchant['riskStatus'] });
   notifyMerchant(r.merchantId, titles[status], `${caseId}: ${note}`, '/m/review', ['suspended', 'revoked'].includes(status) ? 'error' : 'warning');
   audit(titles[status], caseId, note);
+  emitMerchantChanged(r.merchantId, 'measure_change');
 }
 
 export function merchantStatement(caseId: string, text: string) {
@@ -776,6 +787,7 @@ export function reviewAppeal(caseId: string, result: 'upheld' | 'overturned', no
   recomputeRisk(r.merchantId);
   notifyMerchant(r.merchantId, 'ผลการพิจารณาอุทธรณ์', `${result === 'overturned' ? 'คืนสถานะการรับรอง' : 'คงผลเดิม'}: ${note}`, '/m/review', result === 'overturned' ? 'success' : 'warning');
   audit('พิจารณาอุทธรณ์', caseId, `${result} — ${note}`);
+  emitMerchantChanged(r.merchantId, 'measure_change');
 }
 
 // ---------- Training ----------

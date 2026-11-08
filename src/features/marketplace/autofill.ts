@@ -145,7 +145,7 @@ export const FIELD_LABEL: Record<FieldKey, string> = {
 };
 
 export type FieldValues = Record<FieldKey, string>;
-export type FieldStatus = 'imported' | 'user_edited' | 'manual' | 'missing' | 'verification_required';
+export type FieldStatus = 'imported' | 'user_edited' | 'manual' | 'missing' | 'verification_required' | 'source_verified';
 
 export const FIELD_STATUS_LABEL: Record<FieldStatus, string> = {
   imported: 'นำเข้าแล้ว',
@@ -153,6 +153,7 @@ export const FIELD_STATUS_LABEL: Record<FieldStatus, string> = {
   manual: 'กรอกเอง',
   missing: 'ต้องกรอกเพิ่ม',
   verification_required: 'รอการตรวจสอบ',
+  source_verified: 'ตรงกับต้นฉบับ — ตรวจสอบอัตโนมัติ',
 };
 
 /** ค่าที่ Raw Source มี (ช่องอื่นไม่มีในแหล่งข้อมูล — ต้องกรอกเพิ่ม) */
@@ -177,6 +178,11 @@ export interface StatusRules {
   verifyOnChange: FieldKey[];
   /** ข้อมูลที่ลงทะเบียนไว้เดิม (ร้านเดิม) */
   registered?: Partial<FieldValues>;
+  /**
+   * Automation First (ข้อ 6): ช่องที่ผูกกับใบรับรองซึ่งเปลี่ยนเป็นค่าที่ตรงกับข้อมูลต้นฉบับ Marketplace (จำลอง) ที่ร้านยินยอมให้เชื่อม
+   * ตรวจสอบได้อัตโนมัติจากแหล่งอ้างอิง → บันทึกได้โดยไม่ต้องรอเจ้าหน้าที่ · ค่าอื่นยังต้องให้เจ้าหน้าที่ตรวจ
+   */
+  autoVerifySource?: boolean;
 }
 
 const norm = (v?: string) => (v ?? '').trim();
@@ -189,7 +195,7 @@ export function fieldStatus(key: FieldKey, current: string, r: StatusRules): Fie
   const reg = r.registered?.[key];
   // ร้านเดิม: ช่องที่ผูกกับใบรับรองเทียบกับข้อมูลที่อนุมัติแล้วในระบบ (ชื่อร้านที่เจ้าหน้าที่อนุมัติให้เปลี่ยนแล้วไม่ต้องตรวจซ้ำ)
   if (reg !== undefined && r.verifyOnChange.includes(key)) {
-    if (cur !== norm(reg)) return 'verification_required';
+    if (cur !== norm(reg)) return r.autoVerifySource && imp !== undefined && cur === norm(imp) ? 'source_verified' : 'verification_required';
     return imp !== undefined && cur === norm(imp) ? 'imported' : 'manual';
   }
   const reference = imp !== undefined ? norm(imp) : reg !== undefined ? norm(reg) : undefined;
@@ -220,7 +226,7 @@ export interface ImportSummary {
 
 export function summarize(rows: FieldRow[]): ImportSummary {
   const n = (s: FieldStatus) => rows.filter((x) => x.status === s).length;
-  return { imported: n('imported'), edited: n('user_edited') + n('verification_required'), missing: n('missing'), verification: n('verification_required'), manual: n('manual') };
+  return { imported: n('imported') + n('source_verified'), edited: n('user_edited') + n('verification_required'), missing: n('missing'), verification: n('verification_required'), manual: n('manual') };
 }
 
 /** กฎของเส้นทางสมัครร้านใหม่ */
@@ -236,6 +242,7 @@ export const profileUpdateRules = (src: ImportSource, registered: FieldValues): 
   required: ['shopName', 'description', 'category', 'phone', 'email', 'province', 'district'],
   verifyOnChange: ['shopName', 'category'],
   registered,
+  autoVerifySource: true,
 });
 
 /**

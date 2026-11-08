@@ -42,6 +42,9 @@ Browser only
 | `useAiWorkspaceStore` | ข้อความ/ผลบนหน้า AI และร่างคำตอบที่รอใส่เคส | `…ai-workspace` |
 | `useDemoStore` | Scenario State: เรื่อง ขั้น สถานะ Context IDs ผลแต่ละเรื่อง สัญญาณ UI | `…demo` (+ `…demo-snapshot`) |
 | `useSessionStore` | บทบาท บัญชีที่ใช้ ฉบับร่างร้านค้า | `…session` |
+| `useAssessmentBadgeStore` | Automation First: Trust Assessment Badge (หนึ่งต่อร้าน + ประวัติ + Model Version) | `smetrust:v2:assessment-badges` |
+| `useOfficerTaskStore` | Automation First: งานกรณียกเว้นจาก Decision Router (Evidence Snapshot, Fingerprint, ประวัติ) | `smetrust:v2:officer-tasks` |
+| `useAutomationRunStore` | Automation First: บันทึกการประมวลผลแต่ละครั้ง (ล่าสุด 300 รายการ — ใช้คำนวณ KPI) | `smetrust:v2:automation-runs` |
 | `useUiStore` | Toast, Confirm Dialog (ไม่ persist) | — |
 
 ข้อมูลคงที่ (ไม่เปลี่ยนระหว่างสาธิต): ผู้บริโภค เจ้าหน้าที่ หลักสูตร — อยู่ใน `mock/data`
@@ -90,3 +93,22 @@ QR Code และลิงก์ร้านสร้างด้วย `appUrl(
 - `tests/scenarios.test.mts` — Demo Controller: 8 Scenario + Full Journey + Restart/Refresh (212)
 - `tests/workflows.test.mts` — รัน Workflow จริงกับ Store จริงใน Node (localStorage shim) ตรวจ 60+ เงื่อนไขข้ามบทบาท
 - `tests/render.test.mts` — Server-render 78 เส้นทาง/บทบาท ตรวจว่าไม่มี Error และ Role Gate ถูกต้อง
+
+## Automation First (Branch `sme-trustv.2`)
+
+```
+เหตุการณ์ (นำเข้า/ซิงก์/อายุข้อมูล/โปรไฟล์/มาตรการ/Run Simulation)
+  → processMerchant()  [stores/automation.ts]
+      → ประเมินใหม่เมื่อ inputsKey เปลี่ยน (runAssessment origin=automation — Engine v2.1 เดิม)
+      → evaluate()       [features/automation/derive.ts — Pure: สร้าง Context จาก DataBundle]
+      → routeAssessment() [features/automation/router.ts — Pure: AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW]
+      → งานเจ้าหน้าที่ (หนึ่งงานต่อประเด็น · Fingerprint · รวมกับเรื่องเดิม · ปิดอัตโนมัติเมื่อประเด็นหาย)
+      → nextBadge()      [Pure: ประวัติเฉพาะเมื่อผลเปลี่ยน]
+      → แจ้งเตือน (เฉพาะเมื่อผลเปลี่ยน) · Audit Log (ระบบ) · AutomationRun
+```
+
+- Workflow เดิม (v1) แจ้งเหตุการณ์ผ่าน `stores/events.ts` (`emitMerchantChanged`) เพื่อหลีกเลี่ยงการอ้างอิงแบบวน · `withoutEvents()` ใช้ระหว่างเจ้าหน้าที่ตัดสินงานเพื่อไม่ประมวลผลซ้ำ
+- Seed ของ Badge/บันทึกคำนวณด้วย `buildSeedAutomation()` จากผลประเมินตัวอย่าง (กฎเดียวกับแอป · Reset ได้ผลเดิมทุกไบต์)
+- `TrustAssessment.origin` แยกผลที่ระบบประเมินเอง (`automation`) กับที่ร้านกดประเมิน (`merchant`) — Gate ของ Scenario 11 นับเฉพาะผลที่ร้านกดเอง
+- `MarketplaceConnection.identityReview` เก็บผลการตรวจข้อมูลตัวตนของเจ้าหน้าที่ · `usableConnections()` ไม่ใช้การเชื่อมต่อที่ถูกปฏิเสธ
+- Archetype `owner_mismatch` (ชื่อเจ้าของบัญชีจำลองไม่ตรงผู้ยืนยันตัวตน) ใช้สาธิตกรณียกเว้น · ชื่อเจ้าของบัญชีมาจาก `services/owner.ts` (Raw Source อ่านอย่างเดียว)

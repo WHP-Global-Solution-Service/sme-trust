@@ -34,7 +34,7 @@ export function AssessmentSupportPanel({ merchantId }: { merchantId: string }) {
   const a = latestAssessment(merchantId, items);
   return (
     <Card>
-      <CardHeader title="ข้อมูลประกอบ: Trust Assessment v2" subtitle="หลักฐานจาก Marketplace (จำลอง) และผลประเมิน — ใช้ประกอบการพิจารณาเท่านั้น" icon={Gauge} />
+      <CardHeader title="ข้อมูลประกอบ: Trust Assessment" subtitle="หลักฐานจาก Marketplace (จำลอง) และผลประเมิน — ใช้ประกอบการพิจารณาเท่านั้น" icon={Gauge} />
       <div className="space-y-3 p-4 text-sm">
         <div>
           <p className="mb-1.5 text-xs font-semibold text-ink-soft">Marketplace Evidence</p>

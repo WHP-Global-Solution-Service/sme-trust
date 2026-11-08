@@ -4,7 +4,19 @@ import { useCertificationStore, useComplaintStore, useMerchantStore, useRiskStor
 import { useCurrentOfficer } from '@/hooks/useCurrent';
 import { COMPLAINT_STATUS, PRIORITY, REGISTRATION_STATUS, WARNING_STATUS } from '@/constants/labels';
 import { fmtDate, fmtRelative } from '@/utils/format';
-import { Card, CardHeader, EmptyState, PageHeader, Stat, StatusBadge } from '@/components/common/ui';
+import { Card, CardHeader, EmptyState, LinkButton, PageHeader, Stat, StatusBadge } from '@/components/common/ui';
+import { QueueList, useExceptionQueue, type QueueTab } from '@/features/automation/pages/OfficerExceptionQueue';
+import { AutomationKpiRow } from '@/features/automation/pages/AutomationPolicyPage';
+
+const EXCEPTION_TILES: { tab: QueueTab; th: string; label: string; tone: 'primary' | 'error' | 'warning' | 'info' | 'success' | 'neutral' }[] = [
+  { tab: 'pending', th: 'รอเจ้าหน้าที่พิจารณา', label: 'Pending Manual Review', tone: 'warning' },
+  { tab: 'high', th: 'เร่งด่วน', label: 'High Priority Cases', tone: 'error' },
+  { tab: 'identity', th: 'ข้อมูลตัวตนไม่ตรงกัน', label: 'Identity Mismatch', tone: 'error' },
+  { tab: 'conflict', th: 'หลักฐานขัดแย้งกัน', label: 'Evidence Conflicts', tone: 'warning' },
+  { tab: 'certification', th: 'คำขอที่ต้องใช้อำนาจอนุมัติ', label: 'Certification Requests', tone: 'info' },
+  { tab: 'complaints', th: 'ข้อร้องเรียนส่งต่อ', label: 'Escalated Complaints', tone: 'error' },
+  { tab: 'completed', th: 'ตรวจเสร็จแล้ว', label: 'Completed Reviews', tone: 'success' },
+];
 
 const DAY = 86400_000;
 
@@ -17,6 +29,8 @@ export default function OfficerDashboard() {
   const risks = useRiskStore((s) => s.items);
   const merchants = useMerchantStore((s) => s.items);
   const shop = (id: string) => merchants.find((m) => m.id === id)?.shopName ?? id;
+  const exceptions = useExceptionQueue();
+  const pendingExceptions = exceptions.filter((q) => q.tabs.includes('pending'));
 
   const pendingApps = apps.filter((a) => ['submitted', 'pending_review', 'under_verification'].includes(a.status));
   const pendingComplaints = complaints.filter((c) => c.status === 'submitted');
@@ -39,6 +53,23 @@ export default function OfficerDashboard() {
   return (
     <div>
       <PageHeader title="Officer Dashboard" subtitle={`${officer.name} · ${officer.position} · ${fmtDate(new Date())}`} icon={LayoutDashboard} />
+      <section className="mb-6 space-y-3" aria-label="Exception Queue">
+        <AutomationKpiRow />
+        <Card>
+          <CardHeader
+            title="Exception Queue — งานที่ต้องใช้เจ้าหน้าที่"
+            subtitle="งานปกติระบบประเมินและออก Assessment Badge เอง · ที่นี่มีเฉพาะกรณียกเว้นและคำขอที่ต้องใช้อำนาจอนุมัติ พร้อมเหตุผลที่ส่งตรวจ"
+            action={<LinkButton to="/o/exceptions" variant="outline" size="sm">ดูทั้งหมด</LinkButton>}
+          />
+          <div className="grid grid-cols-2 gap-2 px-4 pb-3 sm:grid-cols-4 lg:grid-cols-7 sm:px-5">
+            {EXCEPTION_TILES.map((t) => (
+              <Stat key={t.tab} th={t.th} label={t.label} value={exceptions.filter((q) => q.tabs.includes(t.tab)).length} tone={t.tone} to={`/o/exceptions?tab=${t.tab}`} />
+            ))}
+          </div>
+          <QueueList items={pendingExceptions} limit={6} />
+        </Card>
+      </section>
+      <h2 className="mb-3 text-sm font-semibold text-ink-soft">ตัวชี้วัดกระบวนการเดิม (คุ้มครองผู้บริโภค · ใบรับรอง)</h2>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat th="คำขอรอตรวจสอบ" label="Pending Applications" value={pendingApps.length} icon={ClipboardCheck} to="/o/applications" />
         <Stat th="ข้อร้องเรียนใหม่รอคัดกรอง" label="Pending Complaints" value={pendingComplaints.length} icon={MessageSquareWarning} tone="info" to="/o/complaints?status=submitted" />

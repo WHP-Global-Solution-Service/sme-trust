@@ -197,7 +197,7 @@ export function DemoPanel() {
               {allScenarios.map((sc, k) => (
                 <li key={sc.id}>
                   {(k === 0 || trackOf(allScenarios[k - 1]) !== trackOf(sc)) && (
-                    <p className="mb-1.5 mt-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">{trackOf(sc) === 'v2' ? 'v2 — Marketplace Intelligence' : 'v1 — Consumer Protection'}</p>
+                    <p className="mb-1.5 mt-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">{trackOf(sc) === 'v2' ? 'Marketplace & Trust Assessment' : 'Consumer Protection'}</p>
                   )}
                   <button
                     onClick={async () => {

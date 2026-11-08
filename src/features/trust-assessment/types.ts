@@ -108,6 +108,8 @@ export interface TrustAssessment {
   /** ใช้ตรวจว่าข้อมูลเปลี่ยนหลังประเมินหรือไม่ */
   inputsKey: string;
   result: AssessmentResult;
+  /** ผู้สั่งประเมิน — automation = ระบบประเมินเองเมื่อข้อมูลเปลี่ยน (Automation First) · ไม่มีค่า/merchant = ร้านกดประเมินเอง */
+  origin?: 'automation' | 'merchant';
   submittedAt?: ISODate;
   /** คำขอ (v1) ที่ผูกกับผลประเมินตอนส่งพิจารณา — คำขอรับรอง Level 3–4 หรือคำขอลงทะเบียนที่ยังค้างอยู่ */
   applicationId?: string;
