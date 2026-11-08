@@ -34,6 +34,8 @@ export interface RoutingContext {
   /** เรื่องที่เจ้าหน้าที่ดูแลอยู่แล้ว (มาตรการ/พิจารณาความเสี่ยง) */
   measureRef?: { kind: 'risk_case' | 'certification'; id: string; to: string };
   kycVerified: boolean;
+  /** สถานะคำขอลงทะเบียนร้าน (ร้านที่คำขอไม่ผ่านต้องไม่แสดง Badge) */
+  registrationStatus?: string;
   /** การเชื่อมต่อทั้งหมดที่ยังไม่ยกเลิก */
   connections: RoutingConnection[];
   /** Fingerprint ที่เจ้าหน้าที่ตรวจแล้วว่าไม่ต้องดำเนินการ → รหัสงาน */
@@ -66,6 +68,9 @@ export function routeAssessment(ctx: RoutingContext): RoutingDecision {
   }
 
   // ---- ร้านค้าแก้ไขเองได้
+  if (ctx.registrationStatus === 'rejected') {
+    issues.push(issue({ category: 'registration_rejected', kind: 'merchant_fixable', title: 'คำขอลงทะเบียนร้านไม่ผ่าน', detail: 'แก้ไขข้อมูลและยื่นคำขอใหม่ — ระหว่างนี้ไม่แสดง Assessment Badge (ผลการพิจารณาคำขอเป็นอำนาจของเจ้าหน้าที่)', action: { label: 'แก้ไขและยื่นคำขอใหม่', to: '/m/shop' }, priority: 'medium', fingerprint: `registration:${m}` }));
+  }
   if (P.requireIdentityVerified && !ctx.kycVerified) {
     issues.push(issue({ category: 'identity_unverified', kind: 'merchant_fixable', title: 'ยังไม่ได้ยืนยันตัวตนเจ้าของร้าน', detail: 'ยืนยันตัวตนด้วย e-KYC (จำลอง) ก่อน ระบบจึงแสดง Assessment Badge ได้', action: { label: 'ยืนยันตัวตน', to: '/m/kyc' }, priority: 'medium', fingerprint: `kyc:${m}` }));
   }

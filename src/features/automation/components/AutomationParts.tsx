@@ -194,3 +194,32 @@ export function PublicBadgeBlock({ merchantId }: { merchantId: string }) {
 
 export const TaskStatusBadge = ({ status }: { status: keyof typeof TASK_STATUS }) => <StatusBadge map={TASK_STATUS} value={status} />;
 export const OfficerIcon = UserCheck;
+
+/** มุมเจ้าหน้าที่: สถานะ Assessment Badge ปัจจุบันของร้าน (ตรงกับที่ร้านค้าและผู้บริโภคเห็น) + งานกรณียกเว้นที่เปิดอยู่ */
+export function OfficerBadgeStatus({ merchantId }: { merchantId: string }) {
+  const badge = useAssessmentBadgeStore((s) => s.items.find((b) => b.merchantId === merchantId));
+  const open = useOfficerTaskStore((s) => s.items.filter((t) => t.merchantId === merchantId && (t.status === 'open' || t.status === 'info_requested')));
+  return (
+    <Card data-testid="officer-badge-status">
+      <div className="flex flex-wrap items-center gap-3 p-4 text-sm sm:p-5">
+        <Bot className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-ink">Trust Assessment Badge (อัตโนมัติ)</p>
+          {badge ? (
+            <p className="text-xs text-ink-soft">
+              {BADGE_STATUS[badge.status].label} · {BAND_LABEL[badge.band].label} · อิงผลประเมิน {badge.assessmentId} · โมเดล {badge.modelVersion} · ตรวจล่าสุด {fmtDate(badge.checkedAt, true)}
+            </p>
+          ) : (
+            <p className="text-xs text-ink-soft">ยังไม่มีผลการประมวลผลอัตโนมัติ</p>
+          )}
+          {open.map((t) => (
+            <Link key={t.id} to={`/o/exceptions/${t.id}`} className="mt-1 block text-xs font-medium text-primary hover:underline">
+              งานกรณียกเว้น {t.id}: {TASK_CATEGORY_LABEL[t.category]} ({TASK_STATUS[t.status].label})
+            </Link>
+          ))}
+        </div>
+        {badge && <RouteBadge route={badge.route} />}
+      </div>
+    </Card>
+  );
+}

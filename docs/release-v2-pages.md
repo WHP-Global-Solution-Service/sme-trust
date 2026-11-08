@@ -4,6 +4,7 @@ URL: https://whp-global-solution-service.github.io/sme-trust/
 Source: `sme-trustv.2` → Merge เข้า `main` → GitHub Actions (`deploy-pages.yml`) Deploy จาก `main` เท่านั้น
 
 > สถานะ: **เผยแพร่แล้ว 3 รอบ** — รอบที่ 1 (v2 แทน v1) Merge `7e6df10` · Run #3 · ข้อ 9 · รอบที่ 2 (Marketplace Auto-Fill) Merge `4eed1d9` · Run #4 · ข้อ 10 · รอบที่ 3 (หน้าแรก Concept v2 + คำขอเปลี่ยนข้อมูลร้าน) Merge `304d247` · Run #5 · ข้อ 11–12
+> **Release 4 (Automation First) เตรียมพร้อมแล้ว — ยังไม่เผยแพร่** · Checklist และ Rollback Plan ข้อ 13 (ฐาน Production `304d247`)
 > Prototype นี้เป็น Frontend Only ด้วยข้อมูลจำลอง — **ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)**
 
 ## 1. ผล Preflight
@@ -215,3 +216,102 @@ Not Tested (รอบที่ 2): Safari / อุปกรณ์มือถื
 หมายเหตุ Live smoke: Test เฉพาะเว็บจริงข้อ Deep link รอบแรกไม่ผ่านเพราะ Test เปิด `/m/marketplace` ในมุมมองผู้บริโภค (เว็บแสดงหน้า "ไม่มีสิทธิ์เข้าถึง" ถูกต้อง) · แก้ Test ให้ตั้งบทบาทตามเส้นทางแล้วผ่าน · ตรวจบัญชีสาธิตล่าสุด: บทบาทเจ้าหน้าที่/ผู้ดูแล/ผู้บริโภคกดปุ่มร้านค้าบนหน้าแรก → หน้าเข้าสู่ระบบที่ระบุชื่อบัญชีและมีปุ่ม "ใช้บัญชีอื่น" (ไม่เข้า Workflow ร้านค้าโดยเงียบ) · ไม่พบปัญหาร้ายแรง จึง**ไม่ Rollback**
 
 Not Tested (รอบที่ 3): Safari / อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
+
+## 13. Release 4 — Automation First, Human by Exception (เตรียมแล้ว — ยังไม่เผยแพร่)
+
+### 13.1 ฐานของ Release (ข้อมูลจริง ตรวจเมื่อ 8 พ.ย. 2569)
+
+| รายการ | ค่า |
+|---|---|
+| Production ปัจจุบัน | `origin/main` = **`304d247`** (Release 3) · Bundle บนเว็บจริง `index-_gZqWRBa.js` ตรงกับ Release 3 |
+| Source | `sme-trustv.2` — Commit ที่ยังไม่เผยแพร่: `d3bdc0c` (บันทึก Release 3), `8bb6715` (Automation First), Commit ตรวจก่อนเผยแพร่ (ดู 13.3) |
+| `origin/sme-trustv.2` | `447a9fa` (ยังไม่ Push Commit ใหม่) |
+| `main` มีสิ่งที่ Branch ไม่มีหรือไม่ | ไม่มี — Merge ได้โดยไม่มี Conflict |
+| Workflow | `deploy-pages.yml` ไม่เปลี่ยน (typecheck → npm test → build `VITE_BASE=/sme-trust/` → ตรวจผล build → deploy เฉพาะ `main`) |
+
+### 13.2 เนื้อหา
+
+Decision Router (AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW) · Trust Assessment Badge อัตโนมัติ · Exception Queue และ KPI ของเจ้าหน้าที่ · Certification Governance (Level 2–4 เจ้าหน้าที่อนุมัติตามเดิม) · ตรวจชื่อร้าน/หมวดที่ตรงต้นฉบับอัตโนมัติ · Scenario 14/15 · ชื่อใน UI รวมเป็นระบบเดียว — รายละเอียด [automation-first-workflow.md](automation-first-workflow.md)
+
+Store ใหม่ใน localStorage: `smetrust:v2:assessment-badges`, `…:officer-tasks`, `…:automation-runs` — ผู้ใช้เดิมที่มีข้อมูลสาธิตค้างอยู่จะได้ข้อมูลตั้งต้นของ Store ใหม่เมื่อเปิดครั้งแรก (Store เดิมไม่ถูกแก้) · Badge จะถูกคำนวณใหม่เมื่อมีเหตุการณ์ถัดไปหรือกด Run Simulation / Reset Demo Data
+
+### 13.3 ผลตรวจก่อนเผยแพร่ (ในเครื่อง — ไม่ใช่เว็บจริง)
+
+| รายการ | ผล |
+|---|---|
+| `npm ci` + TypeScript | ✅ |
+| `npm test` (17 ชุด) | ✅ รวม `automation` 108 ข้อ และ `release-automation` 94 ข้อ · render 134 เส้นทาง |
+| Production Build `VITE_BASE=/sme-trust/` + ขั้นตอนตรวจผล build ของ Workflow | ✅ `index-myV2if87.js` · `404.html` = `index.html` · ไม่มี `/sme-trust/v2/` |
+| E2E Chromium ครบทุกชุด @ `/sme-trust/` | ✅ 74/74 |
+| E2E Firefox (Automation, หน้าแรก, Journey, Assessment, Profile Change, Auto-Fill, Secondary, Scenario 1–8) | ✅ 43/43 |
+| E2E WebKit (Automation, หน้าแรก, Profile Change, Auto-Fill) | ✅ 14/14 |
+| E2E GitHub Pages จำลอง (3 เบราว์เซอร์ · Deep link + Refresh รวม `/o/exceptions`, `/o/automation`, `/m/marketplace-app`) | ✅ 9/9 (Chromium/Firefox/WebKit 3/3) |
+
+**Bug ที่พบและแก้ระหว่างตรวจ (KI-V2-27):** ร้านใหม่ที่สมัครด้วยข้อมูล Marketplace ได้ Badge แล้วคำขอลงทะเบียนไม่ผ่าน — Badge ยังแสดงต่อผู้บริโภค → แก้ที่ Decision Router + Workflow คำขอแจ้งเหตุการณ์ · Regression test ครอบคลุมไม่ผ่าน → ยื่นใหม่ → คำขอยังรอเจ้าหน้าที่ · เพิ่มสถานะ Badge ในหน้าผลประเมินของเจ้าหน้าที่ (มุมเจ้าหน้าที่ตรงกับร้านค้า/ผู้บริโภค)
+
+### 13.4 Release Checklist
+
+**ก่อนเผยแพร่ (ทำแล้ว)**
+
+- [x] Production ฐาน = `304d247` · `main` ไม่มีสิ่งที่ Branch ไม่มี · Working tree สะอาดหลัง Commit
+- [x] Badge ตรงกันในมุมร้านค้า ผู้บริโภค และเจ้าหน้าที่ — ทุกร้าน ทั้งข้อมูลตั้งต้นและหลัง Run Simulation
+- [x] Under Review / Withheld / Suspended / Revoked / คำขอลงทะเบียนไม่ผ่าน → ไม่แสดงตรา Badge · ระงับ → ยุติเรื่อง → Badge กลับมา
+- [x] AUTO_PASS (ปกติ, สัญญาณข้อเดียว) · AUTO_REQUEST_INFO (ข้อมูลน้อย, หมดอายุ, ซิงก์ไม่สำเร็จ, ยกเลิกเชื่อมต่อ, ยังไม่ยืนยันตัวตน, คำขอไม่ผ่าน) · MANUAL_REVIEW (ตัวตนไม่ตรง, สัญญาณหลายข้อ/สัญญาณร่วม, หลักฐานขัดแย้ง)
+- [x] Manual Review ไม่ซ้ำ: Sync ×3, Run Simulation ×3, ประเมินเอง ×3, Rehydrate จาก localStorage, Reload เบราว์เซอร์
+- [x] Scenario 14–15 เดินครบทุกขั้นด้วย Demo Controller (Unit) และผ่าน UI จริง (E2E) · Scenario 1–13, 9A, 9B, Full Journey ทั้งสองชุดผ่าน
+- [x] เชื่อม Marketplace จำลอง + Auto-Fill (ร้านเดิมและร้านใหม่) ผ่าน
+- [x] Certification Level 2–4 ไม่ถูกอนุมัติอัตโนมัติ (คำขอ ใบรับรอง และผลประเมินที่รอพิจารณาไม่เปลี่ยน · ไม่มี Audit ที่ระบบอนุมัติ)
+- [x] หน้าแรก (ข้อความ Trust Badge, Automation First, 17 เส้นทาง) · Demo Labels ไม่แยก v1/v2
+- [x] Build ที่ `/sme-trust/` + ขั้นตอนตรวจของ Workflow
+- [ ] ได้รับอนุมัติเผยแพร่
+
+**ขั้นตอนเผยแพร่ (หลังได้รับอนุมัติเท่านั้น — ไม่ Force Push / ไม่ Rewrite History)**
+
+```bash
+# 0) ตรวจสถานะจริง
+git fetch origin --tags
+git rev-parse origin/main                      # ต้องเป็น 304d247… — ถ้าไม่ใช่ ให้หยุดและรายงาน
+git status                                     # ต้องสะอาด
+git log --oneline sme-trustv.2..origin/main    # ต้องว่าง
+
+# 1) Rollback Tag ของ Production ปัจจุบัน
+git tag -a sme-trust-v2.2-before-automation 304d247 -m "Production before Automation First (rollback point)"
+git push origin sme-trust-v2.2-before-automation
+
+# 2) Push Branch ต้นทาง (ไม่ Deploy — Workflow Deploy เฉพาะ main)
+git push origin sme-trustv.2
+
+# 3) Merge (Merge Commit เดียว → Rollback ด้วย revert ครั้งเดียว)
+git switch main && git merge --ff-only origin/main
+git merge --no-ff sme-trustv.2 -m "Release SME Trust v2 Automation First to GitHub Pages"
+git diff --stat sme-trustv.2 HEAD              # ต้องว่าง (ต้นไม้ไฟล์เท่ากับ Branch ที่ทดสอบ)
+
+# 4) ตรวจหลัง Merge (หยุดถ้า Fail)
+npm ci && npm run typecheck && npm test
+MSYS_NO_PATHCONV=1 VITE_BASE=/sme-trust/ npm run build     # Git Bash ต้องใช้ MSYS_NO_PATHCONV=1
+MSYS_NO_PATHCONV=1 npm run test:e2e:subpath && MSYS_NO_PATHCONV=1 npm run test:e2e:pages
+#    ถ้า Build ล้มเหลวด้วย ENOTEMPTY ที่ dist\assets (ไฟล์ถูกล็อกบน Windows) ให้ลบ dist แล้วรันใหม่
+
+# 5) Push main → GitHub Actions Deploy
+git push origin main
+git switch sme-trustv.2
+```
+
+**หลัง Deploy**
+
+- [ ] Actions: Run ใหม่ของ `304d247..` → `build` และ `deploy` สำเร็จ
+- [ ] เว็บจริงใช้ Bundle ใหม่ (ตรงกับ Build ในเครื่องหลัง Merge) และ Asset ทุกไฟล์ตอบ 200
+- [ ] Live smoke: Scenario 14 จบโดยไม่มีขั้นเจ้าหน้าที่ · Scenario 15 อนุมัติ/ไม่อนุมัติ/ขอข้อมูลเพิ่ม · `/o` Exception Queue + KPI · `/o/automation` Run Simulation ไม่สร้างงานซ้ำ · ร้านที่ถูกระงับ/เพิกถอนไม่แสดง Badge · Scenario 1–13, 9A, 9B, Full Journey · Deep link + Refresh · ไม่มี Console error / Request ไปโดเมนอื่น
+- [ ] เบราว์เซอร์ที่เคยเปิด Release 3 (มีข้อมูลสาธิตค้าง): เปิดได้ปกติ Store ใหม่มีข้อมูลตั้งต้น
+- [ ] บันทึกผลเป็นข้อ 14
+
+### 13.5 Rollback Plan (ฐาน = Production จริง `304d247`)
+
+| เงื่อนไข | การทำ |
+|---|---|
+| Actions ล้มเหลวก่อน Deploy | ไม่มีผลต่อเว็บจริง (Deploy ไม่เกิด) — หยุด แก้บน `sme-trustv.2` แล้วเริ่มขั้นตอนใหม่ |
+| เว็บจริงมีปัญหาร้ายแรง (หน้าขาว, Asset 404, Scenario/Workflow หลักใช้ไม่ได้, Badge แสดงผิดสถานะ, ใบรับรองถูกเปลี่ยนเอง) | **ทางเลือก A (เร็ว):** Actions → Run #5 (`42108759719`, Commit `304d247`) → *Re-run all jobs* → Deploy Release 3 กลับ (ชั่วคราว — Push `main` ครั้งถัดไปจะ Deploy ใหม่) |
+| | **ทางเลือก B (ถาวร):** `git switch main && git pull --ff-only` → `git revert -m 1 <merge-commit> -m "Rollback: restore Release 3 (304d247)"` → `git diff sme-trust-v2.2-before-automation HEAD --stat` ต้องว่าง → `git push origin main` |
+| ปัญหาเล็ก (ข้อความ, P3) | ไม่ Rollback — แก้บน Branch แล้วเผยแพร่รอบถัดไป |
+
+หลัง Rollback: Store ใหม่ (`assessment-badges`, `officer-tasks`, `automation-runs`) ค้างใน localStorage ของผู้ใช้โดยไม่มีผลต่อ Release 3 · Store เดิมใช้ต่อได้ · การนำ Release 4 กลับมา: `git revert <revert-commit>`

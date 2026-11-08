@@ -69,6 +69,10 @@ const DEEP: [string, Record<string, string | boolean>, RegExp | string][] = [
   ['m/ai', M1, 'AI ผู้ช่วย SME'],
   ['o', { role: 'officer', officerId: 'OF-001' }, 'Officer Dashboard'],
   ['admin/assessment-model', { role: 'admin' }, 'โมเดลการประเมิน (Trust Assessment)'],
+  // Automation First
+  ['o/exceptions?tab=identity', { role: 'officer', officerId: 'OF-001' }, 'Exception Queue — กรณีที่ต้องใช้เจ้าหน้าที่'],
+  ['o/automation', { role: 'officer', officerId: 'OF-001' }, 'Certification Governance'],
+  ['m/marketplace-app', M5, 'Seller Center (จำลอง)'],
 ];
 
 test('Deep link และ Refresh ทุกกลุ่มฟังก์ชัน: GitHub Pages ตอบ 404.html แล้วแอปแสดงเส้นทางเดิม (รวม Query) โดยไม่ Redirect', async ({ page }) => {

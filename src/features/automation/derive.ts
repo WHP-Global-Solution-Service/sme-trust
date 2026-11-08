@@ -36,6 +36,7 @@ export function routingContext(bundle: DataBundle, merchantId: string, assessmen
     standingReason: st.reason,
     measureRef: st.ref,
     kycVerified: op?.kycStatus === 'verified',
+    registrationStatus: m.registrationStatus,
     connections: bundle.connections
       .filter((c) => c.merchantId === merchantId && c.status !== 'disconnected')
       .map((c) => ({

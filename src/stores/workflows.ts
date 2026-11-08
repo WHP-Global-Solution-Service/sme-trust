@@ -253,6 +253,7 @@ export function resubmitApplication(appId: string, note: string, docs: MockDocum
     timeline: [...a.timeline, ev(a.status === 'rejected' ? 'ยื่นคำขอใหม่' : 'ส่งข้อมูลเพิ่มเติม', note || `แนบเอกสาร ${docs.length} รายการ`, 'merchant')],
   }));
   ms().update(app.merchantId, (m) => ({ documents: [...m.documents, ...docs], registrationStatus: app.type === 'registration' ? 'submitted' : m.registrationStatus }));
+  emitMerchantChanged(app.merchantId, 'measure_change');
   audit('ส่งข้อมูลเพิ่มเติม/ยื่นใหม่', appId);
   notify('officer', undefined, 'ร้านค้าส่งข้อมูลเพิ่มเติม', `${appId} พร้อมตรวจสอบอีกครั้ง`, `/o/applications/${appId}`);
 }
@@ -298,6 +299,7 @@ export function requestInfo(appId: string, message: string) {
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'need_info', infoRequest: message }, 'ขอข้อมูล/เอกสารเพิ่มเติม', message);
   if (app.type === 'registration') ms().update(app.merchantId, { registrationStatus: 'need_info' });
+  emitMerchantChanged(app.merchantId, 'measure_change');
   audit('ขอเอกสารเพิ่มเติม', appId, message);
   notifyMerchant(app.merchantId, 'เจ้าหน้าที่ขอข้อมูลเพิ่มเติม', message, '/m/shop', 'warning');
 }
@@ -325,6 +327,7 @@ export function approveApplication(appId: string, note?: string): WorkflowResult
   if (app.type === 'registration') {
     ms().update(app.merchantId, { registrationStatus: 'approved', approvedAt: nowISO() });
   }
+  emitMerchantChanged(app.merchantId, 'measure_change');
   const cert = issueCertificate(app.merchantId, app.type === 'registration' ? 2 : app.requestedLevel);
   audit('อนุมัติคำขอ', appId, `ออกใบรับรอง ${cert.id}`);
   notifyMerchant(
@@ -341,6 +344,7 @@ export function rejectApplication(appId: string, reason: string) {
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'rejected', rejectReason: reason }, 'ไม่อนุมัติคำขอ', reason);
   if (app.type === 'registration') ms().update(app.merchantId, { registrationStatus: 'rejected' });
+  emitMerchantChanged(app.merchantId, 'measure_change');
   audit('ไม่อนุมัติคำขอ', appId, reason);
   notifyMerchant(app.merchantId, 'คำขอไม่ได้รับอนุมัติ', `${reason} — สามารถแก้ไขและยื่นใหม่ได้`, app.type === 'registration' ? '/m/shop' : '/m/certification', 'error');
 }

@@ -17,6 +17,7 @@ export type IssueCategory =
   | 'stale_data'
   | 'sync_failed'
   | 'identity_unverified'
+  | 'registration_rejected'
   // ต้องใช้เจ้าหน้าที่ (MANUAL_REVIEW)
   | 'identity_mismatch'
   | 'evidence_conflict'
