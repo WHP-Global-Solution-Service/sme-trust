@@ -134,7 +134,7 @@ export function fixtureV2Decided(): DemoCtx {
   const session = useSessionStore.getState();
   const keep = { role: session.role, officerId: session.officerId };
   session.set({ role: 'officer', officerId: 'OF-001' });
-  if (rec.kind === 'consider_l3' || rec.kind === 'consider_l4') decideAssessment(a.id, 'approved', 'ผลประเมินและเกณฑ์ v1 ผ่านครบ (ข้อมูลตัวอย่างสำหรับการสาธิต)', rec.level);
+  if (rec.kind === 'consider_l3' || rec.kind === 'consider_l4') decideAssessment(a.id, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ (ข้อมูลตัวอย่างสำหรับการสาธิต)', rec.level);
   else decideAssessment(a.id, 'need_info', 'ขอข้อมูลเพิ่มเติมก่อนพิจารณา (ข้อมูลตัวอย่างสำหรับการสาธิต)');
   session.set(keep);
   return { ...ctx, certId: certOf(V2_MERCHANT)?.id };
@@ -227,13 +227,13 @@ export function decisionOutcome(c: DemoCtx): ScenarioOutcome | undefined {
   const reason = `เหตุผลของเจ้าหน้าที่: ${d.reason}`;
   switch (d.kind) {
     case 'approved':
-      return { kind: 'approved', tone: 'success', title: `อนุมัติยกระดับเป็น ${levelName(d.level)}`, facts: [reason, appLine, d.certId ? `ออกใบรับรอง ${d.certId} ผ่าน Certification Workflow v1` : certLine].filter(Boolean), consumerView: `ผู้บริโภคเห็น Badge ระดับ ${levelName(d.level)} ที่ตรวจสอบได้ — Badge ไม่ใช่การรับประกัน`, next: 'ดำเนินการต่อ: ผู้บริโภคตรวจสอบร้านและ Badge ใหม่' };
+      return { kind: 'approved', tone: 'success', title: `อนุมัติยกระดับเป็น ${levelName(d.level)}`, facts: [reason, appLine, d.certId ? `ออกใบรับรอง ${d.certId} ผ่าน Certification กระบวนการรับรอง` : certLine].filter(Boolean), consumerView: `ผู้บริโภคเห็น Badge ระดับ ${levelName(d.level)} ที่ตรวจสอบได้ — Badge ไม่ใช่การรับประกัน`, next: 'ดำเนินการต่อ: ผู้บริโภคตรวจสอบร้านและ Badge ใหม่' };
     case 'need_info':
       return { kind: 'need_info', tone: 'warning', title: 'ขอข้อมูลเพิ่มเติม — ยังไม่อนุมัติ', facts: [reason, appLine, 'ไม่มีการออกใบรับรองใหม่', certLine].filter(Boolean), consumerView: `${keepOld} จนกว่าจะได้รับอนุมัติ`, next: 'ร้านส่งข้อมูลเพิ่มจากการแจ้งเตือน แล้วเจ้าหน้าที่พิจารณาอีกครั้ง — หรือดูมุมผู้บริโภคที่ยังไม่มี Badge ใหม่' };
     case 'rejected':
       return { kind: 'rejected', tone: 'error', title: 'ไม่อนุมัติการยกระดับ', facts: [reason, appLine, 'ไม่มีการออกใบรับรองใหม่', certLine].filter(Boolean), consumerView: active ? `${keepOld} — การไม่อนุมัติยกระดับไม่ได้เพิกถอนใบรับรองเดิม` : keepOld, next: 'ร้านปรับปรุงตามเหตุผลแล้วประเมินและยื่นใหม่ได้ — หรือดูมุมผู้บริโภคที่ยังไม่มี Badge ใหม่' };
     case 'escalated':
-      return { kind: 'escalated', tone: 'warning', title: 'ส่งเรื่องพิจารณาความเสี่ยง', facts: [reason, d.riskCaseId ? `เปิดเรื่องพิจารณาความเสี่ยง ${d.riskCaseId}` : '', 'ไม่มีการออกใบรับรองใหม่', certLine].filter(Boolean), consumerView: `${keepOld} ระหว่างการพิจารณาความเสี่ยง`, next: 'ร้านชี้แจงผ่านเรื่องพิจารณาความเสี่ยง (Workflow v1)' };
+      return { kind: 'escalated', tone: 'warning', title: 'ส่งเรื่องพิจารณาความเสี่ยง', facts: [reason, d.riskCaseId ? `เปิดเรื่องพิจารณาความเสี่ยง ${d.riskCaseId}` : '', 'ไม่มีการออกใบรับรองใหม่', certLine].filter(Boolean), consumerView: `${keepOld} ระหว่างการพิจารณาความเสี่ยง`, next: 'ร้านชี้แจงผ่านเรื่องพิจารณาความเสี่ยง (กระบวนการรับรอง)' };
   }
 }
 
@@ -439,7 +439,7 @@ export const v2Scenarios: ScenarioDef[] = [
         role: 'merchant',
         route: () => '/m/trust',
         title: 'Assessment Summary และส่งพิจารณา',
-        instruction: 'กด "ส่งให้เจ้าหน้าที่พิจารณา" — ระบบผูกกับคำขอรับรองตาม Workflow v1 (ไม่ออกใบรับรองอัตโนมัติ)',
+        instruction: 'กด "ส่งให้เจ้าหน้าที่พิจารณา" — ระบบผูกกับคำขอรับรองตาม กระบวนการรับรอง (ไม่ออกใบรับรองอัตโนมัติ)',
         tip: 'ถ้าส่งไม่ได้ เช่น ข้อมูลเปลี่ยนหลังประเมิน ให้กด "ประเมินใหม่" ก่อน — หรือกลับไป Scenario 9 เลือกร้านตัวอย่างอื่น',
         gate: { check: (g) => !!g.ctx.assessmentId && assessment(g.ctx.assessmentId)?.status !== 'draft', hint: 'กด "ส่งให้เจ้าหน้าที่พิจารณา" (ถ้าผลล้าสมัย กด "ประเมินใหม่" ก่อน)' },
         capture: (g) => ({ applicationId: assessment(g.ctx.assessmentId)?.applicationId }),
@@ -451,7 +451,7 @@ export const v2Scenarios: ScenarioDef[] = [
     summary: (c) => {
       const a = assessment(c.assessmentId);
       return a
-        ? [`ผลประเมิน ${a.id}: ${bandText(c)}`, `ข้อเสนอของระบบ: ${RECOMMENDATION_LABEL[a.result.recommendation.kind].label}`, a.applicationId ? `ส่งพิจารณาพร้อมคำขอ ${a.applicationId} (Workflow v1)` : a.status === 'draft' ? 'ยังไม่ได้ส่งให้เจ้าหน้าที่พิจารณา' : 'ส่งให้เจ้าหน้าที่พิจารณาแล้ว', 'ไม่มีการออก Badge อัตโนมัติ']
+        ? [`ผลประเมิน ${a.id}: ${bandText(c)}`, `ข้อเสนอของระบบ: ${RECOMMENDATION_LABEL[a.result.recommendation.kind].label}`, a.applicationId ? `ส่งพิจารณาพร้อมคำขอ ${a.applicationId} (กระบวนการรับรอง)` : a.status === 'draft' ? 'ยังไม่ได้ส่งให้เจ้าหน้าที่พิจารณา' : 'ส่งให้เจ้าหน้าที่พิจารณาแล้ว', 'ไม่มีการออก Badge อัตโนมัติ']
         : ['ยังไม่มีผลประเมินใน Scenario นี้'];
     },
   },
@@ -462,7 +462,7 @@ export const v2Scenarios: ScenarioDef[] = [
     no: 12,
     track: 'v2',
     title: 'เจ้าหน้าที่พิจารณาการรับรอง',
-    objective: 'เจ้าหน้าที่ตรวจตัวตน หลักฐานจาก Marketplace ผลประเมิน และเกณฑ์ v1 แล้วตัดสินเอง — อนุมัติผ่าน Certification Workflow เดิมพร้อม Audit Log',
+    objective: 'เจ้าหน้าที่ตรวจตัวตน หลักฐานจาก Marketplace ผลประเมิน และเกณฑ์การรับรอง แล้วตัดสินเอง — อนุมัติผ่าน Certification Workflow เดิมพร้อม Audit Log',
     keyMessage: 'คะแนนสูงไม่พอ — Badge ออกได้เมื่อเจ้าหน้าที่พิจารณาและร้านผ่านเกณฑ์สำคัญครบเท่านั้น',
     audience: ['officer', 'merchant'],
     duration: '≈ 6 นาที',
@@ -480,7 +480,7 @@ export const v2Scenarios: ScenarioDef[] = [
       { id: 's12-app', role: 'officer', route: (c) => (c.applicationId ? `/o/applications/${c.applicationId}` : `/o/assessments/${c.assessmentId}`), title: 'Application Detail', instruction: (c) => (c.applicationId ? `คำขอ ${c.applicationId} (${REGISTRATION_STATUS[application(c.applicationId)?.status ?? 'submitted'].label}) — ร้าน ${c.merchantId} และสถานะการยืนยันตัวตน (e-KYC จำลอง)` : 'ผลประเมินนี้ไม่มีคำขอที่ผูกไว้ — พิจารณาจากหน้าผลประเมิน') },
       { id: 's12-evidence', role: 'officer', route: (c) => (c.applicationId ? `/o/applications/${c.applicationId}` : `/o/assessments/${c.assessmentId}`), title: 'Marketplace Evidence', instruction: 'กล่อง "ข้อมูลประกอบ: Trust Assessment" แสดงแพลตฟอร์มที่เชื่อมต่อ Shop ID จำลอง วันที่ซิงก์ และผลประเมิน', tip: 'หลักฐานจาก Marketplace เป็นข้อมูลประกอบ ไม่ใช่เงื่อนไขอนุมัติอัตโนมัติ' },
       { id: 's12-assessment', role: 'officer', route: (c) => `/o/assessments/${c.assessmentId}`, title: 'Trust Assessment', instruction: 'คะแนน วิธีคำนวณ ปัจจัย และข้อเสนอของระบบ — ใช้ Assessment ID เดียวกับ Scenario 11' },
-      { id: 's12-eligibility', role: 'officer', route: (c) => `/o/assessments/${c.assessmentId}`, title: 'Certification Eligibility', instruction: 'ตรวจ "เกณฑ์ v1" ของระดับที่จะอนุมัติ — ต้องผ่านครบจึงอนุมัติได้ (ความหมายของ Level 1–4 ไม่เปลี่ยน)', tip: 'ร้านที่ได้ Band A แต่ยังมีคำเตือนค้าง ระบบจะไม่ให้อนุมัติแม้คะแนนสูง' },
+      { id: 's12-eligibility', role: 'officer', route: (c) => `/o/assessments/${c.assessmentId}`, title: 'Certification Eligibility', instruction: 'ตรวจ "เกณฑ์การรับรอง" ของระดับที่จะอนุมัติ — ต้องผ่านครบจึงอนุมัติได้ (ความหมายของ Level 1–4 ไม่เปลี่ยน)', tip: 'ร้านที่ได้ Band A แต่ยังมีคำเตือนค้าง ระบบจะไม่ให้อนุมัติแม้คะแนนสูง' },
       {
         id: 's12-decide',
         role: 'officer',
@@ -497,14 +497,14 @@ export const v2Scenarios: ScenarioDef[] = [
         nextLabel: 'ดูผลในมุมผู้ประกอบการ',
       },
       { id: 's12-notify', role: 'merchant', route: () => '/m/notifications', transition: 'เจ้าหน้าที่บันทึกผลแล้ว กลับไปดูการแจ้งเตือนในมุมผู้ประกอบการ (ร้านเดิม)', title: 'Merchant Notification', instruction: 'ร้านได้รับแจ้งผลการพิจารณาพร้อมเหตุผล' },
-      { id: 's12-result', role: 'merchant', route: () => '/m/certification', title: 'Certification Result', instruction: (c) => { const cert = certOf(c.merchantId); return cert ? `ใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name} — สถานะอัปเดตตาม Workflow v1` : 'สถานะคำขอและใบรับรองปัจจุบันของร้าน'; }, nextLabel: 'จบ Scenario และดูสรุป' },
+      { id: 's12-result', role: 'merchant', route: () => '/m/certification', title: 'Certification Result', instruction: (c) => { const cert = certOf(c.merchantId); return cert ? `ใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name} — สถานะอัปเดตตาม กระบวนการรับรอง` : 'สถานะคำขอและใบรับรองปัจจุบันของร้าน'; }, nextLabel: 'จบ Scenario และดูสรุป' },
     ],
     summary: (c) => {
       const a = assessment(c.assessmentId);
       const d = a?.decision;
       const cert = certOf(c.merchantId);
       return d
-        ? [`พิจารณา ${a!.id}: ${DECISION_LABEL[d.kind].label}${d.level ? ` Level ${d.level}` : ''} — ${d.reason}`, d.applicationId ? `คำขอ ${d.applicationId}: ${REGISTRATION_STATUS[application(d.applicationId)?.status ?? 'submitted'].label}` : '', d.kind === 'approved' && cert ? `ออกใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name} ผ่าน Certification Workflow v1` : 'ยังไม่มีการออกใบรับรองใหม่', d.overridesRecommendation ? 'ตัดสินต่างจากข้อเสนอของระบบ (บันทึกเหตุผลแล้ว)' : 'ผลการพิจารณาสอดคล้องกับข้อเสนอของระบบ', 'บันทึก Audit Log และแจ้งเตือนร้านค้า'].filter(Boolean)
+        ? [`พิจารณา ${a!.id}: ${DECISION_LABEL[d.kind].label}${d.level ? ` Level ${d.level}` : ''} — ${d.reason}`, d.applicationId ? `คำขอ ${d.applicationId}: ${REGISTRATION_STATUS[application(d.applicationId)?.status ?? 'submitted'].label}` : '', d.kind === 'approved' && cert ? `ออกใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name} ผ่าน Certification กระบวนการรับรอง` : 'ยังไม่มีการออกใบรับรองใหม่', d.overridesRecommendation ? 'ตัดสินต่างจากข้อเสนอของระบบ (บันทึกเหตุผลแล้ว)' : 'ผลการพิจารณาสอดคล้องกับข้อเสนอของระบบ', 'บันทึก Audit Log และแจ้งเตือนร้านค้า'].filter(Boolean)
         : ['ยังไม่มีผลการพิจารณาใน Scenario นี้'];
     },
     outcome: decisionOutcome,
@@ -748,7 +748,7 @@ export const v2Scenarios: ScenarioDef[] = [
         role: 'merchant',
         route: () => '/m/trust',
         title: 'Assessment → Insufficient Data',
-        instruction: 'กด "ประเมินความน่าเชื่อถือ" — ผลเป็น Insufficient Data เพราะยังไม่มีข้อมูลการขาย ซึ่งไม่ใช่ผลลบ',
+        instruction: 'ระบบประเมินอัตโนมัติแล้วหลังส่งคำขอ — กด "ประเมินใหม่" (หรือ "ประเมินความน่าเชื่อถือ") เพื่อดูผล: Insufficient Data ซึ่งไม่ใช่ผลลบ (ร้านที่ไม่มี Marketplace ไม่ถูกหักคะแนน)',
         gate: { check: (g) => !!newAssessment(g), hint: 'กด "ประเมินความน่าเชื่อถือ"' },
         capture: (g) => ({ assessmentId: newAssessment(g)?.id }),
       },
@@ -761,7 +761,7 @@ export const v2Scenarios: ScenarioDef[] = [
         gate: { check: (g) => !!g.ctx.assessmentId && assessment(g.ctx.assessmentId)?.status !== 'draft', hint: 'กด "ส่งให้เจ้าหน้าที่พิจารณา"' },
         nextLabel: 'ดูในมุมเจ้าหน้าที่',
       },
-      { id: 's9b-officer', role: 'officer', route: (c) => `/o/applications/${c.applicationId}`, transition: 'ร้านส่งคำขอและผลประเมินแล้ว เจ้าหน้าที่เปิดคำขอลงทะเบียนเดียวกัน', title: 'Officer Review', instruction: (c) => `คำขอ ${c.applicationId} — ตัวตนผ่าน e-KYC และผลประเมินเป็น Insufficient Data (ไม่ใช่ผลลบ) เจ้าหน้าที่ตรวจตามเกณฑ์ v1 ได้ตามปกติ` },
+      { id: 's9b-officer', role: 'officer', route: (c) => `/o/applications/${c.applicationId}`, transition: 'ร้านส่งคำขอและผลประเมินแล้ว เจ้าหน้าที่เปิดคำขอลงทะเบียนเดียวกัน', title: 'Officer Review', instruction: (c) => `คำขอ ${c.applicationId} — ตัวตนผ่าน e-KYC และผลประเมินเป็น Insufficient Data (ไม่ใช่ผลลบ) เจ้าหน้าที่ตรวจตามเกณฑ์การรับรอง ได้ตามปกติ` },
       {
         id: 's9b-decide',
         role: 'officer',

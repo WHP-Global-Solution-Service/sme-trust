@@ -8,7 +8,8 @@ import { importedValues, mockAccountShops, sourceOfShop, type ImportSource } fro
 import { SourceDataCard } from '@/features/marketplace/components/ImportProvenance';
 import { importFlowKey } from '@/stores/workflowsV2';
 import { reportDemo } from '@/stores/demo';
-import { confirmDialog, toast, useSessionStore } from '@/stores';
+import { confirmDialog, toast, useMarketplaceStore, useMerchantStore, useSessionStore } from '@/stores';
+import { Link } from 'react-router-dom';
 import { useCurrentOperator } from '@/hooks/useCurrent';
 import { uid } from '@/utils/id';
 import { cn } from '@/utils/cn';
@@ -26,6 +27,7 @@ interface FlowState {
 export function importFormDefaults(op: { name: string }) {
   return {
     businessType: 'individual' as const,
+    identityDocType: 'id_card' as const,
     ownerName: op.name,
     companyName: '',
     registrationNo: '',
@@ -64,7 +66,17 @@ export default function MarketplaceRegistrationPage() {
   useEffect(() => reportDemo('reg.flow', step), [step]);
 
   const shops = useMemo(() => (flow.platform ? mockAccountShops(op.id, op.name, flow.platform) : []), [flow.platform, op.id, op.name]);
-  const shop = shops.find((s) => s.key === flow.shopKey);
+  // Shop ID เดียวกันเชื่อมกับร้านใดในระบบอยู่แล้วหรือไม่ (ไม่ตัดสินจากชื่อร้าน)
+  const connections = useMarketplaceStore((s) => s.items);
+  const merchants = useMerchantStore((s) => s.items);
+  const claimOf = (mockShopId: string, platform: Platform) => {
+    const c = connections.find((x) => x.platform === platform && x.mockShopId === mockShopId && x.status !== 'disconnected' && x.identityReview?.status !== 'rejected');
+    const m = c && merchants.find((x) => x.id === c.merchantId);
+    return m ? { merchant: m, own: m.operatorId === op.id } : undefined;
+  };
+  const shopRaw = shops.find((s) => s.key === flow.shopKey);
+  // ร้านที่เชื่อมกับร้านของบัญชีนี้แล้วเลือกนำเข้าซ้ำไม่ได้ (กันการสร้างร้านซ้ำโดยไม่ตั้งใจ)
+  const shop = shopRaw && !claimOf(shopRaw.mockShopId, shopRaw.platform)?.own ? shopRaw : undefined;
   const preview = useMemo(() => (shop ? sourceOfShop(shop) : undefined), [shop]);
 
   const confirmImport = async () => {
@@ -181,21 +193,40 @@ export default function MarketplaceRegistrationPage() {
               อนุญาตแล้ว (จำลอง) — พบ {shops.length} ร้านในบัญชี {PLATFORMS[flow.platform].label}
             </p>
             <div className="grid gap-2" role="radiogroup" aria-label="ร้านค้าในบัญชี">
-              {shops.map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={flow.shopKey === s.key}
-                  onClick={() => setFlow(2, { shopKey: s.key })}
-                  className={cn('rounded-xl border p-3 text-left', flow.shopKey === s.key ? 'border-primary bg-primary-50' : 'border-line hover:bg-bg')}
-                >
-                  <span className="block font-medium text-ink">{s.shopName}</span>
-                  <span className="block text-xs text-ink-soft">
-                    Shop ID จำลอง {s.mockShopId} · {s.category} · {s.note}
-                  </span>
-                </button>
-              ))}
+              {shops.map((s) => {
+                const claim = claimOf(s.mockShopId, s.platform);
+                return (
+                  <div key={s.key}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={flow.shopKey === s.key}
+                      aria-disabled={claim?.own || undefined}
+                      disabled={claim?.own}
+                      onClick={() => setFlow(2, { shopKey: s.key })}
+                      className={cn('w-full rounded-xl border p-3 text-left disabled:cursor-not-allowed disabled:opacity-60', flow.shopKey === s.key && !claim?.own ? 'border-primary bg-primary-50' : 'border-line hover:bg-bg')}
+                    >
+                      <span className="block font-medium text-ink">{s.shopName}</span>
+                      <span className="block text-xs text-ink-soft">
+                        Shop ID จำลอง {s.mockShopId} · {s.category} · {s.note}
+                      </span>
+                    </button>
+                    {claim?.own && (
+                      <p className="mt-1 text-xs text-ink-soft" data-testid="shop-claimed-own">
+                        เชื่อมกับร้าน "{claim.merchant.shopName}" ({claim.merchant.id}) ของคุณแล้ว — ไม่ต้องสมัครร้านใหม่ ·{' '}
+                        <Link to="/m/marketplace" className="font-medium text-primary hover:underline">
+                          จัดการช่องทางขายของร้านเดิม
+                        </Link>
+                      </p>
+                    )}
+                    {claim && !claim.own && (
+                      <p className="mt-1 text-xs text-warning" data-testid="shop-claimed-other">
+                        Shop ID นี้เชื่อมกับร้านอื่นในระบบแล้ว — นำเข้าได้ แต่ระบบจะส่งเจ้าหน้าที่ตรวจความเป็นเจ้าของ (ไม่รวมร้านอัตโนมัติ)
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <p className="flex items-center gap-1.5 text-xs text-secondary">
               <FlaskConical className="h-3.5 w-3.5 shrink-0" aria-hidden />

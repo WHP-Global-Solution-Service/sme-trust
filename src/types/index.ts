@@ -88,6 +88,8 @@ export interface Merchant {
   businessType: BusinessType;
   ownerName: string;
   juristic?: JuristicInfo;
+  /** ประเภทเอกสารยืนยันตัวตนที่ใช้กับ e-KYC (จำลอง — ไม่เก็บเลขเอกสารจริง) */
+  identityDocType?: 'id_card' | 'passport';
   category: string;
   province: string;
   district: string;

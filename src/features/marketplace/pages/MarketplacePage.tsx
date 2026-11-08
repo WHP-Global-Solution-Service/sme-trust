@@ -9,6 +9,7 @@ import { Alert, Badge, Button, Card, CardHeader, LinkButton, PageHeader, StatusB
 import { fmtDate } from '@/utils/format';
 import type { Archetype, FailKind, MarketplaceConnection, Platform } from '../types';
 import { ARCHETYPE_LABEL, PLATFORM_LIST, PLATFORMS } from '../data/platforms';
+import { OWNERSHIP_LABEL, ownershipOf } from '@/features/onboarding/verification';
 import { snapshotOf } from '../services/generator';
 import { CONNECTION_STATUS, MarketplaceDisclaimer } from '../components/MarketplaceParts';
 import { ConnectWizard } from '../components/ConnectWizard';
@@ -156,6 +157,10 @@ export default function MarketplacePage() {
                     <dd className="text-ink">{live.consentAt ? fmtDate(live.consentAt, true) : '—'}</dd>
                     <dt className="text-ink-soft">ซิงก์ล่าสุด</dt>
                     <dd className="text-ink">{live.lastSyncAt ? fmtDate(live.lastSyncAt, true) : '—'}</dd>
+                    <dt className="text-ink-soft">ที่มาของข้อมูล</dt>
+                    <dd className="text-ink">{live.syncSource === 'seed' ? 'ข้อมูลตัวอย่าง' : live.syncSource === 'simulated_age' ? 'จำลองอายุข้อมูล' : `${PLATFORMS[platform].label} (Raw Snapshot อ่านอย่างเดียว)`}</dd>
+                    <dt className="text-ink-soft">ความเป็นเจ้าของร้าน</dt>
+                    <dd className="text-ink" data-testid="ownership-status">{OWNERSHIP_LABEL[ownershipOf(live)].label}</dd>
                   </dl>
                 )}
                 {st && (

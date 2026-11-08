@@ -94,6 +94,14 @@ QR Code และลิงก์ร้านสร้างด้วย `appUrl(
 - `tests/workflows.test.mts` — รัน Workflow จริงกับ Store จริงใน Node (localStorage shim) ตรวจ 60+ เงื่อนไขข้ามบทบาท
 - `tests/render.test.mts` — Server-render 78 เส้นทาง/บทบาท ตรวจว่าไม่มี Error และ Role Gate ถูกต้อง
 
+## Unified Onboarding (Branch `sme-trustv.2`)
+
+- `features/onboarding/verification.ts` (Pure): `documentRequirements()` · `checkDocuments()` · `dbdMockStatus()` · `maskRef()` · `verificationSummary()` · `ownershipOf()` — ใช้ร่วมกันใน Wizard, `/m/shop`, `/o/applications/:id`, `/m/marketplace` · UI ร่วม `features/onboarding/VerificationParts.tsx`
+- `Merchant.identityDocType` (ประเภทเอกสาร — ไม่เก็บเลขเอกสาร) · `MarketplaceConnection.ownershipConflict` (Shop ID ที่ร้านอื่นเชื่อมอยู่แล้ว) → `RoutingConnection.claimedBy` → ประเด็น Identity Mismatch
+- `workflowsV2.shopClaim()` ตรวจ Shop ID ซ้ำ (ไม่ใช้ชื่อร้าน) · `attachImportedMarketplaces()` บันทึกความขัดแย้ง + Audit
+- `submitShopRegistration()` แจ้งเหตุการณ์ `registration` → ประมวลผลทันที · `submitMarketplaceRegistration()` ห่อด้วย `withoutEvents()` แล้วประมวลผลหลังเชื่อมต่อ (กันผลชั่วคราว)
+- `demo/benefits.ts` — ประโยชน์ทางธุรกิจของขั้นสำคัญ แสดงในตัวควบคุมการสาธิต
+
 ## Automation First (Branch `sme-trustv.2`)
 
 ```

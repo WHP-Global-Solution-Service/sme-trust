@@ -21,6 +21,9 @@ import { Alert, Button, Card, InfoRow, LinkButton, PageHeader } from '@/componen
 import { Stepper } from '@/components/common/Stepper';
 import { Field, Input, Select, Textarea } from '@/components/forms/Field';
 import { DocList, MockUpload } from '@/components/forms/MockUpload';
+import { DocumentChecklist, VerificationList } from '@/features/onboarding/VerificationParts';
+import { acceptedKinds, checkDocuments, DBD_LABEL, dbdMockStatus, documentRequirements, IDENTITY_DOC_LABEL, maskRef, verificationSummary } from '@/features/onboarding/verification';
+import type { Merchant } from '@/types';
 
 const STEPS = ['ประเภทธุรกิจ', 'ข้อมูลผู้ประกอบการ', 'ข้อมูลร้านค้า', 'ช่องทางขาย', 'เอกสารประกอบ', 'ตรวจสอบข้อมูล', 'ส่งคำขอ'];
 const req = (m: string) => z.string().trim().min(1, m);
@@ -28,6 +31,7 @@ const req = (m: string) => z.string().trim().min(1, m);
 const schema = z
   .object({
     businessType: z.enum(['individual', 'juristic']),
+    identityDocType: z.enum(['id_card', 'passport']),
     ownerName: z.string().trim(),
     companyName: z.string().trim(),
     registrationNo: z.string().trim(),
@@ -103,6 +107,7 @@ export default function RegisterShopWizard() {
   const defaults: Form = useMemo(
     () => ({
       businessType: 'individual',
+      identityDocType: 'id_card',
       ownerName: op.name,
       companyName: '',
       registrationNo: '',
@@ -161,11 +166,24 @@ export default function RegisterShopWizard() {
   };
   useEffect(() => reportDemo('reg.edited', summary.edited), [summary.edited]);
 
+  const applicantIsAuthorized = bt === 'juristic' ? !!values.authorizedPerson?.trim() && values.authorizedPerson.trim() === values.applicantName?.trim() : undefined;
+  const docReqs = documentRequirements({ businessType: bt, category: values.category, applicantIsAuthorized, kycVerified: op.kycStatus === 'verified', marketplaceImported: !!importSource });
+  const docCheck = checkDocuments(docReqs, docs);
+  const draftMerchant = {
+    id: 'DRAFT',
+    businessType: bt,
+    identityDocType: values.identityDocType,
+    juristic: bt === 'juristic' ? { companyName: values.companyName, registrationNo: values.registrationNo, companyType: values.companyType, authorizedPerson: values.authorizedPerson, applicantName: values.applicantName } : undefined,
+    documents: docs,
+    phone: values.phone,
+    email: values.email,
+    address: values.address,
+  } as unknown as Merchant;
   const next = async () => {
     if (step === 4) {
-      const needed = bt === 'juristic' ? 'หนังสือรับรองนิติบุคคล' : null;
-      if (!docs.length) return setDocErr('เอกสารไม่ครบ: ต้องแนบเอกสารประกอบอย่างน้อย 1 รายการ');
-      if (needed && !docs.some((d) => d.kind === needed)) return setDocErr(`เอกสารไม่ครบ: นิติบุคคลต้องแนบ "${needed}"`);
+      // ตรวจตามกฎเอกสาร (ประเภทผู้ประกอบการ หมวดสินค้า ผู้มีอำนาจ ข้อมูลที่มีแล้ว) — การยืนยันตัวตนทำผ่าน e-KYC ไม่ใช่การแนบเอกสาร
+      const missing = docCheck.missingRequired.filter((r) => r.kinds.length);
+      if (missing.length) return setDocErr(`เอกสารไม่ครบ: ${missing.map((r) => r.label).join(', ')}`);
       setDocErr('');
       return setStep(5);
     }
@@ -183,6 +201,7 @@ export default function RegisterShopWizard() {
       businessType: v.businessType,
       ownerName: v.businessType === 'individual' ? v.ownerName : v.applicantName,
       juristic: v.businessType === 'juristic' ? { companyName: v.companyName, registrationNo: v.registrationNo, companyType: v.companyType, authorizedPerson: v.authorizedPerson, applicantName: v.applicantName } : undefined,
+      identityDocType: v.identityDocType,
       shopName: v.shopName,
       category: v.category,
       province: v.province,
@@ -371,7 +390,19 @@ export default function RegisterShopWizard() {
               <Field label="ชื่อและนามสกุลผู้ประกอบการ" required error={err('ownerName')} hint="ดึงจากข้อมูลบัญชี สามารถแก้ไขได้">
                 <Input invalid={!!errors.ownerName} {...register('ownerName')} />
               </Field>
-              <Alert tone="info">ระบบสาธิตไม่ขอเลขบัตรประชาชน ใช้ Mock Identity ID: {op.mockIdentityId}</Alert>
+              <Field label="ประเภทเอกสารยืนยันตัวตน" required hint="ใช้กับการยืนยันตัวตน e-KYC (จำลอง) — ระบบไม่เก็บเลขเอกสารจริง">
+                <Select {...register('identityDocType')}>
+                  {(Object.keys(IDENTITY_DOC_LABEL) as (keyof typeof IDENTITY_DOC_LABEL)[]).map((k) => (
+                    <option key={k} value={k}>
+                      {IDENTITY_DOC_LABEL[k]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Alert tone={op.kycStatus === 'verified' ? 'success' : 'warning'} title={op.kycStatus === 'verified' ? 'ยืนยันตัวตนแล้ว (จำลอง)' : 'ยังไม่ได้ยืนยันตัวตน'}>
+                ระบบสาธิตไม่ขอเลขบัตรประชาชน · Mock Reference {maskRef(op.mockIdentityId)}
+                {op.kycStatus !== 'verified' && ' · ยืนยันตัวตนได้ที่เมนู "ยืนยันตัวตน" ก่อนหรือหลังส่งคำขอ'}
+              </Alert>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -395,6 +426,12 @@ export default function RegisterShopWizard() {
               <Field label="ชื่อผู้แทนที่สมัคร" required error={err('applicantName')}>
                 <Input invalid={!!errors.applicantName} {...register('applicantName')} />
               </Field>
+              <div className="space-y-2 text-sm sm:col-span-2" data-testid="juristic-checks">
+                <p className={cn('rounded-lg p-2.5', dbdMockStatus(values.registrationNo) === 'verified_simulation' ? 'bg-success-50 text-ink' : 'bg-bg text-ink-soft')}>
+                  สถานะนิติบุคคล (Mock DBD): {DBD_LABEL[dbdMockStatus(values.registrationNo)]}
+                </p>
+                {applicantIsAuthorized === false && <p className="rounded-lg bg-warning-50 p-2.5 text-ink">ผู้แทนที่สมัครไม่ใช่ผู้มีอำนาจลงนาม — ต้องแนบ "หนังสือมอบอำนาจ" ในขั้นเอกสารประกอบ</p>}
+              </div>
             </div>
           ))}
 
@@ -495,13 +532,14 @@ export default function RegisterShopWizard() {
         {step === 4 && (
           <div className="space-y-3">
             <p className="text-sm text-ink-soft">แนบเอกสารจำลอง (กดปุ่มเพื่อสร้างไฟล์ตัวอย่าง หรือเลือกไฟล์ใดก็ได้ ระบบเก็บเฉพาะชื่อไฟล์)</p>
+            <DocumentChecklist items={docCheck.items} />
             <MockUpload
               value={docs}
               onChange={(d) => {
                 setDocs(d);
                 setDocErr('');
               }}
-              kinds={bt === 'juristic' ? ['หนังสือรับรองนิติบุคคล', 'ใบอนุญาตที่เกี่ยวข้อง', 'ภาพสถานประกอบการ'] : ['ทะเบียนพาณิชย์', 'ภาพสินค้า', 'ภาพสถานที่']}
+              kinds={acceptedKinds(docReqs)}
             />
             {docErr && <Alert tone="error" title="Incomplete Documents">{docErr}</Alert>}
           </div>
@@ -523,7 +561,7 @@ export default function RegisterShopWizard() {
               </section>
             )}
             {[
-              { title: 'ประเภทธุรกิจ', s: 0, rows: [['รูปแบบ', bt === 'juristic' ? 'นิติบุคคล' : 'บุคคลธรรมดา']] },
+              { title: 'ประเภทธุรกิจ', s: 0, rows: [['รูปแบบ', bt === 'juristic' ? 'นิติบุคคล' : 'บุคคลธรรมดา'], ['เอกสารยืนยันตัวตน', IDENTITY_DOC_LABEL[values.identityDocType ?? 'id_card']]] },
               {
                 title: 'ข้อมูลผู้ประกอบการ',
                 s: 1,
@@ -559,6 +597,11 @@ export default function RegisterShopWizard() {
                 </Button>
               </div>
               <DocList docs={docs} />
+            </div>
+            <div className="border-b border-line py-3">
+              <p className="mb-2 font-semibold text-ink">การตรวจสอบเบื้องต้น (Preliminary Verification — จำลอง)</p>
+              <VerificationList items={verificationSummary(draftMerchant, op, []).filter((x) => x.id !== 'ownership')} />
+              {importSource && <p className="mt-2 text-xs text-ink-soft">ความเป็นเจ้าของร้านบน {PLATFORMS[importSource.platform].label} ตรวจหลังส่งคำขอ (เทียบชื่อเจ้าของบัญชีกับผู้ยืนยันตัวตน และ Shop ID ที่ซ้ำกับร้านอื่น)</p>}
             </div>
             {op.kycStatus !== 'verified' && <Alert tone="warning" className="mb-3">คุณยังไม่ได้ยืนยันตัวตน เจ้าหน้าที่จะตรวจสอบคำขอได้ครบถ้วนหลังยืนยันตัวตนแล้ว</Alert>}
             <label className="flex items-start gap-2 text-sm">

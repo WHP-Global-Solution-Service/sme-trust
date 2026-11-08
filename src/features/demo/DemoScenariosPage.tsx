@@ -63,7 +63,7 @@ export default function DemoScenariosPage() {
           </span>
           <h1 className="mt-3 text-2xl font-bold sm:text-3xl">การสาธิตแนวคิด SME Trust Platform</h1>
           <p className="mt-2 max-w-3xl text-white/85">
-            สำหรับผู้บริหารสภา SME และผู้แทนหน่วยงานคุ้มครองผู้บริโภค — <b>v1</b> 8 เรื่องราวด้านการยืนยันตัวตน การรับรอง การร้องเรียน และ AI Simulation · <b>v2</b> 5 เรื่องราวด้านการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิมและการประเมินความน่าเชื่อถือจากหลายปัจจัย
+            ระบบเดียวที่เชื่อมผู้ประกอบการ ผู้บริโภค และเจ้าหน้าที่ — เลือกตาม User Journey ด้านล่าง หรือเล่น Full Journey ทั้งเส้นทาง · ตัวควบคุมการสาธิตแสดงขั้นตอน บทบาทปัจจุบัน และประโยชน์ของแต่ละขั้น
           </p>
           {inProgress && (
             <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-white/10 p-4 sm:flex-row sm:items-center">
@@ -81,6 +81,8 @@ export default function DemoScenariosPage() {
 
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
         <PrototypeDisclaimer />
+
+        <JourneyGuide onStart={(id) => { const sc = findScenario(id); if (sc) void startSingle(sc); }} />
 
         <JourneyCard track="v1" launch={launch} />
         <JourneyCard track="v2" launch={launch} />
@@ -103,7 +105,7 @@ export default function DemoScenariosPage() {
                 <span className="block">{t === 'v1' ? 'Consumer Protection' : 'Marketplace & Trust Assessment'}</span>
                 <span className={cn('block text-xs font-normal', tab === t ? 'text-white/80' : 'text-ink-soft')}>
                   {TRACK_INFO[t].tagline}
-                  {t === 'v2' && ' + ทางเลือก 9B'}
+                  {t === 'v2' && ' + 9A · 9B · 14 · 15'}
                 </span>
               </button>
             ))}
@@ -363,3 +365,37 @@ function ScenarioCard({ sc, onStart }: { sc: ScenarioDef; onStart: () => void })
     </article>
   );
 }
+
+/** Executive Presentation: เลือกตาม User Journey — แต่ละเส้นทางเริ่ม Scenario จริง */
+const GUIDE: { title: string; desc: string; id: string; recommended?: boolean }[] = [
+  { title: 'เส้นทางอัตโนมัติ — จากเชื่อมร้านค้าจนถึงได้รับผลประเมิน', desc: 'Marketplace App → Auto-Fill → ประเมินอัตโนมัติ → Badge → ผู้บริโภค · ไม่มีขั้นเจ้าหน้าที่', id: 's14', recommended: true },
+  { title: 'Marketplace Registration', desc: 'ร้านใหม่สมัครด้วยข้อมูลจาก Marketplace + Auto-Fill', id: 's9a' },
+  { title: 'Self-Registration', desc: 'ร้านที่ไม่มี Marketplace สมัครเอง — Insufficient Data ไม่ใช่ผลลบ', id: 's9b' },
+  { title: 'Exception Review', desc: 'ข้อมูลตัวตนขัดแย้ง → Exception Queue → เจ้าหน้าที่ตัดสิน', id: 's15' },
+  { title: 'Consumer Verification', desc: 'ค้นหา สแกน QR และดูผลประเมินก่อนซื้อ', id: 's13' },
+  { title: 'Consumer Protection', desc: 'ร้องเรียน แก้ไขกับร้านโดยตรง ส่งต่อเจ้าหน้าที่ (Scenario 3)', id: 's3' },
+];
+
+function JourneyGuide({ onStart }: { onStart: (id: string) => void }) {
+  return (
+    <section aria-label="เลือกตาม User Journey" data-testid="journey-guide">
+      <h2 className="mb-3 text-lg font-bold text-ink">เลือกตาม User Journey</h2>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {GUIDE.map((g) => {
+          const sc = findScenario(g.id);
+          return (
+            <div key={g.id} className={cn('flex flex-col rounded-card border bg-white p-4 shadow-card', g.recommended ? 'border-2 border-primary/50' : 'border-line')}>
+              {g.recommended && <Badge tone="primary" className="mb-1 self-start">แนะนำสำหรับผู้บริหาร</Badge>}
+              <p className="font-semibold text-ink">{g.title}</p>
+              <p className="mt-1 flex-1 text-sm text-ink-soft">{g.desc}</p>
+              <Button size="sm" variant={g.recommended ? 'primary' : 'outline'} icon={Play} className="mt-3 self-start" onClick={() => onStart(g.id)}>
+                เริ่ม Scenario {sc ? scenarioCode(sc) : ''}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+

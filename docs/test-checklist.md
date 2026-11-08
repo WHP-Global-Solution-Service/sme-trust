@@ -105,3 +105,16 @@ Build + `vite preview` อัตโนมัติ แล้วคลิกผ�
 
 ### Responsive
 - [ ] 320px, 375px, 768px, 1024px, 1440px — ไม่มี Horizontal scroll, Bottom nav แสดงบน < 1024px, Modal เป็น Bottom sheet บนมือถือ
+
+## Unified Platform Enhancement (Branch `sme-trustv.2`)
+
+| ชุด | สิ่งที่ตรวจ |
+|---|---|
+| `tests/v2/onboarding.test.mts` | KYC/Mock DBD/Mock Reference · Dynamic Documents (บุคคล/นิติบุคคล/หนังสือมอบอำนาจ/หมวดสินค้า/ข้อมูลที่มีแล้ว) · Verification Summary · Self-Registration → ประเมินอัตโนมัติ ไม่ถูกหักคะแนน ไม่ซ้ำ · เพิ่ม Marketplace ภายหลัง (ร้านเดิม, Coverage ↑, Badge อัปเดต) · หลายแพลตฟอร์ม · Shop ID ถูกอ้างโดยร้านอื่น → งานเดียว → Reject · Raw Data · Engine v2.1 ไม่เปลี่ยน · KYC → C1 → Badge · Badge/หน้าร้าน/หน้าการเชื่อมต่อ |
+| `tests/e2e/onboarding.spec.ts` | นิติบุคคลผ่าน UI (Mock DBD, หนังสือมอบอำนาจ, Verification Summary, เจ้าหน้าที่เห็นสรุปเดียวกัน) · สมัครเอง → เพิ่ม Shopee จากหน้าร้าน → Badge active + ลิงก์ตรวจสอบ · ร้านในบัญชีที่เชื่อมแล้วเลือกซ้ำไม่ได้ |
+| `tests/e2e/home.spec.ts` | หน้าแรก Executive: ข้อความตามข้อกำหนด · 5 ขั้นตอน · 2 ช่องทาง · 4 CTA + เข้าสู่ระบบที่ Header · Demo ตาม Journey (ยืนยันก่อนรีเซ็ต) · ไม่มี v1/v2 · 375/768/1440px |
+
+Manual (ก่อนนำเสนอ): เปิดหน้าแรกบนจอ 375px / 768px / 1440px · เล่น Scenario 14 → 15 → 9B (+ เพิ่ม Shopee) ตาม `executive-demo-guide.md`
+
+ผลรอบล่าสุด (9 พ.ย. 2569, ในเครื่อง @ `/sme-trust/`): TypeScript ✅ · `npm test` 18 ชุด ✅ · Build + ตรวจของ Workflow ✅ · E2E Chromium ครบทุกชุด 76/77 (1 ไม่ผ่านครั้งคราว KI-V2-32 → รันซ้ำ 8/8) · Firefox 44/44 · WebKit 15/15 · GitHub Pages จำลอง 9/9 · Safari / มือถือจริง: Not Tested
+

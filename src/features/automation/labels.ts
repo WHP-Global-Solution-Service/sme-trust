@@ -11,7 +11,7 @@ export const BADGE_STATUS: Record<BadgeStatus, { label: string; tone: Tone; cons
   active: { label: 'แสดง Badge', tone: 'success', consumer: 'แสดง Trust Assessment Badge จากการประเมินอัตโนมัติ' },
   below_threshold: { label: 'ยังไม่ถึงเกณฑ์แสดง Badge', tone: 'neutral', consumer: 'ผลประเมินยังไม่ถึงเกณฑ์แสดง Assessment Badge' },
   insufficient: { label: 'Insufficient Data', tone: 'neutral', consumer: 'ข้อมูลยังไม่เพียงพอสำหรับ Assessment Badge — ไม่ได้หมายความว่าร้านมีปัญหา' },
-  needs_update: { label: 'รอร้านค้าอัปเดตข้อมูล', tone: 'warning', consumer: 'ร้านค้ากำลังอัปเดตข้อมูล — ยังไม่แสดง Assessment Badge' },
+  needs_update: { label: 'Outdated — รอร้านค้าอัปเดตข้อมูล', tone: 'warning', consumer: 'ข้อมูลยังไม่เป็นปัจจุบัน ร้านค้ากำลังอัปเดต — ยังไม่แสดง Assessment Badge' },
   under_review: { label: 'รอเจ้าหน้าที่ตรวจสอบเพิ่มเติม', tone: 'warning', consumer: 'ข้อมูลบางส่วนอยู่ระหว่างตรวจสอบเพิ่มเติม จึงยังไม่แสดง Assessment Badge — ไม่ได้หมายความว่าร้านกระทำผิด' },
   withheld: { label: 'ระงับการแสดงระหว่างพิจารณาความเสี่ยง', tone: 'warning', consumer: 'ระงับการแสดง Assessment Badge ระหว่างเจ้าหน้าที่พิจารณา' },
   suspended: { label: 'Suspended — ไม่แสดง Badge', tone: 'error', consumer: 'การรับรองถูกระงับ จึงไม่แสดง Assessment Badge' },
@@ -51,6 +51,7 @@ export const TRIGGER_LABEL: Record<AutomationTrigger, string> = {
   officer_decision: 'เจ้าหน้าที่ตัดสินกรณียกเว้น',
   measure_change: 'สถานะการรับรองเปลี่ยน',
   identity_change: 'ผลยืนยันตัวตนเปลี่ยน',
+  registration: 'ส่งคำขอลงทะเบียน',
   simulation: 'Run Simulation',
 };
 

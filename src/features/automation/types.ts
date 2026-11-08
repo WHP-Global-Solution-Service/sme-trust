@@ -110,6 +110,7 @@ export type AutomationTrigger =
   | 'officer_decision'
   | 'measure_change'
   | 'identity_change'
+  | 'registration'
   | 'simulation';
 
 export type TaskCategory = 'identity_mismatch' | 'evidence_conflict' | 'risk_signal';

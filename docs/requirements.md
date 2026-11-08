@@ -79,3 +79,26 @@
 23. **เจ้าหน้าที่ไม่อนุมัติกรณีสัญญาณ/หลักฐานขัดแย้ง** → เปิดเรื่องพิจารณาความเสี่ยงตามกระบวนการเดิม (ร้านชี้แจง/อุทธรณ์ได้) ไม่ระงับใบรับรองอัตโนมัติ
 24. **ไม่อนุมัติกรณีข้อมูลตัวตนไม่ตรง** → ไม่ใช้ข้อมูลจากการเชื่อมต่อนั้นประเมิน (ไม่เปิดเรื่องความเสี่ยง และใบรับรองไม่เปลี่ยน)
 25. **ระหว่าง MANUAL_REVIEW จาก Decision Router ผู้บริโภคไม่เห็น Band** เพราะข้อมูลอาจไม่ใช่ของร้าน · กรณีมีเรื่องพิจารณาความเสี่ยงเดิมยังแสดง Band + Standing ตามแนวทางเดิม (D8)
+
+## Unified Platform Enhancement — Onboarding, KYC, Multi-Platform, Homepage (Branch `sme-trustv.2` — ยังไม่เผยแพร่)
+
+รายละเอียด: [unified-merchant-onboarding.md](unified-merchant-onboarding.md) · [cross-system-consistency-audit.md](cross-system-consistency-audit.md) · [executive-demo-guide.md](executive-demo-guide.md)
+
+| ข้อกำหนด | การแมป |
+|---|---|
+| Unified Registration (Path A / B) | `/m/register-shop/marketplace` → `/m/register-shop?from=import` · `/m/register-shop` — Merchant/Application/Assessment/Badge กลาง · Draft/Resume/ไม่ส่งซ้ำ |
+| Merchant KYC & Business Verification | `features/onboarding/verification.ts` — ประเภทเอกสารยืนยันตัวตน · Mock Reference แบบปิดบัง · Mock DBD (ตรวจรูปแบบเท่านั้น) · ผู้แทน/หนังสือมอบอำนาจ · Verification Summary |
+| Dynamic Document Requirements | `documentRequirements()` ตามประเภทผู้ประกอบการ หมวดสินค้า ผู้มีอำนาจ e-KYC และข้อมูลจาก Marketplace |
+| Multi-Platform | เพิ่ม Marketplace ภายหลังจากหน้าร้าน (ร้านเดิม) · หลายแพลตฟอร์มต่อร้าน · Provenance + สถานะความเป็นเจ้าของต่อ Connection |
+| Duplicate & Ownership | `shopClaim()` · กันซ้ำในบัญชีเดียวกัน · ร้านอื่นอ้าง Shop ID → `ownershipConflict` → MANUAL_REVIEW |
+| Automation/Assessment Integration | ใช้ Decision Router และ Engine v2.1 เดิม · ประมวลผลหลังส่งคำขอลงทะเบียน · ร้านที่ไม่มี Marketplace ไม่ถูกหักคะแนน |
+| Assessment Badge | ชื่อร้าน Band Coverage Confidence วันที่ แหล่งข้อมูล ลิงก์ตรวจสอบ Mock QR และสถานะ (รวม Outdated) |
+| Homepage Executive | 8 Section ตามข้อกำหนด · 4 CTA ไปเส้นทางจริง · ไม่แสดง v1/v2 |
+| Executive Presentation | Demo Center "เลือกตาม User Journey" + Demo แนะนำ · ประโยชน์ทางธุรกิจในตัวควบคุมการสาธิต |
+
+สมมติฐานที่ตัดสินใจเอง:
+
+26. **ยืนยันตัวตนเป็นข้อกำหนด "จำเป็น" แต่ทำผ่าน e-KYC** ไม่ใช่การแนบไฟล์ — ส่งคำขอได้ก่อนยืนยันตัวตน (ตามพฤติกรรมเดิม) และระบบแจ้งให้ร้านยืนยันเอง (AUTO_REQUEST_INFO)
+27. **หลักฐานตามหมวดสินค้าเป็น "แนะนำ"** ไม่บังคับ — เป็นกฎจำลอง ข้อกำหนดจริงต้องตรวจกับหน่วยงานที่เกี่ยวข้อง
+28. **Shop ID ซ้ำในบัญชีเดียวกันถูกกันที่หน้าจอ** · Shop ID ที่ร้านของผู้ประกอบการรายอื่นเชื่อมอยู่แล้วนำเข้าได้แต่ส่งเจ้าหน้าที่ — ระบบไม่เลือกเจ้าของหรือรวมร้านแทนเจ้าหน้าที่
+29. **ปุ่ม "เข้าสู่ระบบ" ย้ายจาก Hero ไปที่ Header** ของหน้าแรก เพื่อให้ Hero มี 4 CTA ตามข้อกำหนด

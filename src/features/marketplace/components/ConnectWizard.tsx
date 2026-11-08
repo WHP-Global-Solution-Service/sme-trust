@@ -210,6 +210,9 @@ export function ConnectWizard({
                 SME Trust (ระบบสาธิต) ขอเข้าถึงข้อมูลต่อไปนี้จาก <b>{label}</b>{" "}
                 เพื่อใช้ประกอบการประเมินความน่าเชื่อถือของร้าน <b>{shopName}</b>
               </p>
+              <p className="rounded-lg bg-primary-50 p-2.5 text-xs text-ink" data-testid="match-existing">
+                เชื่อมเป็นช่องทางขายเพิ่มของร้าน <b>{shopName}</b> ที่มีอยู่แล้ว — ไม่สร้างบัญชีหรือร้านใหม่ · ระบบปรับความครอบคลุมของข้อมูลและประเมินใหม่อัตโนมัติหลังนำเข้า
+              </p>
               <ul className="space-y-1.5">
                 {CONSENT_SCOPES.map((s) => (
                   <li key={s} className="flex gap-2 text-ink">

@@ -151,6 +151,7 @@ export interface ShopForm {
   businessType: Merchant['businessType'];
   ownerName: string;
   juristic?: Merchant['juristic'];
+  identityDocType?: Merchant['identityDocType'];
   shopName: string;
   category: string;
   province: string;
@@ -184,6 +185,7 @@ export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { 
     businessType: f.businessType,
     ownerName: f.ownerName,
     juristic: f.juristic,
+    ...(f.identityDocType ? { identityDocType: f.identityDocType } : {}),
     category: f.category,
     province: f.province,
     district: f.district,
@@ -239,6 +241,8 @@ export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { 
   notify('officer', undefined, 'คำขอลงทะเบียนใหม่', `${app.id} ${merchant.shopName}${flag ? ' — พบตัวตนซ้ำ' : ''}`, `/o/applications/${app.id}`, flag ? 'error' : 'info');
   notify('merchant', operatorId, 'ส่งคำขอลงทะเบียนแล้ว', `${app.id} อยู่ระหว่างรอตรวจสอบ`, '/m/shop', 'success');
   useSessionStore.getState().set({ activeMerchantId: id });
+  // Automation First: ประเมินและจัดเส้นทางทันทีหลังส่งคำขอ (ไม่อนุมัติคำขอ — คำขอยังรอเจ้าหน้าที่ตามนโยบาย)
+  emitMerchantChanged(id, 'registration');
   return { merchant, app };
 }
 

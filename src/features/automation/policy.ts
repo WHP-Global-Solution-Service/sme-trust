@@ -56,14 +56,14 @@ export const CERTIFICATION_POLICY: CertPolicyRow[] = [
     level: 3,
     mode: 'officer_approval',
     autoApprovalAuthorized: false,
-    basis: 'เกณฑ์ v1 (อบรม ช่องทางขาย ไม่มีคำเตือนค้าง) + ผลประเมินประกอบการพิจารณา',
+    basis: 'เกณฑ์การรับรอง (อบรม ช่องทางขาย ไม่มีคำเตือนค้าง) + ผลประเมินประกอบการพิจารณา',
     note: 'ผลประเมินอัตโนมัติใช้ประกอบเท่านั้น — การออกใบรับรองต้องมีเจ้าหน้าที่อนุมัติ',
   },
   {
     level: 4,
     mode: 'officer_approval',
     autoApprovalAuthorized: false,
-    basis: 'เกณฑ์ v1 ระดับสูง + Band A ความเชื่อมั่นสูง',
+    basis: 'เกณฑ์การรับรอง ระดับสูง + Band A ความเชื่อมั่นสูง',
     note: 'ระดับที่เสนอใน Prototype — ต้องมีเจ้าหน้าที่อนุมัติ',
   },
 ];

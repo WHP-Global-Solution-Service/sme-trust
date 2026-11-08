@@ -49,6 +49,8 @@ export interface MarketplaceConnection {
    * verified = ยืนยันว่าเป็นร้านเดียวกัน · rejected = ไม่ใช่ร้านของผู้ประกอบการ → ข้อมูลจากการเชื่อมต่อนี้ไม่ถูกใช้ประเมิน
    */
   identityReview?: { status: 'verified' | 'rejected'; by: string; at: ISODate; taskId: string };
+  /** ร้านบน Marketplace (Shop ID เดียวกัน) ถูกเชื่อมกับร้านอื่นในระบบอยู่แล้วตอนเชื่อมต่อ — ส่งเจ้าหน้าที่ตรวจความเป็นเจ้าของ */
+  ownershipConflict?: { merchantId: string; detectedAt: ISODate };
 }
 
 export interface Listing {

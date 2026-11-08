@@ -53,7 +53,7 @@ test('ร้านเชื่อมต่อ Lazada (จำลอง) → ป�
   await main(page).getByRole('button', { name: 'ส่งให้เจ้าหน้าที่พิจารณา' }).click();
   await expect(main(page).getByText('ส่งให้เจ้าหน้าที่พิจารณาแล้วเมื่อ')).toBeVisible();
 
-  // เจ้าหน้าที่: เห็นคะแนนและวิธีคำนวณ · เกณฑ์ v1 ของ Level 4 ครบ → อนุมัติยกระดับผ่าน Workflow v1
+  // เจ้าหน้าที่: เห็นคะแนนและวิธีคำนวณ · เกณฑ์การรับรอง ของ Level 4 ครบ → อนุมัติยกระดับผ่าน กระบวนการรับรอง
   await session(page, { role: 'officer', officerId: 'OF-001' });
   await open(page, '/o/assessments');
   await main(page).getByText(mine.id).first().click();
@@ -66,7 +66,7 @@ test('ร้านเชื่อมต่อ Lazada (จำลอง) → ป�
   expect(certsBefore).toHaveLength(0); // ระบบไม่ออก Badge เองระหว่างประเมิน/ส่งพิจารณา
   await main(page).getByRole('button', { name: 'บันทึกผลการพิจารณา' }).click();
   await expect(page.getByText(/กรุณาระบุเหตุผล/).first()).toBeVisible(); // ต้องมีเหตุผล
-  await main(page).getByPlaceholder('อธิบายเหตุผลของการพิจารณา').fill('ผลประเมินดีมาก ข้อมูลครบสองแพลตฟอร์ม และผ่านเกณฑ์ v1 ของ Level 4');
+  await main(page).getByPlaceholder('อธิบายเหตุผลของการพิจารณา').fill('ผลประเมินดีมาก ข้อมูลครบสองแพลตฟอร์ม และผ่านเกณฑ์การรับรอง ของ Level 4');
   await main(page).getByRole('button', { name: 'บันทึกผลการพิจารณา' }).click();
   await expect(main(page).getByText('อนุมัติยกระดับ Level 4')).toBeVisible();
   await expect(main(page).getByText('ตัดสินต่างจากข้อเสนอของระบบ')).toHaveCount(0);
@@ -77,7 +77,7 @@ test('ร้านเชื่อมต่อ Lazada (จำลอง) → ป�
   // ร้านเห็นผลการพิจารณา · ผู้บริโภคเห็น Band/Coverage/Confidence แต่ไม่เห็นคะแนน
   await session(page, { role: 'merchant', operatorId: 'OP-005', merchantLoggedIn: true });
   await open(page, '/m/trust');
-  await expect(main(page).getByText('ผ่านเกณฑ์ v1 ของ Level 4').first()).toBeVisible();
+  await expect(main(page).getByText('ผ่านเกณฑ์การรับรอง ของ Level 4').first()).toBeVisible();
   await session(page, { role: 'consumer', consumerId: 'CS-001' });
   await open(page, '/shop/M-005');
   await expect(main(page).getByText('Data Confidence — ความน่าเชื่อถือของข้อมูล')).toBeVisible();

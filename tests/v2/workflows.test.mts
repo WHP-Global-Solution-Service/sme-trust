@@ -65,7 +65,7 @@ officer();
 const pending6 = S.useAssessmentStore.getState().items.find((a) => a.merchantId === 'M-006' && a.status === 'pending_review')!;
 check(!V2.decideAssessment(pending6.id, 'approved', 'ok', 3).ok, 'เหตุผลสั้นเกินไป → ไม่บันทึก');
 const unmet = V2.decideAssessment(pending6.id, 'approved', 'ผลประเมินดีและข้อมูลครบ', 3);
-check(!unmet.ok && unmet.error.includes('เกณฑ์ v1') && certs('M-006').every((x) => x.level < 3), `ยังไม่ผ่านเกณฑ์ v1 → อนุมัติไม่ได้: ${unmet.ok ? '' : unmet.error.slice(0, 60)}…`);
+check(!unmet.ok && unmet.error.includes('ยังไม่ผ่านเกณฑ์การรับรอง ของ Level 3') && certs('M-006').every((x) => x.level < 3), `ยังไม่ผ่านเกณฑ์ v1 → อนุมัติไม่ได้: ${unmet.ok ? '' : unmet.error.slice(0, 60)}…`);
 W.reviewCorrection('WRN-2569-0006', 'start');
 W.reviewCorrection('WRN-2569-0006', 'approve', 'ผ่าน');
 const before6 = certs('M-006').length;

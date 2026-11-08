@@ -7,6 +7,10 @@ import { useMerchantView, useMyMerchants } from '@/hooks/useCurrent';
 import { CHANNEL_STATUS, CHANNEL_TYPES, REGISTRATION_STATUS } from '@/constants/labels';
 import { fmtDate } from '@/utils/format';
 import { Alert, Button, Card, CardHeader, EmptyState, InfoRow, LinkButton, PageHeader, StatusBadge } from '@/components/common/ui';
+import { useMarketplaceStore, useMerchantStore, useOperatorStore } from '@/stores';
+import { VerificationList } from '@/features/onboarding/VerificationParts';
+import { verificationSummary } from '@/features/onboarding/verification';
+import { Link2 } from 'lucide-react';
 import { Timeline } from '@/components/common/Timeline';
 import { VerdictBadge } from '@/components/common/Trust';
 import { Field, Input, Select, Textarea } from '@/components/forms/Field';
@@ -56,6 +60,8 @@ export default function ShopPage() {
           คำขออยู่ระหว่างการพิจารณา ระหว่างนี้ร้านค้ายังไม่ได้รับสถานะผ่านเกณฑ์ธุรกิจ
         </Alert>
       )}
+
+      <VerifySection merchantId={m.id} />
 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4">
@@ -184,3 +190,25 @@ export default function ShopPage() {
     </div>
   );
 }
+
+/** สรุปการตรวจสอบตัวตน ธุรกิจ และความเป็นเจ้าของร้านบน Marketplace (จำลอง) + ทางเข้าเพิ่มช่องทางขาย */
+function VerifySection({ merchantId }: { merchantId: string }) {
+  const m = useMerchantStore((s) => s.items.find((x) => x.id === merchantId))!;
+  const op = useOperatorStore((s) => s.items.find((o) => o.id === m.operatorId));
+  const connections = useMarketplaceStore((s) => s.items);
+  const live = connections.filter((c) => c.merchantId === merchantId && c.status !== 'disconnected');
+  return (
+    <Card className="mb-4" data-testid="shop-verification">
+      <CardHeader
+        title="การตรวจสอบผู้ประกอบการ (จำลอง)"
+        subtitle={`ช่องทาง Marketplace ที่เชื่อมแล้ว ${live.length} ช่องทาง — เพิ่มได้ภายหลังโดยไม่สร้างร้านใหม่`}
+        action={<LinkButton to="/m/marketplace" size="sm" variant="outline" icon={Link2}>เพิ่มช่องทางขาย (Marketplace)</LinkButton>}
+      />
+      <div className="p-4 sm:p-5">
+        <VerificationList items={verificationSummary(m, op, connections)} />
+        <p className="mt-2 text-xs text-ink-soft">ตรวจแบบจำลองภายในระบบสาธิต — ไม่ได้ตรวจกับ DBD, หน่วยงานรัฐ หรือ Marketplace จริง</p>
+      </div>
+    </Card>
+  );
+}
+

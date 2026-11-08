@@ -20,7 +20,7 @@ test('Demo Selector: แยก v1 / v2, Full Journey 2 ชุด และแท
   await open(page, '/demo');
   await expect(page.getByRole('region', { name: 'สาธิตระบบแบบต่อเนื่อง (Full Journey Demo)' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' }).getByText(/เน้นการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิม/)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' }).getByText(/เชื่อมข้อมูลจากแพลตฟอร์มขายเดิม/)).toBeVisible();
   // แท็บ v1 แสดง 8 การ์ด, แท็บ v2 แสดง 5 + ทางเลือก 9A (ร้านใหม่ Auto-Fill) + 9B (ลงทะเบียนเอง)
   await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(8);
   await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
@@ -144,7 +144,7 @@ test('Full Journey v2: เชื่อมต่อ → วิเคราะห�
   await expectBlocked(page);
   await main(page).getByRole('radio', { name: 'อนุมัติยกระดับ' }).click();
   await main(page).locator('select').last().selectOption('4');
-  await main(page).getByPlaceholder('อธิบายเหตุผลของการพิจารณา').fill('ผลประเมิน Band A ความเชื่อมั่นสูง และผ่านเกณฑ์ v1 ของ Level 4 ครบ');
+  await main(page).getByPlaceholder('อธิบายเหตุผลของการพิจารณา').fill('ผลประเมิน Band A ความเชื่อมั่นสูง และผ่านเกณฑ์การรับรอง ของ Level 4 ครบ');
   await main(page).getByRole('button', { name: 'บันทึกผลการพิจารณา' }).click();
   await expect(main(page).getByText('อนุมัติยกระดับ Level 4')).toBeVisible();
   const decided = (await store<Tas>(page, 'trust-assessments')).find((a) => a.id === tas.id)!;
@@ -201,8 +201,8 @@ test('ทางเลือก 9B: ไม่มี Marketplace → ลงทะ�
   await main(page).getByRole('button', { name: 'ส่งคำขอ', exact: true }).click();
   await next(page);
   await expect(page).toHaveURL(/\/m\/trust$/);
-  await expectBlocked(page);
-  await main(page).getByRole('button', { name: 'ประเมินความน่าเชื่อถือ' }).first().click();
+  await expectBlocked(page); // ผลที่ระบบประเมินอัตโนมัติหลังส่งคำขอไม่ผ่าน Gate — ร้านต้องกดประเมินเอง
+  await main(page).getByRole('button', { name: /^(ประเมินความน่าเชื่อถือ|ประเมินใหม่)$/ }).first().click();
   await expect(main(page).getByText('Insufficient Data — ข้อมูลยังไม่เพียงพอ').first()).toBeVisible();
   await next(page);
   await main(page).getByRole('button', { name: 'ส่งให้เจ้าหน้าที่พิจารณา' }).click();

@@ -49,6 +49,7 @@ export function routingContext(bundle: DataBundle, merchantId: string, assessmen
         ownerName: sourceOwnerName(c, op?.name),
         ownerMismatch: ownerMismatchOf(c),
         identityReview: c.identityReview?.status,
+        claimedBy: c.ownershipConflict?.merchantId,
       })),
     cleared,
     asOf,
