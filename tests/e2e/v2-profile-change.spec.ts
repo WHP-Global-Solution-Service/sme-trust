@@ -28,6 +28,8 @@ async function connectAndRename(page: Page, newName: string) {
   await open(page, `/m/marketplace/profile/${connId}`);
   await expect(page).toHaveURL(/\/m\/marketplace\/profile\/MKC-\d+$/);
   // ชื่อร้านเดิม (ข้อมูลตั้งต้นยังไม่ถูกเขียนลง localStorage จนกว่าจะมีการเปลี่ยนแปลง — อ่านจากแบบฟอร์มที่เติมจากข้อมูลในระบบ)
+  // รอให้ฟอร์มเติมค่าก่อนอ่าน (inputValue ไม่รอค่า — บนเว็บจริงที่โหลดช้ากว่าเคยอ่านได้ค่าว่าง)
+  await expect(main(page).getByLabel(/ชื่อร้านที่ใช้แสดง/)).not.toHaveValue('');
   const before = { id: 'M-005', shopName: await main(page).getByLabel(/ชื่อร้านที่ใช้แสดง/).inputValue() };
   expect(before.shopName).toBe('ร้านกาแฟดอยสูง');
   await main(page).getByLabel(/ชื่อร้านที่ใช้แสดง/).fill(newName);

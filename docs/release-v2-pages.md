@@ -4,7 +4,7 @@ URL: https://whp-global-solution-service.github.io/sme-trust/
 Source: `sme-trustv.2` → Merge เข้า `main` → GitHub Actions (`deploy-pages.yml`) Deploy จาก `main` เท่านั้น
 
 > สถานะ: **เผยแพร่แล้ว 3 รอบ** — รอบที่ 1 (v2 แทน v1) Merge `7e6df10` · Run #3 · ข้อ 9 · รอบที่ 2 (Marketplace Auto-Fill) Merge `4eed1d9` · Run #4 · ข้อ 10 · รอบที่ 3 (หน้าแรก Concept v2 + คำขอเปลี่ยนข้อมูลร้าน) Merge `304d247` · Run #5 · ข้อ 11–12
-> **Release 4 (Automation First) เตรียมพร้อมแล้ว — ยังไม่เผยแพร่** · Checklist และ Rollback Plan ข้อ 13 (ฐาน Production `304d247`)
+> **Release 4 (Automation First) เผยแพร่แล้ว** — Merge `06a36e3` · Run #6 · ข้อ 13–14 · Rollback Tag `sme-trust-v2.2-before-automation` → `304d247`
 > Prototype นี้เป็น Frontend Only ด้วยข้อมูลจำลอง — **ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)**
 
 ## 1. ผล Preflight
@@ -217,7 +217,7 @@ Not Tested (รอบที่ 2): Safari / อุปกรณ์มือถื
 
 Not Tested (รอบที่ 3): Safari / อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
 
-## 13. Release 4 — Automation First, Human by Exception (เตรียมแล้ว — ยังไม่เผยแพร่)
+## 13. Release 4 — Automation First, Human by Exception (เผยแพร่แล้ว — ผลจริงดูข้อ 14)
 
 ### 13.1 ฐานของ Release (ข้อมูลจริง ตรวจเมื่อ 8 พ.ย. 2569)
 
@@ -315,3 +315,24 @@ git switch sme-trustv.2
 | ปัญหาเล็ก (ข้อความ, P3) | ไม่ Rollback — แก้บน Branch แล้วเผยแพร่รอบถัดไป |
 
 หลัง Rollback: Store ใหม่ (`assessment-badges`, `officer-tasks`, `automation-runs`) ค้างใน localStorage ของผู้ใช้โดยไม่มีผลต่อ Release 3 · Store เดิมใช้ต่อได้ · การนำ Release 4 กลับมา: `git revert <revert-commit>`
+
+## 14. Release 4 — บันทึกการเผยแพร่จริง
+
+| รายการ | ค่า |
+|---|---|
+| ฐานก่อนเผยแพร่ | `origin/main` = `304d247` (ตรวจแล้วไม่เปลี่ยน) · Working tree สะอาด |
+| Rollback Tag | `sme-trust-v2.2-before-automation` (annotated) → `304d247` · Push แล้ว |
+| Source | `sme-trustv.2` `447a9fa..30316b4` (มี `d3bdc0c`, `8bb6715`, `30316b4` ครบ) · Push แล้ว |
+| Merge Commit | **`06a36e3`** (`--no-ff`, ไม่ Force Push / ไม่ Rewrite History) · `git diff 30316b4 06a36e3` ว่าง |
+| ตรวจหลัง Merge | `npm ci` ✅ · TypeScript ✅ · `npm test` 17 ชุด ✅ · Build `/sme-trust/` + ขั้นตอนตรวจของ Workflow ✅ (`index-myV2if87.js` = Bundle ของ RC) · E2E Chromium 74/74 ✅ · GitHub Pages จำลอง 9/9 ✅ (รอบแรก `EBUSY` จาก Shell ที่เปิดโฟลเดอร์ `.pages/live` ค้าง — ย้ายแล้วรันใหม่ผ่าน) |
+| GitHub Actions | Run #6 `42503472126` · build ✅ 17:08:49–17:09:58 · deploy ✅ 17:10:02–17:10:11 (UTC, 8 พ.ย. 2569) |
+| เว็บจริง | Bundle `index-myV2if87.js` (ตรงกับ Build ในเครื่อง) · Asset 126 ไฟล์ตอบ 200 |
+| Live smoke | Chromium ครบทุกชุด + Live 5 = **79/79** ✅ · Firefox 46 Test: 45 ผ่าน + 1 ไม่ผ่านรอบแรก (ดูหมายเหตุ) → รันซ้ำ 6/6 ✅ · WebKit **19/19** ✅ |
+| Rollback | **ไม่ Rollback** — ไม่พบปัญหาร้ายแรง |
+
+Live smoke ครอบคลุม: เชื่อม Marketplace + Auto-Fill · ประเมินอัตโนมัติ · AUTO_PASS (Scenario 14) · AUTO_REQUEST_INFO (ร้านเปิดใหม่ → Insufficient Data, ไม่มีงานเจ้าหน้าที่) · MANUAL_REVIEW (Scenario 15 + ตัวตนไม่ตรง) · Badge อัตโนมัติ · ร้านใหม่สมัครด้วย Marketplace (Badge active) → เจ้าหน้าที่ Reject คำขอลงทะเบียน → Badge ไม่แสดงต่อผู้บริโภค ร้านเห็นเหตุผล ไม่มีใบรับรอง · Suspended (M-004) / Revoked (M-008) / Withheld (M-009) / Under Review ไม่แสดงตรา Badge และมุมเจ้าหน้าที่แสดงสถานะเดียวกัน · Exception Queue · Request More Information → ร้านตอบในงานเดิม → Reject · ไม่สร้างงานซ้ำเมื่อ Reload / Sync / Run Simulation ×2 · Scenario 14–15 จนจบ · Full Journey ทั้งสองชุดและ Scenario 1–13, 9A, 9B · Direct link + Refresh (`/o/exceptions`, `/o/automation`, `/o`, `/m/marketplace-app`, `/m/trust`, `/shop/:id`, `/verify/:id`, `/demo`) · ไม่มี Request ไปโดเมนอื่น (ไม่มีการเชื่อมต่อ Shopee, Lazada หรือ สคบ. จริง) · ไม่มี Console error (ยกเว้น 404 ของคำขอแรกของ Direct link ตาม KI-03)
+
+หมายเหตุ Firefox: `v2-profile-change` อ่านค่าช่องชื่อร้านด้วย `inputValue()` ก่อนฟอร์มเติมค่าบนเว็บจริงที่โหลดช้ากว่า (ได้ค่าว่าง) — เป็นจังหวะเวลาของ Test ไม่ใช่ปัญหาของแอป (ผ่านบน Chromium/WebKit จริง และรันซ้ำบน Firefox จริง 6/6) · แก้ Test ให้รอค่าก่อนอ่านแล้ว (Branch `sme-trustv.2`, ยังไม่เผยแพร่)
+
+Not Tested (รอบที่ 4): Safari / อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
+
