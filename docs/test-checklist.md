@@ -104,7 +104,7 @@ Build + `vite preview` อัตโนมัติ แล้วคลิกผ�
 - [ ] Jump ไป Scenario ที่ยังไม่เริ่ม → มีกล่องยืนยัน
 
 ### Responsive
-- [ ] 320px, 375px, 768px, 1024px, 1440px — ไม่มี Horizontal scroll, Bottom nav แสดงบน < 1024px, Modal เป็น Bottom sheet บนมือถือ
+- [ ] 320px, 375px, 390px, 768px, 1024px, 1440px — ไม่มี Horizontal scroll · หน้าแรกมีปุ่มเข้าสู่ระบบใน Header ทุกขนาด, Bottom nav แสดงบน < 1024px, Modal เป็น Bottom sheet บนมือถือ
 
 ## Unified Platform Enhancement (Branch `sme-trustv.2`)
 
@@ -112,9 +112,25 @@ Build + `vite preview` อัตโนมัติ แล้วคลิกผ�
 |---|---|
 | `tests/v2/onboarding.test.mts` | KYC/Mock DBD/Mock Reference · Dynamic Documents (บุคคล/นิติบุคคล/หนังสือมอบอำนาจ/หมวดสินค้า/ข้อมูลที่มีแล้ว) · Verification Summary · Self-Registration → ประเมินอัตโนมัติ ไม่ถูกหักคะแนน ไม่ซ้ำ · เพิ่ม Marketplace ภายหลัง (ร้านเดิม, Coverage ↑, Badge อัปเดต) · หลายแพลตฟอร์ม · Shop ID ถูกอ้างโดยร้านอื่น → งานเดียว → Reject · Raw Data · Engine v2.1 ไม่เปลี่ยน · KYC → C1 → Badge · Badge/หน้าร้าน/หน้าการเชื่อมต่อ |
 | `tests/e2e/onboarding.spec.ts` | นิติบุคคลผ่าน UI (Mock DBD, หนังสือมอบอำนาจ, Verification Summary, เจ้าหน้าที่เห็นสรุปเดียวกัน) · สมัครเอง → เพิ่ม Shopee จากหน้าร้าน → Badge active + ลิงก์ตรวจสอบ · ร้านในบัญชีที่เชื่อมแล้วเลือกซ้ำไม่ได้ |
-| `tests/e2e/home.spec.ts` | หน้าแรก Executive: ข้อความตามข้อกำหนด · 5 ขั้นตอน · 2 ช่องทาง · 4 CTA + เข้าสู่ระบบที่ Header · Demo ตาม Journey (ยืนยันก่อนรีเซ็ต) · ไม่มี v1/v2 · 375/768/1440px |
+| `tests/e2e/home.spec.ts` | หน้าแรก Executive: ข้อความตามข้อกำหนด · 5 ขั้นตอน · 2 ช่องทาง · 4 CTA + เข้าสู่ระบบที่ Header · Demo ตาม Journey (ยืนยันก่อนรีเซ็ต) · ไม่มี v1/v2 · **320/375/390/768/1440px**: ไม่มี Overflow, ปุ่มเข้าสู่ระบบ/Demo Mode อยู่ในจอทั้งหมดไม่ทับกัน, Header บรรทัดเดียว · มือถือ: เข้าสู่ระบบจาก Header → `/m` · CTA → เข้าสู่ระบบ → กลับไปขั้นตอนลงทะเบียนที่ตั้งใจไว้ (KI-V2-31) |
+| `tests/v2/release-automation.test.mts` ข้อ 8 | KI-V2-32: ตัวควบคุมการสาธิตเปลี่ยนหน้าตามขั้นจริง แม้ location ของ React ยังเป็นค่าเก่า (startTransition) · ขั้นที่ใช้หน้าเดียวกันไม่เปิดหน้าซ้ำ |
+| `tests/v2/onboarding.test.mts` (Release Validation) | นิติบุคคลสมัครเอง (Mock DBD + หนังสือมอบอำนาจ) → Insufficient Data ไม่มีใบรับรองอัตโนมัติ · ID ไม่ซ้ำ: Merchant / Application / Connection / Assessment / Officer Task · Badge ร้านละ 1 · การเชื่อมต่อที่ใช้งานแพลตฟอร์มละ 1 ต่อร้าน · ใบรับรองระงับ/เพิกถอน → ผู้บริโภคไม่เห็น Badge ที่มีผล |
 
 Manual (ก่อนนำเสนอ): เปิดหน้าแรกบนจอ 375px / 768px / 1440px · เล่น Scenario 14 → 15 → 9B (+ เพิ่ม Shopee) ตาม `executive-demo-guide.md`
 
-ผลรอบล่าสุด (9 พ.ย. 2569, ในเครื่อง @ `/sme-trust/`): TypeScript ✅ · `npm test` 18 ชุด ✅ · Build + ตรวจของ Workflow ✅ · E2E Chromium ครบทุกชุด 76/77 (1 ไม่ผ่านครั้งคราว KI-V2-32 → รันซ้ำ 8/8) · Firefox 44/44 · WebKit 15/15 · GitHub Pages จำลอง 9/9 · Safari / มือถือจริง: Not Tested
+ผลรอบก่อน (9 พ.ย. 2569, `0123a25`): E2E Chromium 76/77 (KI-V2-32) · Firefox 44/44 · WebKit 15/15 · Pages จำลอง 9/9
+
+**ผลรอบล่าสุด — Final Release Validation (9 พ.ย. 2569, ในเครื่อง @ `/sme-trust/`):**
+
+| รายการ | ผล |
+|---|---|
+| TypeScript | ✅ |
+| `npm test` | ✅ 18 ชุด (onboarding 54 · release-automation 100 · automation 108 · Render 134 เส้นทาง) |
+| Build `VITE_BASE=/sme-trust/` (`MSYS_NO_PATHCONV=1`) + ตรวจของ Workflow | ✅ `index-oqoY-Ekx.js` · `404.html` = `index.html` · Asset ใต้ `/sme-trust/assets/` · ไม่มี `/v2/` · ไม่พบ Secret |
+| E2E Chromium ครบทุกชุด (4 Worker) | ✅ รอบ 1: 80/80 · รอบ 2: 80/80 |
+| `continuity` + `home` ซ้ำ 10 รอบ (4 Worker) | ✅ 110/110 |
+| Firefox (8 ชุด: home, onboarding, automation, continuity, v2-journey, v2-assessment, v2-autofill, v2-profile-change) | ✅ 27/27 |
+| WebKit (4 ชุด: home, onboarding, automation, continuity) | ✅ 18/18 (2 รอบแรกเริ่มไม่ได้: Build ของ WebServer ล้มด้วย `ENOTEMPTY dist\assets` บน Windows — ปัญหาสภาพแวดล้อม ลบ `dist` แล้วรันผ่าน) |
+| GitHub Pages จำลอง | ✅ 9/9 (ไม่มี Request ไปโดเมนอื่น · Deep link + Refresh · 404 Fallback · ไม่มี Console error) |
+| Not Tested | Safari จริง (macOS/iOS) · อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit · เว็บจริง (ยังไม่ Deploy) |
 

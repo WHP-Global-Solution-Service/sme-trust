@@ -183,14 +183,15 @@ export default function WelcomePage() {
       <header className="bg-primary-dark text-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
           <Logo light />
-          <div className="flex items-center gap-2">
-            <button onClick={login} className="hidden h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-white/10 sm:flex">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {/* ทุกขนาดจอ: เข้าสู่ระบบมองเห็นเสมอ · จอเล็กย่อปุ่ม Demo Mode เหลือไอคอน (ชื่อปุ่มยังอ่านได้ด้วย aria-label) เพื่อไม่ให้ Header ล้น */}
+            <button onClick={login} data-testid="header-login" className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-xl border border-white/30 px-2.5 text-sm font-medium hover:bg-white/10 sm:border-transparent sm:px-3">
               <LogIn className="h-4 w-4" />
               เข้าสู่ระบบ
             </button>
-            <button onClick={() => set({ demoPanelOpen: true })} className="flex h-10 items-center gap-1.5 rounded-xl bg-white/10 px-3 text-sm font-medium hover:bg-white/20">
+            <button onClick={() => set({ demoPanelOpen: true })} aria-label="Demo Mode" title="Demo Mode" className="flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-xl bg-white/10 px-2.5 text-sm font-medium hover:bg-white/20 sm:px-3">
               <FlaskConical className="h-4 w-4" />
-              Demo Mode
+              <span className="hidden sm:inline">Demo Mode</span>
             </button>
           </div>
         </div>

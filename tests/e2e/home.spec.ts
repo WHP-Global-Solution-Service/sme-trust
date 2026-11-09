@@ -85,12 +85,55 @@ test('หน้าแรก: Demo ตาม User Journey เริ่ม Scenari
   await expect(main(page).getByTestId('journey-guide')).toContainText('เส้นทางอัตโนมัติ — จากเชื่อมร้านค้าจนถึงได้รับผลประเมิน');
 });
 
-for (const width of [375, 768, 1440]) {
-  test(`หน้าแรก ${width}px: ไม่มี Horizontal overflow และ CTA ใช้งานได้`, async ({ page }) => {
+for (const width of [320, 375, 390, 768, 1440]) {
+  test(`หน้าแรก ${width}px: ไม่มี Horizontal overflow · เข้าสู่ระบบมองเห็นใน Header · CTA ใช้งานได้`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await fresh(page);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
     for (const name of ['เชื่อมร้านค้าออนไลน์', 'ลงทะเบียนด้วยตนเอง', 'ตรวจสอบร้านค้า', 'ทดลอง Demo']) await expect(cta(page, name)).toBeVisible();
+    // KI-V2-31: ปุ่มเข้าสู่ระบบอยู่ใน Header ทุกขนาดจอ ไม่ล้นจอ และไม่ทับกับปุ่ม Demo Mode
+    const banner = page.getByRole('banner');
+    const login = banner.getByRole('button', { name: 'เข้าสู่ระบบ' });
+    const demoBtn = banner.getByRole('button', { name: 'Demo Mode' });
+    await expect(login).toBeVisible();
+    await expect(login).toBeInViewport({ ratio: 1 });
+    await expect(demoBtn).toBeInViewport({ ratio: 1 });
+    const a = (await login.boundingBox())!;
+    const b = (await demoBtn.boundingBox())!;
+    expect(a.x + a.width).toBeLessThanOrEqual(b.x);
+    expect(b.x + b.width).toBeLessThanOrEqual(width);
+    expect(a.height).toBeGreaterThanOrEqual(40); // พื้นที่แตะเพียงพอบนมือถือ
+    // Header สูงบรรทัดเดียว (ไม่ห่อจนแน่น)
+    expect((await banner.boundingBox())!.height).toBeLessThanOrEqual(64);
   });
 }
+
+test('มือถือ 375px: เข้าสู่ระบบจาก Header และกลับเข้าสู่ขั้นตอนลงทะเบียนที่ตั้งใจไว้หลังเข้าสู่ระบบ', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await fresh(page);
+  // ปุ่มเข้าสู่ระบบใน Header → หน้าเข้าสู่ระบบ → เข้าสู่ระบบสำเร็จ → หน้าหลักผู้ประกอบการ
+  await page.getByRole('banner').getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole('button', { name: 'เข้าสู่ระบบด้วยลายนิ้วมือ (จำลอง)' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
+  await expect(page).toHaveURL(/\/m$/);
+  // ออกจากระบบ (มีบัญชีแต่ยังไม่เข้าสู่ระบบ) → CTA "เชื่อมร้านค้าออนไลน์" → เข้าสู่ระบบ → กลับไปที่ขั้นตอนเชื่อม Marketplace
+  await open(page, '/');
+  await session(page, { role: 'consumer', merchantLoggedIn: false });
+  await page.reload();
+  await cta(page, 'เชื่อมร้านค้าออนไลน์').click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole('button', { name: 'เข้าสู่ระบบด้วยลายนิ้วมือ (จำลอง)' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop\/marketplace$/);
+  // CTA "ลงทะเบียนด้วยตนเอง" → เข้าสู่ระบบ → กลับไปที่แบบลงทะเบียนร้าน
+  await open(page, '/');
+  await session(page, { role: 'consumer', merchantLoggedIn: false });
+  await page.reload();
+  await cta(page, 'ลงทะเบียนด้วยตนเอง').click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole('button', { name: 'เข้าสู่ระบบด้วยลายนิ้วมือ (จำลอง)' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop$/);
+});

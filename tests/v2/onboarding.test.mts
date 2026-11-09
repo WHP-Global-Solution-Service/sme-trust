@@ -159,4 +159,46 @@ describe('Assessment Badge — เนื้อหาและความสอ�
   check(mp.includes('ความเป็นเจ้าของร้าน') && mp.includes('ที่มาของข้อมูล'), 'หน้าการเชื่อมต่อแสดงที่มาของข้อมูลและความเป็นเจ้าของร้าน');
 }
 
+// ------------------------------------------------------------------ Final Release Validation
+describe('Release Validation — นิติบุคคลสมัครเอง · ID ไม่ซ้ำทุก Store · Badge ถูกระงับ/เพิกถอนไม่แสดงทุกมุมมอง');
+{
+  asMerchant('OP-013');
+  const jForm = baseForm({
+    businessType: 'juristic', ownerName: 'คุณ ข ผู้แทน', shopName: 'บริษัท ทดสอบนิติบุคคล จำกัด', category: 'อาหารและเครื่องดื่ม', email: 'juristic@example.com',
+    juristic: { companyName: 'บริษัท ทดสอบนิติบุคคล จำกัด', registrationNo: 'DEMO-0105569000999', companyType: 'บริษัทจำกัด', authorizedPerson: 'คุณ ก กรรมการ', applicantName: 'คุณ ข ผู้แทน' },
+    documents: [doc('หนังสือรับรองนิติบุคคล'), doc('หนังสือมอบอำนาจ')],
+  } as never);
+  const j = W.submitShopRegistration('OP-013', jForm, { draftId: 'DRF-JUR-REL' });
+  const jm = merchants().find((m) => m.id === j.merchant.id)!;
+  const jop = S.useOperatorStore.getState().items.find((o) => o.id === jm.operatorId)!;
+  const js = VR.verificationSummary(jm, jop, S.useMarketplaceStore.getState().items);
+  check(jm.businessType === 'juristic' && js.find((x) => x.id === 'business')?.state === 'verified_simulation' && js.find((x) => x.id === 'representative')?.state !== 'missing', 'นิติบุคคลสมัครเอง: Mock DBD ผ่าน (จำลอง) · แนบหนังสือมอบอำนาจแล้ว → ผู้แทนไม่ขาด');
+  check(badge(jm.id)?.status === 'insufficient' && !S.useCertificationStore.getState().items.some((c) => c.merchantId === jm.id), 'นิติบุคคลไม่มี Marketplace → Insufficient Data (ไม่ใช่ผลลบ) · ไม่มีใบรับรองอัตโนมัติ');
+
+  // ID ต้องไม่ซ้ำในทุก Store หลังทุก Flow ข้างต้น (สมัครเอง · เชื่อมภายหลัง · หลายแพลตฟอร์ม · อ้าง Shop ID ซ้ำ · นิติบุคคล)
+  const dupIds = (name: string, ids: string[]) => {
+    const d = ids.filter((id, i) => ids.indexOf(id) !== i);
+    check(d.length === 0, `${name}: ID ไม่ซ้ำ (${ids.length} รายการ)${d.length ? ' — ซ้ำ: ' + d.join(',') : ''}`);
+  };
+  dupIds('Merchant', merchants().map((m) => m.id));
+  dupIds('Registration/Verification Application', S.useVerificationStore.getState().items.map((a) => a.id));
+  dupIds('Marketplace Connection', S.useMarketplaceStore.getState().items.map((c) => c.id));
+  dupIds('Trust Assessment', S.useAssessmentStore.getState().items.map((a) => a.id));
+  dupIds('Officer Task', S.useOfficerTaskStore.getState().items.map((t) => t.id));
+  check(new Set(S.useAssessmentBadgeStore.getState().items.map((b) => b.merchantId)).size === S.useAssessmentBadgeStore.getState().items.length, 'Assessment Badge: ร้านละ 1 รายการ');
+  const active = S.useMarketplaceStore.getState().items.filter((c) => c.status !== 'disconnected');
+  const pairs = active.map((c) => `${c.merchantId}|${c.platform}`);
+  check(new Set(pairs).size === pairs.length, 'ร้านหนึ่งมีการเชื่อมต่อที่ใช้งานอยู่ได้แพลตฟอร์มละ 1 รายการ');
+
+  // ใบรับรองถูกระงับ / เพิกถอน → ไม่มี Badge ที่มีผลในทุกมุมมอง
+  for (const st of ['suspended', 'revoked'] as const) {
+    S.useCertificationStore.setState({ items: [...S.useCertificationStore.getState().items.filter((c) => c.merchantId !== SID), { ...(S.useCertificationStore.getState().items[0] as any), id: `CERT-REL-${st}`, merchantId: SID, status: st }] });
+    AU.processMerchant(SID, 'measure_change');
+    const b = badge(SID)!;
+    const consumer = view(`/shop/${SID}`, { role: 'consumer' });
+    const merchantV = view('/m/trust', { role: 'merchant', operatorId: 'OP-012', activeMerchantId: SID });
+    check(b.status === st && !consumer.includes('ตรวจสอบสถานะ Badge') && /ไม่แสดง|ระงับ|เพิกถอน/.test(merchantV), `ใบรับรอง ${st} → Badge ${b.status} · ผู้บริโภคไม่เห็น Badge ที่มีผล · ร้านเห็นสถานะ`);
+  }
+}
+
 finish();

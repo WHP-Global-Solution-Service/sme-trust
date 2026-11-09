@@ -11,6 +11,7 @@ import { useDemoStore, type DemoCtx } from '@/stores/demo';
 import { resetAllDemoData } from '@/stores/workflows';
 import { STORAGE_PREFIX } from '@/stores/createEntityStore';
 import { findScenario, journeyScenarios, trackOf } from '@/mock/scenarios';
+import { ROUTER_BASENAME } from '@/utils/appUrl';
 import type { ContinuityIssue, DemoStep, GateInput, ScenarioDef, Track } from './types';
 
 export const SNAPSHOT_KEY = `${STORAGE_PREFIX}demo-snapshot`;
@@ -78,6 +79,19 @@ function applyAccount(role: Role, ctx: DemoCtx) {
 
 export const stepRoute = (step: DemoStep, ctx = useDemoStore.getState().current) => step.route(ctx);
 
+/**
+ * เส้นทางปัจจุบันจริงของเบราว์เซอร์ (ตัด base path ออก)
+ * Router เปิด v7_startTransition — การเปลี่ยนหน้าถูก Render แบบ Transition ภายหลัง ขณะที่ Demo Store อัปเดตทันที
+ * ค่า location จาก React จึงอาจยังเป็นหน้าก่อนหน้า (เมื่อกดถัดไป/ย้อนกลับติดกันเร็ว ๆ หรือเครื่องทำงานหนัก)
+ * ถ้าเทียบกับค่าเก่าจะ "ข้ามการเปลี่ยนหน้า" ผิด → ขั้นเปลี่ยนแต่หน้าจอไม่เปลี่ยน — ใช้ค่าจริงจาก history แทน
+ */
+export function livePath(fallback?: string): string | undefined {
+  const l = typeof window !== 'undefined' ? (window.location as Location | undefined) : undefined;
+  if (!l || typeof l.pathname !== 'string') return fallback;
+  const p = ROUTER_BASENAME && l.pathname.startsWith(ROUTER_BASENAME) ? l.pathname.slice(ROUTER_BASENAME.length) || '/' : l.pathname;
+  return p + (l.search ?? '');
+}
+
 /** เข้าสู่ขั้นตอน: สลับบัญชีเมื่อเปลี่ยนบทบาท และเปิดหน้าจอเฉพาะเมื่อปลายทางต่างจากหน้าปัจจุบัน */
 function enterStep(sc: ScenarioDef, index: number, nav: NavigateFunction, currentPath: string | undefined, forceAccount = false) {
   const d = useDemoStore.getState();
@@ -85,7 +99,7 @@ function enterStep(sc: ScenarioDef, index: number, nav: NavigateFunction, curren
   d.set({ stepIndex: index });
   if (forceAccount || useSessionStore.getState().role !== step.role) applyAccount(step.role, d.current);
   const target = stepRoute(step);
-  if (target !== currentPath) nav(target);
+  if (target !== livePath(currentPath)) nav(target);
 }
 
 /** ต้องแสดง Role Transition หรือไม่ เมื่อจะไปขั้นที่ index */

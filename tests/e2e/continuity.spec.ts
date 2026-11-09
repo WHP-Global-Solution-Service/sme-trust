@@ -66,6 +66,9 @@ test('Restart Scenario ไม่สร้างข้อมูลซ้ำ / Ref
   // Back / Next หลายรอบ ไม่สร้างเรื่องเพิ่ม
   await panel(page).locator('[data-demo="back"]').click();
   await panel(page).locator('[data-demo="back"]').click();
+  // หน้าจอต้องตามขั้นจริง (KI-V2-32: เดิมขั้นย้อนกลับแต่หน้าจอค้างที่หน้าติดตามสถานะ)
+  await expectStep(page, 2);
+  await expect(page).toHaveURL(/\/report\?merchant=/);
   // แบบฟอร์มเปิดใหม่ (ว่าง) แต่ขั้นนี้ทำแล้ว — ไปต่อได้โดยไม่ต้องส่งซ้ำ
   await expect(panel(page).getByText('ขั้นนี้ทำเสร็จแล้ว')).toBeVisible();
   await next(page);

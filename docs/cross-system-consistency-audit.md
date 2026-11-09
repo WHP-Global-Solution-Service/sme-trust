@@ -46,4 +46,19 @@
 
 ## 5. Known Limitations
 
-ดู `docs/known-issues.md` — KI-V2-28 ถึง KI-V2-31
+ดู `docs/known-issues.md` — KI-V2-28 ถึง KI-V2-30 (KI-V2-31, KI-V2-32 แก้แล้วในรอบ Final Release Validation)
+
+## 6. Final Release Validation (9 พ.ย. 2569 · ฐาน `0123a25`)
+
+ตรวจซ้ำทั้งระบบเพื่อเตรียม Release Candidate — ไม่เพิ่ม Feature ใหม่
+
+| # | ประเด็น | ระดับ | ผล / การแก้ไข |
+|---|---|---|---|
+| F1 | **KI-V2-32** E2E Restart/Back-Next ไม่ผ่านครั้งคราว | P2 (Bug ของแอป) | ตรวจ Race condition, Navigation แบบ Async, State ใน localStorage, Fixture, การแยก Test, Worker พร้อมกัน, Missing await · **Root cause:** Router เปิด `v7_startTransition` — ตัวควบคุมการสาธิตเทียบเป้าหมายกับ location ของ React ที่ยังไม่อัปเดต จึงข้ามการเปลี่ยนหน้า (ขั้นเปลี่ยน หน้าจอไม่เปลี่ยน) · แก้ที่ `enterStep` ให้เทียบกับเส้นทางจริงของเบราว์เซอร์ · Regression Unit + E2E ตรวจ URL · Chromium ครบทุกชุด 2 รอบ 80/80 และซ้ำ 10 รอบ 110/110 |
+| F2 | **KI-V2-31** ไม่มีปุ่มเข้าสู่ระบบบนจอ < 640px | P2 | ปุ่มเข้าสู่ระบบใน Header ทุกขนาด · Demo Mode เป็นไอคอนบนจอเล็ก · ตรวจ 320/375/390/768/1440px · เข้าสู่ระบบแล้วกลับไปขั้นตอนลงทะเบียนที่ตั้งใจไว้ |
+| F3 | Unified Registration | — | Marketplace Auto-Fill · สมัครเอง · บุคคลธรรมดา · นิติบุคคล (Mock DBD + หนังสือมอบอำนาจ) · Dynamic Documents · Save Draft / Refresh-Resume · เพิ่ม Marketplace ภายหลัง · หลายแพลตฟอร์ม · กันร้านซ้ำ · Ownership conflict · Mock KYC · Verification status — ผ่าน · **ID ไม่ซ้ำ** ใน Merchant / Application / Connection / Assessment / Officer Task หลังทุก Flow (Unit ใหม่) |
+| F4 | Assessment & Badge | — | AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW · Band/Coverage/Confidence · Badge ตรงกันมุมร้านค้า ผู้บริโภค เจ้าหน้าที่ · ระงับ/เพิกถอน/คำขอไม่ผ่าน → ไม่แสดง Badge ที่มีผล · Level 2–4 ไม่อนุมัติอัตโนมัติ — ผ่าน |
+| F5 | หน้าแรก & Demo | — | 8 Section ครบ · ไม่มีชื่อ v1/v2 ในเมนู/ข้อความที่ผู้ใช้เห็น (เหลือเฉพาะรหัสภายในและ URL `/demo/v2/summary`) · Scenario 1–15, 9A, 9B และ Full Journey ทั้งสองชุดผ่าน |
+| F6 | Production / ความปลอดภัย | — | Build `/sme-trust/` ผ่าน · `404.html` Fallback · ไม่พบ Secret · ไม่มี `fetch`/XHR ในโค้ด · URL ใน Bundle มีเฉพาะ Namespace ของ SVG และลิงก์คำเตือนของ Library (ไม่ถูกเรียก — Pages จำลองยืนยันไม่มี Request ไปโดเมนอื่น) |
+
+ไม่พบ P0/P1 · ผล Test ทั้งหมดดู `docs/test-checklist.md`

@@ -82,4 +82,4 @@ Verification Summary (`verificationSummary()`) แสดงในขั้นต
 
 ## 9. ข้อจำกัด
 
-ดู `docs/known-issues.md` (KI-V2-28 ถึง KI-V2-31)
+ดู `docs/known-issues.md` (KI-V2-28 ถึง KI-V2-30 · KI-V2-31 แก้แล้ว)
