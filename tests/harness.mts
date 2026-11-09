@@ -68,6 +68,34 @@ export function actAs<T>(roles: Session['role'] | Session['role'][], fn: () => T
   }
 }
 
+/**
+ * เจ้าของร้านจริงของรายการที่อ้างถึง → operatorId
+ * ref = รหัสบัญชี ร้าน การเชื่อมต่อ คำขอ ผลประเมิน งานกรณียกเว้น คำขอเปลี่ยนข้อมูล คำเตือน ข้อร้องเรียน หรือเรื่องพิจารณาความเสี่ยง
+ */
+export function ownerOf(ref: string): string | undefined {
+  if (S.useOperatorStore.getState().items.some((o) => o.id === ref)) return ref;
+  const find = (st: { getState: () => { items: { id: string; merchantId?: string }[] } }) => st.getState().items.find((x) => x.id === ref)?.merchantId;
+  const mid =
+    S.useMerchantStore.getState().items.find((m) => m.id === ref)?.id ??
+    [S.useMarketplaceStore, S.useVerificationStore, S.useAssessmentStore, S.useOfficerTaskStore, S.useProfileChangeStore, S.useWarningStore, S.useComplaintStore, S.useRiskStore].map((st) => find(st as never)).find(Boolean);
+  return S.useMerchantStore.getState().items.find((m) => m.id === mid)?.operatorId;
+}
+
+/**
+ * ทำรายการในนามเจ้าของร้านของรายการ ref (บทบาทผู้ประกอบการ + บัญชีที่เป็นเจ้าของ) — Store ตรวจทั้ง Role และ Ownership
+ * แล้วคืน Session เดิม · ไม่พบเจ้าของ → ใช้บัญชีปัจจุบัน (Store จะปฏิเสธตามจริง)
+ */
+export function asOwner<T>(ref: string, fn: () => T): T {
+  const keep = S.useSessionStore.getState();
+  const prev = { role: keep.role, operatorId: keep.operatorId, merchantLoggedIn: keep.merchantLoggedIn, activeMerchantId: keep.activeMerchantId };
+  S.useSessionStore.setState({ role: 'merchant', operatorId: ownerOf(ref) ?? keep.operatorId, merchantLoggedIn: true });
+  try {
+    return fn();
+  } finally {
+    S.useSessionStore.setState(prev);
+  }
+}
+
 // ---------- assertions ----------
 let failures = 0;
 let passes = 0;

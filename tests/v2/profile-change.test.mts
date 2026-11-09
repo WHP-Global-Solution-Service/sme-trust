@@ -4,7 +4,7 @@
  * Officer/Merchant State Consistency, Audit Log, Notification, Marketplace Raw Data Protection,
  * ใบรับรองไม่เปลี่ยน, Reset Demo Data, Auto-Fill หลังอนุมัติไม่ตรวจซ้ำ และข้อความหน้าแรก
  */
-import { S, W, storage, view, describe, check, finish, actAs } from '../harness.mts';
+import { S, W, storage, view, describe, check, finish, actAs, asOwner } from '../harness.mts';
 
 const V = await import('@/stores/workflowsV2');
 const V2S = await import('@/mock/scenarios/v2');
@@ -32,7 +32,7 @@ function fileRename(draftId: string, shopName = 'ดอยสูงคาเฟ�
   const m = merchant();
   const reg = V.registeredValues(m);
   asMerchant();
-  const r = actAs('merchant', () => V.confirmProfileUpdate(c.id, { ...reg, shopName, category, description: `${reg.description} (อัปเดต)` }, draftId));
+  const r = asOwner(c.id, () => V.confirmProfileUpdate(c.id, { ...reg, shopName, category, description: `${reg.description} (อัปเดต)` }, draftId));
   return { c, before: m, reg, r };
 }
 
@@ -53,9 +53,9 @@ check(audits(id1).some((a) => a.action === 'ร้านยื่นคำขอ
 check(certs() === certStart, 'ใบรับรองไม่เปลี่ยนเมื่อยื่นคำขอ');
 
 describe('No Duplicate Requests');
-const again = actAs('merchant', () => V.confirmProfileUpdate(f.c.id, { ...f.reg, shopName: 'ดอยสูงคาเฟ่', category: 'ของใช้ในบ้าน' }, 'DRF-PC-1'));
+const again = asOwner(f.c.id, () => V.confirmProfileUpdate(f.c.id, { ...f.reg, shopName: 'ดอยสูงคาเฟ่', category: 'ของใช้ในบ้าน' }, 'DRF-PC-1'));
 check(again.ok && again.duplicate && reqs().filter((r) => r.merchantId === MID).length === 1, 'ส่งซ้ำ / Refresh หลังยืนยัน (ฉบับร่างเดิม) → ไม่สร้างคำขอซ้ำ');
-const second = actAs('merchant', () => V.confirmProfileUpdate(f.c.id, { ...V.registeredValues(merchant()), shopName: 'ดอยสูงโรสเตอร์' }, 'DRF-PC-1b'));
+const second = asOwner(f.c.id, () => V.confirmProfileUpdate(f.c.id, { ...V.registeredValues(merchant()), shopName: 'ดอยสูงโรสเตอร์' }, 'DRF-PC-1b'));
 check(second.ok && second.record!.changeRequestId === id1 && reqs().filter((r) => r.merchantId === MID).length === 1, 'อัปเดตโปรไฟล์อีกครั้งระหว่างที่คำขอยังเปิดอยู่ → ปรับคำขอเดิม (ไม่สร้างรายการใหม่)');
 check(req(id1).revision === 2 && req(id1).changes.length === 1 && req(id1).changes[0].to === 'ดอยสูงโรสเตอร์' && req(id1).history.at(-1)!.action === 'updated', 'คำขอเดิมเป็นฉบับที่ 2 และมีประวัติการปรับ');
 
@@ -66,7 +66,7 @@ const id3 = f.r.record!.changeRequestId!;
 check(req(id3).status === 'pending' && merchant().shopName === f.before.shopName, 'ก่อนเจ้าหน้าที่กดอนุมัติ คำขอยังรออยู่และโปรไฟล์ยังเป็นข้อมูลเดิม');
 const src3 = V.sourceOfConnection(f.c, merchant());
 const snap3 = JSON.stringify(G.generateSnapshot(S.useMarketplaceStore.getState().items.find((c) => c.id === f.c.id)!, merchant().category));
-actAs('merchant', () => V.runAssessment(MID));
+asOwner(MID, () => V.runAssessment(MID));
 const assess3 = S.useAssessmentStore.getState().items.find((a) => a.merchantId === MID)!.result;
 check(req(id3).status === 'pending' && merchant().shopName === f.before.shopName, 'ไม่มีการอนุมัติอัตโนมัติ: หลังประเมินใหม่ คำขอยังรอเจ้าหน้าที่ และโปรไฟล์ยังเป็นข้อมูลเดิม');
 asOfficer();
@@ -80,7 +80,7 @@ const src3b = V.sourceOfConnection(conn3, m3);
 check(src3b.shopName === src3.shopName && src3b.category === src3.category && src3b.rating === src3.rating && src3b.reviewCount === src3.reviewCount && src3b.salesVolume === src3.salesVolume && JSON.stringify(src3b.products) === JSON.stringify(src3.products), 'Marketplace Raw Data Protection: ชื่อร้าน หมวด คะแนน รีวิว ยอดขาย และสินค้าต้นฉบับไม่เปลี่ยน');
 check(conn3.sourceShopName === f.before.shopName && conn3.sourceCategory === f.before.category, 'บันทึกชื่อร้าน/หมวดต้นฉบับลงการเชื่อมต่อก่อนเปลี่ยนโปรไฟล์');
 check(JSON.stringify(G.generateSnapshot(conn3, m3.category)) === snap3, 'Snapshot ที่ใช้ประเมินเหมือนเดิมทุกค่าแม้หมวดในโปรไฟล์เปลี่ยน');
-const assess3b = actAs('merchant', () => V.runAssessment(MID))!.result;
+const assess3b = asOwner(MID, () => V.runAssessment(MID))!.result;
 check(assess3b.band === assess3.band && assess3b.score === assess3.score && assess3b.coverage.percent === assess3.coverage.percent, 'ผลประเมิน (Band / คะแนน / Coverage) ไม่เปลี่ยนจากการอนุมัติชื่อร้าน/หมวด');
 check(notes('merchant', OPID).some((n) => n.title === 'อนุมัติการเปลี่ยนข้อมูลร้านแล้ว' && n.link === `/m/profile-changes/${id3}`), 'แจ้งร้านค้าเมื่ออนุมัติ');
 check(audits(id3).some((a) => a.action === 'อนุมัติการเปลี่ยนข้อมูลร้าน' && a.actorRole === 'officer'), 'Audit Log: เจ้าหน้าที่อนุมัติ');
@@ -107,7 +107,7 @@ check(notes('merchant', OPID).some((n) => n.title === 'ไม่อนุมั�
 check(audits(id4).some((a) => a.action === 'ไม่อนุมัติการเปลี่ยนข้อมูลร้าน'), 'Audit Log: ไม่อนุมัติ');
 page = view(`/m/profile-changes/${id4}`, M);
 check(page.includes('ไม่อนุมัติ — ข้อมูลร้านยังเป็นข้อมูลเดิม') && page.includes('ไม่ตรงกับเอกสารทะเบียนพาณิชย์'), 'มุมร้านค้าเห็นสถานะและเหตุผลเดียวกับเจ้าหน้าที่');
-const next4 = actAs('merchant', () => V.confirmProfileUpdate(f.c.id, { ...V.registeredValues(merchant()), shopName: 'ดอยสูงคาเฟ่ใหม่' }, 'DRF-PC-4b'));
+const next4 = asOwner(f.c.id, () => V.confirmProfileUpdate(f.c.id, { ...V.registeredValues(merchant()), shopName: 'ดอยสูงคาเฟ่ใหม่' }, 'DRF-PC-4b'));
 check(next4.record!.changeRequestId !== id4 && req(next4.record!.changeRequestId!).status === 'pending', 'หลังไม่อนุมัติ ร้านยื่นคำขอใหม่ได้ (เป็นคำขอใหม่ คำขอเดิมยังเก็บประวัติ)');
 
 // ------------------------------------------------------------------ 4. Request More Information → Resubmit
@@ -128,12 +128,12 @@ S.useSessionStore.getState().saveDraft(V.changeRequestDraftKey(id5), { step: 0, 
 check((storage['smetrust:v2:session'] ?? '').includes('ดอยสูง คอฟฟี่ โรสเตอร์'), 'ฉบับร่างการแก้ไขเก็บใน localStorage ของ v2');
 page = view(`/m/profile-changes/${id5}`, M);
 check(page.includes('เจ้าหน้าที่ขอข้อมูลเพิ่มเติม') && page.includes('แก้ไขและส่งข้อมูลเพิ่มเติม') && page.includes('แนบหนังสือรับรอง (จำลอง)'), 'Refresh หน้าแก้ไข → ฉบับร่าง (คำอธิบายถึงเจ้าหน้าที่) ยังอยู่ — ค่าในช่อง Input ตรวจใน E2E');
-check(!actAs('merchant', () => V.resubmitProfileChange(id5, { shopName: 'ดอยสูง คอฟฟี่ โรสเตอร์' }, '', rev5)).ok, 'ส่งใหม่ต้องมีคำอธิบายถึงเจ้าหน้าที่');
-check(!actAs('merchant', () => V.resubmitProfileChange(id5, { shopName: f.before.shopName, category: f.before.category }, 'x', rev5)).ok, 'ส่งข้อมูลที่เหมือนข้อมูลเดิมไม่ได้');
-const re = actAs('merchant', () => V.resubmitProfileChange(id5, { shopName: 'ดอยสูง คอฟฟี่ โรสเตอร์' }, 'แนบหนังสือรับรอง (จำลอง)', rev5));
+check(!asOwner(id5, () => V.resubmitProfileChange(id5, { shopName: 'ดอยสูง คอฟฟี่ โรสเตอร์' }, '', rev5)).ok, 'ส่งใหม่ต้องมีคำอธิบายถึงเจ้าหน้าที่');
+check(!asOwner(id5, () => V.resubmitProfileChange(id5, { shopName: f.before.shopName, category: f.before.category }, 'x', rev5)).ok, 'ส่งข้อมูลที่เหมือนข้อมูลเดิมไม่ได้');
+const re = asOwner(id5, () => V.resubmitProfileChange(id5, { shopName: 'ดอยสูง คอฟฟี่ โรสเตอร์' }, 'แนบหนังสือรับรอง (จำลอง)', rev5));
 check(re.ok && !re.duplicate && req(id5).status === 'pending' && req(id5).revision === rev5 + 1 && req(id5).changes.find((x) => x.field === 'shopName')!.to === 'ดอยสูง คอฟฟี่ โรสเตอร์', 'ส่งใหม่ → กลับเป็น "รอพิจารณา" ด้วยข้อมูลที่แก้');
 check(!S.useSessionStore.getState().shopDrafts[V.changeRequestDraftKey(id5)], 'ส่งแล้วล้างฉบับร่าง');
-const dup = actAs('merchant', () => V.resubmitProfileChange(id5, { shopName: 'ดอยสูง คอฟฟี่ โรสเตอร์' }, 'แนบหนังสือรับรอง (จำลอง)', rev5));
+const dup = asOwner(id5, () => V.resubmitProfileChange(id5, { shopName: 'ดอยสูง คอฟฟี่ โรสเตอร์' }, 'แนบหนังสือรับรอง (จำลอง)', rev5));
 check(dup.ok && dup.duplicate && req(id5).revision === rev5 + 1 && req(id5).history.filter((h) => h.action === 'resubmitted').length === 1, 'กดส่งซ้ำ / Refresh หลังส่ง → ไม่บันทึกซ้ำ');
 check(notes('officer').some((n) => n.title === 'ร้านค้าส่งข้อมูลเพิ่มเติม (คำขอเปลี่ยนข้อมูลร้าน)'), 'แจ้งเจ้าหน้าที่เมื่อร้านส่งข้อมูลเพิ่ม');
 asOfficer();

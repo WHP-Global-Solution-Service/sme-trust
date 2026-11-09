@@ -3,7 +3,7 @@
  * Referential Integrity, Persistence (localStorage), KPI บน Dashboard และ Reset
  * รัน: npm test
  */
-import { S, W, T, MOCK, storage, view, describe, check, finish, merchant, operator, cert, verdict, complaint, notesFor, stats, actAs } from './harness.mts';
+import { S, W, T, MOCK, storage, view, describe, check, finish, merchant, operator, cert, verdict, complaint, notesFor, stats, actAs, asOwner } from './harness.mts';
 import { integrityProblems } from './integrity.mts';
 
 const integrity = (label: string) => {
@@ -24,9 +24,9 @@ check(kpi0.complaints === 20 && kpi0.resolvedByMerchant === 4, `KPI ข้อร
 describe('1. Merchant ลงทะเบียนร้านค้า → Officer ได้รับคำขอ');
 as('merchant');
 const op = W.registerOperator({ name: 'ทดสอบ ข้ามบทบาท', phone: '0897770000', email: 'flow@demo.local', province: 'ชลบุรี', pin: '246810' });
-W.setKycResult(op.id, true);
+asOwner(op.id, () => W.setKycResult(op.id, true));
 as('merchant', { operatorId: op.id });
-const { merchant: shop, app } = actAs('merchant', () => W.submitShopRegistration(op.id, {
+const { merchant: shop, app } = asOwner(op.id, () => W.submitShopRegistration(op.id, {
   businessType: 'individual', ownerName: op.name, shopName: 'ร้านทดสอบข้ามบทบาท', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง',
   phone: op.phone, email: op.email, description: 'ร้านสำหรับทดสอบ Flow ข้ามบทบาททั้งหมด', channels: [{ type: 'facebook', handle: 'flowtest.demo' }],
   documents: [{ id: 'doc-flow-1', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 100, addedAt: new Date().toISOString() }],
@@ -94,7 +94,7 @@ integrity(' Flow 4');
 describe('5. Merchant ตอบกลับ → Consumer เห็นคำตอบ');
 as('merchant', { operatorId: op.id });
 const OFFER = 'ร้านขออภัย ยินดีคืนเงินเต็มจำนวนภายใน 3 วันทำการ';
-actAs('merchant', () => W.merchantRespond(cmp.id, { type: 'refund', amount: 1500, note: OFFER }));
+asOwner(cmp.id, () => W.merchantRespond(cmp.id, { type: 'refund', amount: 1500, note: OFFER }));
 let x = complaint(cmp.id);
 check(x.status === 'waiting_consumer' && x.offers[0]?.status === 'pending' && !!x.firstMerchantResponseAt, 'เคสเป็น waiting_consumer และมีข้อเสนอรอตอบ');
 check(notesFor('consumer', 'CS-004').some((n) => n.body.includes(OFFER)), 'ผู้บริโภคได้รับแจ้งเตือนพร้อมข้อความของร้าน');
@@ -111,7 +111,7 @@ check(x.status === 'waiting_consumer' && x.offers[0].status === 'accepted', 'ย
 check(view(`/consumer/cases/${cmp.id}`, C).includes('ได้รับการแก้ไขแล้ว'), 'ผู้บริโภคเห็นปุ่มยืนยันผล');
 // ร้านค้าส่งคำชี้แจงเพิ่มหลังผู้บริโภคยอมรับ — ข้อตกลงต้องไม่หาย (regression)
 as('merchant', { operatorId: op.id });
-actAs('merchant', () => W.merchantRespond(cmp.id, { type: 'explain', note: 'โอนเงินคืนแล้ว แนบสลิปให้ค่ะ' }));
+asOwner(cmp.id, () => W.merchantRespond(cmp.id, { type: 'explain', note: 'โอนเงินคืนแล้ว แนบสลิปให้ค่ะ' }));
 check(complaint(cmp.id).status === 'waiting_consumer', 'ร้านส่งคำชี้แจงเพิ่ม → ยังรอผู้บริโภคยืนยัน (ข้อตกลงไม่หาย)');
 as('consumer', { consumerId: 'CS-004' });
 actAs('consumer', () => W.consumerConfirmResolved(cmp.id));
@@ -122,7 +122,7 @@ check(notesFor('merchant', op.id).some((n) => n.title === 'ข้อร้อง
 check(view(`/consumer/cases/${cmp.id}`, C).includes('แก้ไขสำเร็จ'), 'หน้าผู้บริโภคแสดง "แก้ไขสำเร็จ"');
 check(stats().kpi.resolvedByMerchant === kpi0.resolvedByMerchant + 1 && stats().kpi.complaints === kpi0.complaints + 1, 'Admin KPI: ข้อร้องเรียน +1 และร้านค้าแก้ไขสำเร็จ +1');
 check(stats().funnel[3].value === stats().kpi.resolvedByMerchant, 'Funnel ขั้น "แก้ไขสำเร็จ" ตรงกับ KPI');
-actAs('merchant', () => W.merchantRespond(cmp.id, { type: 'refund', amount: 1, note: 'หลังปิดเรื่อง' }));
+asOwner(cmp.id, () => W.merchantRespond(cmp.id, { type: 'refund', amount: 1, note: 'หลังปิดเรื่อง' }));
 check(complaint(cmp.id).status === 'resolved' && complaint(cmp.id).offers.length === 2, 'เคสที่ปิดแล้วไม่รับข้อเสนอใหม่');
 integrity(' Flow 6');
 
@@ -141,16 +141,16 @@ check(view('/m/notifications', M).includes('คุณได้รับคำเ
 check(view('/m/warnings', M).includes(wrn.id), 'หน้าคำเตือน (Merchant) แสดงรายการ');
 check(verdict(shop.id).key === 'business', 'คำเตือนไม่เปลี่ยนสถานะการรับรองที่ผู้บริโภคเห็น (แยกจากมาตรการ)');
 as('merchant', { operatorId: op.id });
-actAs('merchant', () => W.acknowledgeWarning(wrn.id));
+asOwner(wrn.id, () => W.acknowledgeWarning(wrn.id));
 check(S.useWarningStore.getState().items.find((w) => w.id === wrn.id)!.status === 'correction_required', 'รับทราบ → ต้องแก้ไข');
 integrity(' Flow 7');
 
 // ---------------------------------------------------------------- 8
 describe('8. Merchant ผ่านการอบรม → Training Record และ Passport อัปเดต');
 const course = MOCK.courses.find((c) => c.id === 'CRS-03')!;
-actAs('merchant', () => W.startCourse(op.id, course.id));
-course.lessons.forEach((l) => actAs('merchant', () => W.completeLesson(op.id, course.id, l.id)));
-const res = actAs('merchant', () => W.submitQuiz(op.id, course.id, course.quiz.map((q) => q.answer)));
+asOwner(op.id, () => W.startCourse(op.id, course.id));
+course.lessons.forEach((l) => asOwner(op.id, () => W.completeLesson(op.id, course.id, l.id)));
+const res = asOwner(op.id, () => W.submitQuiz(op.id, course.id, course.quiz.map((q) => q.answer)));
 const enr = S.useTrainingStore.getState().items.find((e) => e.operatorId === op.id && e.courseId === course.id)!;
 check(res.passed && res.score === 100, 'สอบผ่าน 100%');
 check(enr.passed && !!enr.certificateNo && enr.completedLessonIds.length === course.lessons.length, `Training Record: ผ่าน, เลขที่ ${enr.certificateNo}, เรียนครบ ${enr.completedLessonIds.length} บท`);
@@ -158,10 +158,10 @@ check(view('/o/training', O).includes(enr.certificateNo!), 'Training Records (Of
 page = view('/m/passport', M);
 check(page.includes(course.title) && page.includes(enr.certificateNo!), 'SME Trust Passport แสดงหลักสูตรที่ผ่านและเลขใบรับรอง');
 check(S.useWarningStore.getState().items.find((w) => w.id === wrn.id)!.items.find((i) => i.text.includes('อบรม'))!.done, 'รายการ "เข้าอบรม" ในคำเตือนถูกติ๊กอัตโนมัติ');
-actAs('merchant', () => W.submitQuiz(op.id, course.id, course.quiz.map(() => -1)));
+asOwner(op.id, () => W.submitQuiz(op.id, course.id, course.quiz.map(() => -1)));
 const enr2 = S.useTrainingStore.getState().items.find((e) => e.id === enr.id)!;
 check(enr2.passed && enr2.bestScore === 100 && enr2.certificateNo === enr.certificateNo, 'สอบซ้ำแล้วตก → ผลผ่านและเลขใบรับรองเดิมยังอยู่');
-check(actAs('merchant', () => W.submitQuiz(op.id, 'CRS-01', [0, 1, 2, 1])).passed, 'ทำแบบทดสอบโดยยังไม่ลงทะเบียนเรียน → ระบบลงทะเบียนให้ ไม่ Error');
+check(asOwner(op.id, () => W.submitQuiz(op.id, 'CRS-01', [0, 1, 2, 1])).passed, 'ทำแบบทดสอบโดยยังไม่ลงทะเบียนเรียน → ระบบลงทะเบียนให้ ไม่ Error');
 integrity(' Flow 8');
 
 // ---------------------------------------------------------------- 9
@@ -185,7 +185,7 @@ integrity(' Flow 9');
 // ---------------------------------------------------------------- guards
 describe('Regression: เงื่อนไขป้องกันสถานะขัดกัน');
 as('merchant', { operatorId: 'OP-011' });
-const unverified = actAs('merchant', () => W.submitShopRegistration('OP-011', {
+const unverified = asOwner('OP-011', () => W.submitShopRegistration('OP-011', {
   businessType: 'individual', ownerName: 'x', shopName: 'ร้านยังไม่ e-KYC', category: 'บริการ', province: 'ภูเก็ต', district: 'x',
   phone: '0810000011', email: 'x@demo.local', description: 'ทดสอบการอนุมัติผู้ที่ยังไม่ยืนยันตัวตน', channels: [{ type: 'line', handle: 'abcdef' }], documents: [],
 }));
@@ -197,7 +197,7 @@ const m4cert = cert('M-004')!;
 check(!actAs(['officer', 'admin'], () => W.setCertStatus(m4cert.id, 'active', 'คืนสถานะตรงจากหน้าใบรับรอง')).ok && cert('M-004')!.status === 'suspended', 'คืนสถานะใบรับรองที่มี Risk Review เปิดอยู่จากหน้าใบรับรองไม่ได้');
 const esc = complaint('CMP-2569-0007');
 as('merchant', { operatorId: 'OP-004' });
-actAs('merchant', () => W.merchantRespond(esc.id, { type: 'refund', amount: 1590, note: 'ขอคืนเงิน' }));
+asOwner(esc.id, () => W.merchantRespond(esc.id, { type: 'refund', amount: 1590, note: 'ขอคืนเงิน' }));
 check(complaint(esc.id).status === 'escalated', 'เคสที่ส่งต่อแล้ว: ข้อเสนอของร้านไม่ดึงเคสออกจากคิวเจ้าหน้าที่');
 as('consumer', { consumerId: 'CS-006' });
 actAs('consumer', () => W.consumerReplyOffer(esc.id, complaint(esc.id).offers.at(-1)!.id, 'accepted', ''));

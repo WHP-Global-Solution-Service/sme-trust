@@ -82,10 +82,11 @@ Browser only
 
 **Permission Policy (`src/auth`)** — แหล่งเดียวของสิทธิ์ ดู [roles-permissions.md](roles-permissions.md)
 
-> **Frontend Authorization เป็นเพียง Prototype Simulation** — Production ต้องบังคับสิทธิ์ (บทบาท + ความเป็นเจ้าของข้อมูล) ที่ Backend API ทุกคำขอ
+> **Frontend Permission และ Ownership Validation เป็นเพียง Prototype Simulation** — Production ต้องตรวจ Role และ Resource Ownership ที่ Backend API ทุกคำขอ จากตัวตนใน Session ฝั่งเซิร์ฟเวอร์
 
 - `auth/permissions.ts` — 36 สิทธิ์ × 4 บทบาท พร้อมเส้นทางและฟังก์ชันที่บังคับ (หน้า `/admin/permissions` Render จากไฟล์นี้) · `UNGUARDED_BY_DESIGN` = ฟังก์ชันที่ไม่ตรวจบทบาทโดยเจตนาพร้อมเหตุผล (อ่านข้อมูล, ภายใน Workflow, ระบบอัตโนมัติ, สมัครก่อนเข้าสู่ระบบ, เครื่องมือ Demo)
 - `auth/authorize.ts` — `authorize(permission)` เรียกเป็นบรรทัดแรกของทุก Action ที่ผู้ใช้กระทำใน `workflows.ts` / `workflowsV2.ts` / `automation.ts` / `assessmentConfig.ts` (เจ้าหน้าที่/ผู้ดูแลระบบ, ผู้บริโภค และผู้ประกอบการ — 52 รายการ) — ไม่มีสิทธิ์ → `PermissionDeniedError` (ข้อความไม่มีข้อมูลภายใน) ไม่เปลี่ยนข้อมูล และบันทึก Audit Log · ตรวจจากบทบาทปัจจุบันทุกครั้ง จึงไม่มีสิทธิ์ค้างหลังสลับบทบาท
+- **Ownership** — `requireOwnShop(permission, merchantId)` / `requireOwnAccount(permission, operatorId)` ใน `auth/authorize.ts` เรียกหลัง `authorize()` ใน Action ของผู้ประกอบการ 24 รายการ (ระบุ `owner` ใน Matrix) ก่อนเขียน Store: ร้านต้องเป็นของ `session.operatorId` · ไม่พบรายการ = ไม่ใช่เจ้าของ · เจ้าหน้าที่/Admin ไม่ถูกตรวจ Ownership · ไม่ผ่าน → `OwnershipDeniedError` + Audit (ไม่มีรหัสร้าน/รายการ) · `App.tsx` แสดงการปฏิเสธจากปุ่มเป็น Toast · ผล e-KYC ระหว่างสมัครบันทึกใน `registerOperator({ kycOk })`
 - ฟังก์ชันภายในที่ถูกเรียกจาก Action ของบทบาทต่างกันแยกเป็นเวอร์ชันไม่ตรวจซ้ำ: `fileCertificationApplication` (จาก `applyCertification` / `submitAssessment` / `decideAssessment`), `createConnection` / `applyConsent` (จาก `attachImportedMarketplaces`) · Fixture ของ Demo สลับบทบาทชั่วคราวก่อนเรียก Action (`mock/scenarios/v2.ts`)
 - ฟังก์ชันที่ถูกเรียกต่อจากฟังก์ชันของเจ้าหน้าที่ (เช่น `decideAssessment` → `approveApplication`) ผ่านการตรวจเพราะทำงานในบทบาทเดียวกัน · งานอัตโนมัติ (`processMerchant`, `escalateComplaint(by:'system')`) ไม่ผูกกับบทบาทผู้ใช้
 - หน้าสาธารณะใช้ `publicAssessmentView()` (`features/trust-assessment/publicView.ts`) — ไม่มีคะแนนตัวเลข Risk Signal หรือเหตุผลของ Confidence · หน้าร้านค้าใช้ `withoutInternalPoints()` ตัดคะแนนที่หัก เช่น "(−15)" และไม่แสดง Confidence เป็นตัวเลข · หน้าเจ้าหน้าที่ส่ง `DataQuality internal`

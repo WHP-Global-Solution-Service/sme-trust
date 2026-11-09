@@ -3,7 +3,7 @@
  * ทุกฟังก์ชันที่เปลี่ยนข้อมูลในนามเจ้าหน้าที่/ผู้ดูแลระบบเรียก authorize() ก่อน — บทบาทที่ไม่มีสิทธิ์จะถูกปฏิเสธ
  * และบันทึกลง Audit Log โดยไม่มีการเปลี่ยนแปลงข้อมูลใด ๆ
  */
-import { useAuditStore } from '@/stores';
+import { useAuditStore, useMerchantStore } from '@/stores';
 import { useSessionStore } from '@/stores/session';
 import { ROLE_LABEL } from '@/constants/labels';
 import { consumers, officers } from '@/mock/data';
@@ -45,4 +45,56 @@ export function authorize(permission: Permission): void {
     detail: `${ROLE_LABEL[role]} ไม่มีสิทธิ์: ${(PERMISSIONS[permission] as PermissionDef).label}`,
   });
   throw new PermissionDeniedError(permission, role);
+}
+
+// ---------------------------------------------------------------------------
+// Resource Ownership — ผู้ประกอบการทำรายการได้เฉพาะร้าน/บัญชีของตนเอง (Role Authorization + Resource Ownership)
+// ความเป็นเจ้าของ: Merchant.operatorId === session.operatorId (บัญชีผู้ประกอบการที่เข้าสู่ระบบ — Mock Session)
+// เจ้าหน้าที่/ผู้ดูแลระบบไม่ถูกตรวจ Ownership — ทำรายการตาม Permission ของบทบาท (ตรวจแล้วด้วย authorize)
+
+export class OwnershipDeniedError extends PermissionDeniedError {
+  constructor(permission: Permission, role: Role) {
+    super(permission, role);
+    // ข้อความสำหรับผู้ใช้ — ไม่ระบุรหัสร้าน/รายการ และไม่ยืนยันว่ารายการนั้นมีอยู่จริงหรือไม่
+    this.message = 'ไม่มีสิทธิ์จัดการรายการนี้ — ทำรายการได้เฉพาะร้านค้าของบัญชีที่เข้าสู่ระบบ';
+    this.name = 'OwnershipDeniedError';
+  }
+}
+
+function denyOwnership(permission: Permission, role: Role): never {
+  useAuditStore.getState().add({
+    id: uid('AUD'),
+    at: nowISO(),
+    actorRole: role,
+    actorName: actorName(role),
+    action: 'ปฏิเสธการดำเนินการ (ไม่ใช่เจ้าของร้าน)',
+    target: permission,
+    detail: `ทำรายการกับร้านค้า/บัญชีที่ไม่ใช่ของตนเอง: ${(PERMISSIONS[permission] as PermissionDef).label}`,
+  });
+  throw new OwnershipDeniedError(permission, role);
+}
+
+/** บัญชีผู้ประกอบการที่เข้าสู่ระบบเป็นเจ้าของร้านนี้หรือไม่ (ไม่พบร้าน = ไม่ใช่เจ้าของ) */
+export function ownsShop(merchantId: string | undefined): boolean {
+  if (!merchantId) return false;
+  const m = useMerchantStore.getState().items.find((x) => x.id === merchantId);
+  return !!m && m.operatorId === useSessionStore.getState().operatorId;
+}
+
+/**
+ * ต้องเป็นเจ้าของร้าน — เรียกหลัง authorize() และก่อนเปลี่ยนข้อมูลใด ๆ
+ * merchantId มาจากร้านโดยตรง หรือจากรายการที่อ้างถึงร้าน (คำขอ คำเตือน ข้อร้องเรียน การเชื่อมต่อ ผลประเมิน ฯลฯ)
+ * ไม่พบร้าน/รายการ → ถือว่าไม่ใช่เจ้าของ (ไม่สร้างข้อมูลให้ร้านที่ไม่มีอยู่)
+ */
+export function requireOwnShop(permission: Permission, merchantId: string | undefined): void {
+  const role = currentRole();
+  if (role !== 'merchant') return;
+  if (!ownsShop(merchantId)) denyOwnership(permission, role);
+}
+
+/** ต้องเป็นบัญชีของตนเอง — สำหรับ Action ที่รับ operatorId (ลงทะเบียนร้าน อบรม ยืนยันตัวตน) */
+export function requireOwnAccount(permission: Permission, operatorId: string | undefined): void {
+  const role = currentRole();
+  if (role !== 'merchant') return;
+  if (!operatorId || operatorId !== useSessionStore.getState().operatorId) denyOwnership(permission, role);
 }

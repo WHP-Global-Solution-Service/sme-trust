@@ -31,6 +31,20 @@ const actAs = <T,>(roles: string | string[], fn: () => T): T => {
     S.useSessionStore.setState({ role: prev });
   }
 };
+// ทำรายการในนามเจ้าของร้านของรายการ ref (Store ตรวจ Role + Ownership)
+const asOwner = <T,>(ref: string, fn: () => T): T => {
+  const st = S.useSessionStore.getState();
+  const prev = { role: st.role, operatorId: st.operatorId, merchantLoggedIn: st.merchantLoggedIn };
+  const all = [S.useMarketplaceStore, S.useVerificationStore, S.useWarningStore, S.useComplaintStore, S.useRiskStore] as any[];
+  const mid = S.useMerchantStore.getState().items.some((x: any) => x.id === ref) ? ref : all.map((s) => s.getState().items.find((x: any) => x.id === ref)?.merchantId).find(Boolean);
+  const owner = S.useOperatorStore.getState().items.some((o: any) => o.id === ref) ? ref : S.useMerchantStore.getState().items.find((x: any) => x.id === mid)?.operatorId;
+  S.useSessionStore.setState({ role: 'merchant', operatorId: owner ?? st.operatorId, merchantLoggedIn: true });
+  try {
+    return fn();
+  } finally {
+    S.useSessionStore.setState(prev);
+  }
+};
 const C = () => S.useComplaintStore.getState().items as any[];
 
 ok(S.useMerchantStore.getState().items.length >= 12, 'seed 12 merchants');
@@ -56,11 +70,11 @@ ok(verdict('M-011') === 'unverified', 'M-011 unverified');
 sess.set({ role: 'merchant' });
 const newOp = W.registerOperator({ name: 'ทดสอบ ระบบ', phone: '0899999999', email: 'a@b.c', province: 'ชลบุรี', pin: '246810' });
 ok(/^OP-\d{3}$/.test(newOp.id), `new operator id ${newOp.id}`);
-W.setKycResult(newOp.id, true);
+asOwner(newOp.id, () => W.setKycResult(newOp.id, true));
 ok(op(newOp.id).kycStatus === 'verified', 'kyc verified');
 sess.set({ operatorId: newOp.id });
 const form = { businessType: 'individual' as const, ownerName: 'x', shopName: 'ร้านทดสอบ', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง', phone: '0899999999', email: 'a@b.c', description: 'รายละเอียดทดสอบยาวพอสมควร', channels: [{ type: 'facebook' as const, handle: 'testshop' }], documents: [] };
-const { merchant: nm, app } = actAs('merchant', () => W.submitShopRegistration(newOp.id, form));
+const { merchant: nm, app } = asOwner(newOp.id, () => W.submitShopRegistration(newOp.id, form));
 ok(nm.id === 'M-013' && app.status === 'submitted', `shop ${nm.id} submitted ${app.id}`);
 ok(verdict(nm.id) === 'pending', 'consumer sees pending');
 sess.set({ role: 'officer', officerId: 'OF-001' });
@@ -75,12 +89,12 @@ ok(S.useAuditStore.getState().items.some((a: any) => a.target === app.id && a.ac
 
 actAs(['officer', 'admin'], () => W.requestInfo('APP-2569-0002', 'ขอเอกสารเพิ่ม'));
 ok(m('M-002').registrationStatus === 'need_info', 'need_info');
-actAs('merchant', () => W.resubmitApplication('APP-2569-0002', 'ส่งแล้ว', []));
+asOwner('APP-2569-0002', () => W.resubmitApplication('APP-2569-0002', 'ส่งแล้ว', []));
 ok(m('M-002').registrationStatus === 'submitted', 'resubmitted');
 actAs(['officer', 'admin'], () => W.rejectApplication('APP-2569-0002', 'เหตุผลทดสอบ'));
 ok(m('M-002').registrationStatus === 'rejected', 'rejected');
 
-const r3 = actAs('merchant', () => W.submitShopRegistration('OP-008', { ...form, shopName: 'ร้านใหม่อีก' }));
+const r3 = asOwner('OP-008', () => W.submitShopRegistration('OP-008', { ...form, shopName: 'ร้านใหม่อีก' }));
 ok(!!r3.merchant.identityFlag && r3.merchant.riskStatus === 'allegation', 'identity flag on re-open');
 ok(S.useRiskStore.getState().items.some((r: any) => r.merchantId === r3.merchant.id && r.status === 'allegation'), 'risk allegation created');
 ok(r3.app.status === 'submitted', 'not auto-rejected');
@@ -91,7 +105,7 @@ const c = actAs('consumer', () => W.submitComplaint({ merchantId: 'M-001', consu
 ok(c.status === 'awaiting_merchant' && c.id.endsWith('-0021'), `complaint ${c.id}`);
 ok(S.useNotificationStore.getState().items.some((n: any) => n.recipientId === 'OP-001' && n.body.includes(c.id)), 'merchant notified of complaint');
 sess.set({ role: 'merchant', operatorId: 'OP-001' });
-actAs('merchant', () => W.merchantRespond(c.id, { type: 'refund', amount: 890, note: 'คืนเงินเต็มจำนวน' }));
+asOwner(c.id, () => W.merchantRespond(c.id, { type: 'refund', amount: 890, note: 'คืนเงินเต็มจำนวน' }));
 let cc = C().find((x) => x.id === c.id);
 ok(cc.status === 'waiting_consumer' && !!cc.firstMerchantResponseAt, 'offer -> waiting consumer');
 sess.set({ role: 'consumer' });
@@ -114,13 +128,13 @@ ok(C().find((x) => x.id === sev.id).status === 'closed', 'officer close');
 // Scenario 5
 const wid = 'WRN-2569-0001';
 sess.set({ role: 'merchant', operatorId: 'OP-003' });
-const quiz = actAs('merchant', () => W.submitQuiz('OP-003', 'CRS-02', [2, 1, 1, 1]));
+const quiz = asOwner('OP-003', () => W.submitQuiz('OP-003', 'CRS-02', [2, 1, 1, 1]));
 ok(quiz.passed && quiz.score === 100, 'quiz pass 100');
 const w = S.useWarningStore.getState().items.find((x: any) => x.id === wid);
 ok(w.items.find((i: any) => i.text.includes('อบรม')).done, 'training auto-ticks warning item');
-const fail = actAs('merchant', () => W.submitQuiz('OP-003', 'CRS-02', [0, 0, 0, 0]));
+const fail = asOwner('OP-003', () => W.submitQuiz('OP-003', 'CRS-02', [0, 0, 0, 0]));
 ok(!fail.passed && S.useTrainingStore.getState().items.find((e: any) => e.operatorId === 'OP-003' && e.courseId === 'CRS-02').passed, 'failed retry keeps passed');
-actAs('merchant', () => W.submitCorrection(wid, 'แก้ไขแล้ว', [{ id: 'd', name: 'x', kind: 'x', sizeKb: 1, addedAt: '' }]));
+asOwner(wid, () => W.submitCorrection(wid, 'แก้ไขแล้ว', [{ id: 'd', name: 'x', kind: 'x', sizeKb: 1, addedAt: '' }]));
 sess.set({ role: 'officer' });
 actAs(['officer', 'admin'], () => W.reviewCorrection(wid, 'start'));
 actAs(['officer', 'admin'], () => W.reviewCorrection(wid, 'approve', 'ผ่าน'));
@@ -128,14 +142,14 @@ ok(S.useWarningStore.getState().items.find((x: any) => x.id === wid).status === 
 ok(m('M-003').riskStatus === 'none', 'M-003 risk none after completion');
 const nw = actAs(['officer', 'admin'], () => W.issueWarning({ merchantId: 'M-005', kind: 'warning', title: 't', issue: 'issue', guidance: 'g', items: ['a'], courseIds: [], dueDate: '2026-11-01', relatedComplaintIds: [] }));
 ok(m('M-005').riskStatus === 'warning', 'warning sets risk');
-actAs('merchant', () => W.acknowledgeWarning(nw.id));
+asOwner(nw.id, () => W.acknowledgeWarning(nw.id));
 ok(S.useWarningStore.getState().items.find((x: any) => x.id === nw.id).status === 'correction_required', 'ack -> correction_required');
 actAs(['officer', 'admin'], () => W.issueWarning({ merchantId: 'M-006', kind: 'advisory', title: 't', issue: 'issue', guidance: 'g', items: [], courseIds: [], dueDate: '2026-11-01', relatedComplaintIds: [] }));
 ok(m('M-006').riskStatus === 'none', 'advisory does not change risk');
 
 // Scenario 6
 sess.set({ role: 'merchant', operatorId: 'OP-004' });
-actAs('merchant', () => W.submitAppeal('RSK-2569-0001', 'ขออุทธรณ์'));
+asOwner('RSK-2569-0001', () => W.submitAppeal('RSK-2569-0001', 'ขออุทธรณ์'));
 ok(m('M-004').riskStatus === 'appeal_submitted', 'appeal submitted');
 sess.set({ role: 'officer', officerId: 'OF-003' });
 actAs(['officer', 'admin'], () => W.reviewAppeal('RSK-2569-0001', 'overturned', 'พบหลักฐานจัดส่ง'));
@@ -147,7 +161,7 @@ ok(verdict('M-009') === 'suspended', 'suspend reflected');
 actAs(['officer', 'admin'], () => W.riskAction('RSK-2569-0003', 'dismissed', 'ยุติ'));
 ok(verdict('M-009') === 'business' && m('M-009').riskStatus !== 'suspended', `dismiss reinstates cert (${verdict('M-009')}, risk=${m('M-009').riskStatus})`);
 
-const ren = actAs('merchant', () => W.applyCertification('M-007', 2, true));
+const ren = asOwner('M-007', () => W.applyCertification('M-007', 2, true));
 actAs(['officer', 'admin'], () => W.approveApplication(ren.id));
 ok(verdict('M-007') === 'business', 'renewal -> active');
 ok(S.useCertificationStore.getState().items.find((x: any) => x.id === 'SMT-2568-000044').supersededBy === cert('M-007')!.id, 'old cert superseded');

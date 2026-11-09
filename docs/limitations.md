@@ -13,7 +13,7 @@
 ## ข้อจำกัดทางเทคนิค
 
 - **Frontend-only**: ไม่มี Backend, Database, ORM หรือ API Server ข้อมูลเก็บใน `localStorage` ของเบราว์เซอร์ที่เปิดเท่านั้น ข้อมูลไม่แชร์ข้ามอุปกรณ์/เบราว์เซอร์ และอาจหายเมื่อล้างข้อมูลเว็บไซต์
-- **Role Switcher ไม่ใช่ระบบยืนยันตัวตน** — ใครก็สลับเป็นเจ้าหน้าที่หรือ Admin ได้ · สิทธิ์ของแต่ละบทบาทบังคับ 2 ชั้นในแอป (RoleGate + `authorize()` ในชั้น Store — ดู [roles-permissions.md](roles-permissions.md)) แต่ไม่มี Backend จึงไม่ใช่การป้องกันฝั่งเซิร์ฟเวอร์ — **Frontend Authorization เป็นเพียง Prototype Simulation; Production ต้องบังคับสิทธิ์ (บทบาท + ความเป็นเจ้าของข้อมูล) ที่ Backend API** · Action ของร้านค้ายังไม่ตรวจว่าร้านเป็นของบัญชีที่เข้าสู่ระบบ (KI-V2-33) และผล e-KYC จำลองตั้งได้จาก Browser (KI-V2-34)
+- **Role Switcher ไม่ใช่ระบบยืนยันตัวตน** — ใครก็สลับเป็นเจ้าหน้าที่หรือ Admin ได้ · สิทธิ์ของแต่ละบทบาทบังคับ 2 ชั้นในแอป (RoleGate + `authorize()` ในชั้น Store — ดู [roles-permissions.md](roles-permissions.md)) แต่ไม่มี Backend จึงไม่ใช่การป้องกันฝั่งเซิร์ฟเวอร์ — **Frontend Permission และ Ownership Validation เป็นเพียง Prototype Simulation; Production ต้องตรวจ Role และ Resource Ownership ที่ Backend API** · Store ตรวจว่าร้านเป็นของ `session.operatorId` แล้ว แต่ Session เป็นข้อมูลจำลองที่แก้ได้ใน Browser จึงพิสูจน์ตัวตนไม่ได้ (KI-V2-33) และผล e-KYC จำลองยังตั้งได้ก่อนเข้าสู่ระบบ (KI-V2-34)
 - **PIN เก็บเป็นข้อความธรรมดาใน localStorage** เพื่อการสาธิต ห้ามใช้ PIN จริง
 - **อัปโหลดไฟล์เป็นการจำลอง** — เก็บเฉพาะชื่อและขนาดไฟล์ ไม่อ่านเนื้อหาไฟล์ ไม่ส่งไฟล์ไปที่ใด
 - **Screening Assistant เป็น Rule-based อย่างง่าย** (จับคำสำคัญ/ตรวจช่องว่าง) ไม่ใช้ AI ภายนอก อาจจัดหมวดผิดได้ — เจ้าหน้าที่ปรับผลได้

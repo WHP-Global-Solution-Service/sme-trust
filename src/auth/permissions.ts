@@ -29,7 +29,8 @@ export interface PermissionDef {
   /** เส้นทางที่ตรวจสิทธิ์ด้วย RoleGate (:param = ค่าใดก็ได้) */
   routes: string[];
   /** ฟังก์ชันที่เกี่ยวข้อง — guarded: true = เรียก authorize() ก่อนเปลี่ยนข้อมูล */
-  actions?: { name: string; guarded: boolean }[];
+  /** owner: ตรวจความเป็นเจ้าของเพิ่ม (ผู้ประกอบการ) — shop = ร้านของบัญชีตนเอง (requireOwnShop) · account = บัญชีตนเอง (requireOwnAccount) */
+  actions?: { name: string; guarded: boolean; owner?: 'shop' | 'account' }[];
   note?: string;
 }
 
@@ -40,6 +41,9 @@ const O: Role[] = ['officer', 'admin'];
 const A: Role[] = ['admin'];
 const g = (name: string) => ({ name, guarded: true });
 const u = (name: string) => ({ name, guarded: false });
+/** guarded + ตรวจ Ownership ของผู้ประกอบการ */
+const gs = (name: string) => ({ name, guarded: true, owner: 'shop' as const });
+const ga = (name: string) => ({ name, guarded: true, owner: 'account' as const });
 
 export const PERMISSIONS = {
   // ---------------------------------------------------------------- สาธารณะ
@@ -66,36 +70,43 @@ export const PERMISSIONS = {
   },
 
   // ---------------------------------------------------------------- ผู้ประกอบการ
-  'merchant.home': { group: 'merchant', label: 'หน้าหลัก ข้อมูลร้าน Passport และการแจ้งเตือนของร้านตนเอง', roles: M, routes: ['/m', '/m/shop', '/m/passport', '/m/notifications'], actions: [g('addChannel'), g('resubmitApplication')] },
-  'merchant.kyc': { group: 'merchant', label: 'ยืนยันตัวตน (e-KYC จำลอง)', roles: M, routes: ['/m/kyc'] },
-  'shop.register': { group: 'merchant', label: 'สมัคร / ลงทะเบียนร้านค้า', roles: M, routes: ['/m/register-shop', '/m/register-shop/marketplace'], actions: [g('submitShopRegistration'), g('submitMarketplaceRegistration')] },
+  'merchant.home': { group: 'merchant', label: 'หน้าหลัก ข้อมูลร้าน Passport และการแจ้งเตือนของร้านตนเอง', roles: M, routes: ['/m', '/m/shop', '/m/passport', '/m/notifications'], actions: [gs('addChannel'), gs('resubmitApplication')] },
+  'merchant.kyc': {
+    group: 'merchant',
+    label: 'ยืนยันตัวตน (e-KYC จำลอง)',
+    roles: M,
+    routes: ['/m/kyc'],
+    actions: [{ name: 'setKycResult', guarded: false, owner: 'account' }],
+    note: 'ไม่ตรวจบทบาท (ใช้ระหว่างสมัครก่อนเข้าสู่ระบบ) แต่ผู้ประกอบการที่เข้าสู่ระบบแล้วยืนยันได้เฉพาะบัญชีตนเอง — ผล KYC จริงต้องมาจากฝั่งเซิร์ฟเวอร์',
+  },
+  'shop.register': { group: 'merchant', label: 'สมัคร / ลงทะเบียนร้านค้า', roles: M, routes: ['/m/register-shop', '/m/register-shop/marketplace'], actions: [ga('submitShopRegistration'), ga('submitMarketplaceRegistration')] },
   'marketplace.connect': {
     group: 'merchant',
     label: 'เชื่อมต่อและนำเข้าข้อมูล Marketplace (จำลอง)',
     roles: M,
     routes: ['/m/marketplace', '/m/marketplace-app', '/m/marketplace/data/:id', '/m/marketplace/analysis', '/m/marketplace/profile/:id'],
-    actions: [g('connectMarketplace'), g('grantConsent'), g('resyncMarketplace'), g('disconnectMarketplace'), u('completeSync'), u('simulateDataAge')],
+    actions: [gs('connectMarketplace'), gs('grantConsent'), gs('resyncMarketplace'), gs('disconnectMarketplace'), u('completeSync'), u('simulateDataAge')],
     note: 'completeSync จำลองการตอบกลับของแพลตฟอร์ม และ simulateDataAge เป็นเครื่องมือสาธิตอายุข้อมูล — ไม่ใช่การกระทำของผู้ใช้ จึงไม่ตรวจบทบาท',
   },
-  'profile_change.submit': { group: 'merchant', label: 'ส่งคำขอเปลี่ยนชื่อร้าน / หมวดธุรกิจ', roles: M, routes: ['/m/profile-changes', '/m/profile-changes/:id'], actions: [g('confirmProfileUpdate'), g('resubmitProfileChange')] },
+  'profile_change.submit': { group: 'merchant', label: 'ส่งคำขอเปลี่ยนชื่อร้าน / หมวดธุรกิจ', roles: M, routes: ['/m/profile-changes', '/m/profile-changes/:id'], actions: [gs('confirmProfileUpdate'), gs('resubmitProfileChange')] },
   'assessment.own.view': {
     group: 'merchant',
     label: 'ดู Band ประเมิน และส่งผลประเมินของร้านตนเอง · ตอบคำขอข้อมูลของเจ้าหน้าที่',
     roles: M,
     routes: ['/m/trust'],
-    actions: [g("runAssessment(origin: 'merchant')"), g('submitAssessment'), g('respondToTask')],
+    actions: [gs("runAssessment(origin: 'merchant')"), gs('submitAssessment'), gs('respondToTask')],
     note: 'เห็น Band ทิศทางของปัจจัย และสิ่งที่ควรปรับปรุง — ไม่เห็นคะแนนตัวเลข 0–100',
   },
-  'certification.own': { group: 'merchant', label: 'ดูและขอรับรอง Certification Level ของร้านตนเอง', roles: M, routes: ['/m/certification'], actions: [g('applyCertification')] },
-  'complaint.merchant': { group: 'merchant', label: 'ดูและตอบกลับข้อร้องเรียนของร้านตนเอง', roles: M, routes: ['/m/complaints', '/m/complaints/:id'], actions: [g('merchantRespond')] },
-  'warning.merchant': { group: 'merchant', label: 'รับทราบคำเตือนและส่งผลการแก้ไข', roles: M, routes: ['/m/warnings', '/m/warnings/:id'], actions: [g('acknowledgeWarning'), g('toggleWarningItem'), g('submitCorrection')] },
-  'risk.merchant': { group: 'merchant', label: 'ชี้แจงและอุทธรณ์เรื่องพิจารณาความเสี่ยง', roles: M, routes: ['/m/review'], actions: [g('merchantStatement'), g('submitAppeal')] },
+  'certification.own': { group: 'merchant', label: 'ดูและขอรับรอง Certification Level ของร้านตนเอง', roles: M, routes: ['/m/certification'], actions: [gs('applyCertification')] },
+  'complaint.merchant': { group: 'merchant', label: 'ดูและตอบกลับข้อร้องเรียนของร้านตนเอง', roles: M, routes: ['/m/complaints', '/m/complaints/:id'], actions: [gs('merchantRespond')] },
+  'warning.merchant': { group: 'merchant', label: 'รับทราบคำเตือนและส่งผลการแก้ไข', roles: M, routes: ['/m/warnings', '/m/warnings/:id'], actions: [gs('acknowledgeWarning'), gs('toggleWarningItem'), gs('submitCorrection')] },
+  'risk.merchant': { group: 'merchant', label: 'ชี้แจงและอุทธรณ์เรื่องพิจารณาความเสี่ยง', roles: M, routes: ['/m/review'], actions: [gs('merchantStatement'), gs('submitAppeal')] },
   'merchant.tools': {
     group: 'merchant',
     label: 'ศูนย์อบรม เครื่องมือส่งเสริมร้านค้า และ AI ผู้ช่วย SME',
     roles: M,
     routes: ['/m/training', '/m/training/:courseId', '/m/toolkit', '/m/ai', '/m/ai/ad-checker', '/m/ai/complaint', '/m/ai/history'],
-    actions: [g('startCourse'), g('completeLesson'), g('submitQuiz'), u('recordAiAnalysis'), u('clearAiHistory')],
+    actions: [ga('startCourse'), ga('completeLesson'), ga('submitQuiz'), u('recordAiAnalysis'), u('clearAiHistory')],
   },
 
   // ---------------------------------------------------------------- เจ้าหน้าที่ (ผู้ดูแลระบบมีสิทธิ์เดียวกัน)
@@ -201,7 +212,6 @@ export const UNGUARDED_BY_DESIGN: Record<string, string> = {
   processMerchant: 'ระบบอัตโนมัติ: ประเมินใหม่และจัดเส้นทางเมื่อข้อมูลเปลี่ยน',
   // ก่อนเข้าสู่ระบบ (Self-service) — ยังไม่มีบทบาทที่ยืนยันแล้ว
   registerOperator: 'สมัครบัญชีผู้ประกอบการก่อนเข้าสู่ระบบ',
-  setKycResult: 'ผล e-KYC จำลองระหว่างสมัคร — ระบบจริงต้องรับผลจากผู้ให้บริการ KYC ที่ฝั่งเซิร์ฟเวอร์เท่านั้น',
   resetPin: 'ลืม PIN ก่อนเข้าสู่ระบบ (จำลอง OTP)',
   // ข้อมูลของผู้ใช้เอง / Demo
   markNotificationsRead: 'อ่านการแจ้งเตือนของตนเอง',

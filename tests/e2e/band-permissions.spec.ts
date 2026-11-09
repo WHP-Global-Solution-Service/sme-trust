@@ -49,3 +49,16 @@ test('Role & Permission Matrix: ผู้ดูแลระบบเปิดไ
     await expect(page.getByText('ไม่มีสิทธิ์เข้าถึงหน้านี้ (Permission Denied)')).toBeVisible();
   }
 });
+
+test('ฟอนต์ไทยโหลดพร้อมหน้าเว็บ (Preload) — ไม่เริ่มโหลดหลังหน้าแสดงแล้วถูกยกเลิกเมื่อเปลี่ยนหน้าเร็ว (KI-V2-36)', async ({ page }) => {
+  await open(page, '/');
+  const hrefs = await page.locator('link[rel="preload"][as="font"]').evaluateAll((ls) => ls.map((l) => (l as HTMLLinkElement).href));
+  expect(hrefs).toHaveLength(8);
+  expect(hrefs.every((h) => /noto-sans-thai-(thai|latin)-[4-7]00-normal-.*\.woff2$/.test(h))).toBe(true);
+  // ไฟล์ที่ Preload คือไฟล์เดียวกับที่ CSS ใช้ และโหลดสำเร็จทั้งหมด
+  await page.evaluate(() => document.fonts.ready);
+  const loaded = await page.evaluate(() => [...document.fonts].filter((f) => f.family.replace(/"/g, '') === 'Noto Sans Thai' && f.status === 'loaded').length);
+  expect(loaded).toBe(8);
+  const used = await page.evaluate(() => performance.getEntriesByType('resource').filter((r) => /\.woff2$/.test(r.name)).map((r) => r.name));
+  expect(new Set(used).size).toBe(8);
+});

@@ -1,4 +1,4 @@
-import { Check, KeyRound, Lock, Minus, ShieldCheck } from 'lucide-react';
+import { Check, KeyRound, Lock, Minus, ShieldCheck, UserCheck } from 'lucide-react';
 import { Alert, Badge, Card, CardHeader, PageHeader } from '@/components/common/ui';
 import { ROLE_LABEL } from '@/constants/labels';
 import { cn } from '@/utils/cn';
@@ -20,6 +20,7 @@ function Mark({ ok, label }: { ok: boolean; label: string }) {
 
 function Enforcement({ def }: { def: PermissionDef }) {
   const guarded = (def.actions ?? []).filter((a) => a.guarded);
+  const owned = (def.actions ?? []).filter((a) => a.owner);
   return (
     <div className="mt-1 space-y-1 text-[11px] leading-relaxed text-ink-soft">
       <p className="break-all font-mono">{def.routes.join(' · ')}</p>
@@ -27,6 +28,13 @@ function Enforcement({ def }: { def: PermissionDef }) {
         <p className="flex flex-wrap items-center gap-1">
           <Lock className="h-3 w-3 shrink-0" aria-hidden />
           <span className="break-all font-mono">{guarded.map((a) => a.name).join(' · ')}</span>
+        </p>
+      )}
+      {owned.length > 0 && (
+        <p className="flex flex-wrap items-center gap-1" data-testid="perm-ownership">
+          <UserCheck className="h-3 w-3 shrink-0" aria-hidden />
+          <span>ตรวจความเป็นเจ้าของ ({owned[0].owner === 'account' ? 'บัญชีตนเอง' : 'ร้านของบัญชีตนเอง'}):</span>
+          <span className="break-all font-mono">{owned.map((a) => a.name).join(' · ')}</span>
         </p>
       )}
       {def.note && <p className="text-ink">{def.note}</p>}
@@ -42,9 +50,9 @@ export default function PermissionMatrixPage() {
       <PageHeader title="Role & Permission Matrix" subtitle="บทบาทใดทำอะไรได้บ้าง — สร้างจากนโยบายสิทธิ์ชุดเดียวกับที่ระบบใช้บังคับจริง" icon={KeyRound} />
       <div className="mb-4 space-y-2">
         <Alert tone="info" icon={ShieldCheck} title="อ่านอย่างเดียว">
-          ระบบยังไม่มีการแก้ไขสิทธิ์แบบ Dynamic — ตารางนี้สะท้อนการตรวจสิทธิ์ 2 ชั้น: เส้นทางหน้าจอ (RoleGate) และฟังก์ชันที่เปลี่ยนข้อมูล (authorize — ปฏิเสธและบันทึก Audit Log เมื่อบทบาทไม่มีสิทธิ์)
+          ระบบยังไม่มีการแก้ไขสิทธิ์แบบ Dynamic — ตารางนี้สะท้อนการตรวจสิทธิ์: เส้นทางหน้าจอ (RoleGate), ฟังก์ชันที่เปลี่ยนข้อมูล (authorize) และความเป็นเจ้าของร้านของผู้ประกอบการ (requireOwnShop / requireOwnAccount) — ไม่ผ่านจะถูกปฏิเสธและบันทึก Audit Log
         </Alert>
-        <Alert tone="warning">ระบบต้นแบบไม่มี Backend — การบังคับสิทธิ์ทำในแอปบน Browser ระบบจริงต้องตรวจสิทธิ์ซ้ำที่ API ฝั่งเซิร์ฟเวอร์</Alert>
+        <Alert tone="warning">ระบบต้นแบบไม่มี Backend — การตรวจบทบาทและความเป็นเจ้าของเป็น Prototype Simulation บน Browser ระบบจริงต้องตรวจ Role และ Resource Ownership ที่ Backend API ทุกคำขอ</Alert>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="สรุปจำนวนสิทธิ์ต่อบทบาท">
