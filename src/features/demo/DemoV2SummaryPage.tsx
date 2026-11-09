@@ -110,7 +110,7 @@ export default function DemoV2SummaryPage() {
           <Impact icon={ShieldCheck} cls="text-secondary" title="สคบ. / เจ้าหน้าที่">
             <li>ข้อมูลประกอบครบ คัดกรองร้านที่ควรตรวจสอบได้เร็วขึ้น</li>
             <li>เห็นวิธีคำนวณทุกขั้น ตัดสินต่างจากระบบได้พร้อมบันทึกเหตุผล</li>
-            <li>อนุมัติผ่าน Workflow v1 เดิม มี Audit Log ทุกการตัดสิน</li>
+            <li>อนุมัติผ่านกระบวนการรับรองเดิม มี Audit Log ทุกการตัดสิน</li>
           </Impact>
         </section>
 
@@ -118,7 +118,7 @@ export default function DemoV2SummaryPage() {
           <Card>
             <CardHeader title="หลักการที่ระบบยึดถือ" icon={Scale} />
             <ul className="space-y-1.5 p-4 text-sm text-ink">
-              <li>• ไม่ออกใบรับรองอัตโนมัติ — ต้องผ่านเจ้าหน้าที่และเกณฑ์ v1 (Level 1–4 ความหมายเดิม)</li>
+              <li>• ไม่ออกใบรับรองอัตโนมัติ — ต้องผ่านเจ้าหน้าที่และเกณฑ์การรับรอง (Level 1–4 ความหมายเดิม)</li>
               <li>• ผู้บริโภคไม่เห็นคะแนน 0–100 — เจ้าหน้าที่เห็นคะแนนและวิธีคำนวณ</li>
               <li>• ข้อมูลที่ขาดไม่เท่ากับศูนย์ — ข้อมูลน้อยแสดง Insufficient Data</li>
               <li>• Coverage แยกจาก Confidence — ครบแค่ไหน กับ เชื่อถือได้แค่ไหน</li>
@@ -127,14 +127,14 @@ export default function DemoV2SummaryPage() {
             </ul>
           </Card>
           <Card>
-            <CardHeader title="v2 เพิ่มอะไรจาก v1" icon={Database} />
+            <CardHeader title="ความสามารถที่เพิ่มจากระบบคุ้มครองผู้บริโภคเดิม" icon={Database} />
             <div className="overflow-x-auto p-4">
               <table className="w-full min-w-[420px] text-sm">
                 <thead className="text-left text-xs text-ink-soft">
                   <tr>
                     <th className="py-1.5 font-medium">ด้าน</th>
-                    <th className="py-1.5 font-medium">v1</th>
-                    <th className="py-1.5 font-medium">v2</th>
+                    <th className="py-1.5 font-medium">Consumer Protection (เดิม)</th>
+                    <th className="py-1.5 font-medium">Marketplace & Trust Assessment</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line text-ink">
@@ -165,7 +165,7 @@ export default function DemoV2SummaryPage() {
         </section>
 
         <Card>
-          <CardHeader title="เส้นทางการสาธิต v2" />
+          <CardHeader title="เส้นทางการสาธิต Marketplace & Trust Assessment" />
           <ol className="space-y-3 p-4">
             {path.map((sc) => {
               const done = d.completed.includes(sc.id);

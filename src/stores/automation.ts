@@ -227,5 +227,5 @@ export function respondToTask(taskId: string, response: string): WorkflowResult 
 // Workflow เดิม (มาตรการ/ยืนยันตัวตน) แจ้งเหตุการณ์ → อัปเดตสถานะ Badge ทันทีด้วยผลประเมินล่าสุด
 onMerchantChanged((merchantId, trigger) => {
   // มาตรการเปลี่ยน: ใช้ผลประเมินล่าสุด (สถานะการรับรองอ่านจากข้อมูลปัจจุบัน) · ยืนยันตัวตนเปลี่ยน: ประเมินใหม่
-  if (badgeOf(merchantId) || latestAssessment(merchantId)) processMerchant(merchantId, trigger, { reassess: trigger !== 'measure_change' });
+  if (trigger === 'registration' || badgeOf(merchantId) || latestAssessment(merchantId)) processMerchant(merchantId, trigger, { reassess: trigger !== 'measure_change' });
 });

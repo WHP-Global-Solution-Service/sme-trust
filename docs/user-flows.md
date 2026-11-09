@@ -95,3 +95,14 @@ suspended/revoked ─ร้านยื่นอุทธรณ์─▶ appeal_
 
 `/demo` ─Start Demo / Start Full Journey─▶ Demo Controller (ทีละขั้น · Gate · Role Transition) ─ขั้นสุดท้าย─▶ `/demo/complete/:id` ─ดำเนินการต่อ─▶ Scenario ถัดไป … ─Scenario 8─▶ `/demo/overview` — รายละเอียดใน [demo-scenario-architecture.md](demo-scenario-architecture.md)
 
+## 9. Unified Merchant Onboarding
+
+```
+Path A: เลือก Marketplace → อนุญาต (จำลอง) → เลือกร้าน (ร้านที่เชื่อมกับร้านของตนแล้วเลือกไม่ได้) → Preview → ยืนยันนำเข้า
+        → Auto-Fill → ทบทวน/แก้ไข → กรอกที่ขาด → เอกสารตามกฎ → Preliminary Verification → ส่งคำขอ (เอง)
+        → เชื่อมต่อ (Shop ID ซ้ำกับร้านอื่น → ownershipConflict) → ประเมินอัตโนมัติ → Decision Router → Badge
+Path B: ประเภทธุรกิจ → ข้อมูลผู้ประกอบการ (เอกสารยืนยันตัวตน / นิติบุคคล + Mock DBD) → ข้อมูลร้าน → ช่องทางขาย
+        → เอกสารตามกฎ (หนังสือมอบอำนาจเมื่อผู้สมัครไม่ใช่ผู้มีอำนาจ) → Preliminary Verification → ส่งคำขอ
+        → ประเมินอัตโนมัติ → Insufficient Data + คำแนะนำ (ไม่ใช่ผลลบ) → คำขอ Level 2 รอเจ้าหน้าที่
+เพิ่ม Marketplace ภายหลัง: /m/shop "เพิ่มช่องทางขาย" → /m/marketplace → ยินยอม → นำเข้า (ร้านเดิม) → Coverage ↑ → ประเมินใหม่ → Badge
+```

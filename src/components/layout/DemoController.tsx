@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, Info, Link2, LayoutGrid, Lightbulb, Lock, Pause, Repeat, RotateCcw, Undo2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, Info, Link2, LayoutGrid, Lightbulb, Lock, Pause, Repeat, RotateCcw, TrendingUp, Undo2, X } from 'lucide-react';
+import { STEP_BENEFIT } from '@/demo/benefits';
 import type { Role } from '@/types';
 import { domainStores, useSessionStore, confirmDialog, toast } from '@/stores';
 import { useAiWorkspaceStore } from '@/stores/aiWorkspace';
@@ -181,6 +182,15 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
             {i + 1}. {step.title}
           </h3>
           <p className="text-sm leading-relaxed text-ink">{stepInstruction(step.instruction, d.current)}</p>
+          {STEP_BENEFIT[step.id] && (
+            <p className="flex gap-2 rounded-xl bg-success-50 p-3 text-sm text-ink" data-testid="step-benefit">
+              <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+              <span>
+                <b>ประโยชน์: </b>
+                {STEP_BENEFIT[step.id]}
+              </span>
+            </p>
+          )}
           {step.tip && (
             <p className="flex gap-2 rounded-xl bg-warning-50 p-3 text-sm text-[#7a4705]">
               <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />

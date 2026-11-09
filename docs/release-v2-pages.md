@@ -4,7 +4,7 @@ URL: https://whp-global-solution-service.github.io/sme-trust/
 Source: `sme-trustv.2` → Merge เข้า `main` → GitHub Actions (`deploy-pages.yml`) Deploy จาก `main` เท่านั้น
 
 > สถานะ: **เผยแพร่แล้ว 3 รอบ** — รอบที่ 1 (v2 แทน v1) Merge `7e6df10` · Run #3 · ข้อ 9 · รอบที่ 2 (Marketplace Auto-Fill) Merge `4eed1d9` · Run #4 · ข้อ 10 · รอบที่ 3 (หน้าแรก Concept v2 + คำขอเปลี่ยนข้อมูลร้าน) Merge `304d247` · Run #5 · ข้อ 11–12
-> **Release 4 (Automation First) เตรียมพร้อมแล้ว — ยังไม่เผยแพร่** · Checklist และ Rollback Plan ข้อ 13 (ฐาน Production `304d247`)
+> **Release 4 (Automation First) เผยแพร่แล้ว** — Merge `06a36e3` · Run #6 · ข้อ 13–14 · Rollback Tag `sme-trust-v2.2-before-automation` → `304d247`
 > Prototype นี้เป็น Frontend Only ด้วยข้อมูลจำลอง — **ไม่ใช่ระบบพร้อมใช้งานจริง (Not Production)**
 
 ## 1. ผล Preflight
@@ -217,7 +217,7 @@ Not Tested (รอบที่ 2): Safari / อุปกรณ์มือถื
 
 Not Tested (รอบที่ 3): Safari / อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
 
-## 13. Release 4 — Automation First, Human by Exception (เตรียมแล้ว — ยังไม่เผยแพร่)
+## 13. Release 4 — Automation First, Human by Exception (เผยแพร่แล้ว — ผลจริงดูข้อ 14)
 
 ### 13.1 ฐานของ Release (ข้อมูลจริง ตรวจเมื่อ 8 พ.ย. 2569)
 
@@ -315,3 +315,82 @@ git switch sme-trustv.2
 | ปัญหาเล็ก (ข้อความ, P3) | ไม่ Rollback — แก้บน Branch แล้วเผยแพร่รอบถัดไป |
 
 หลัง Rollback: Store ใหม่ (`assessment-badges`, `officer-tasks`, `automation-runs`) ค้างใน localStorage ของผู้ใช้โดยไม่มีผลต่อ Release 3 · Store เดิมใช้ต่อได้ · การนำ Release 4 กลับมา: `git revert <revert-commit>`
+
+## 14. Release 4 — บันทึกการเผยแพร่จริง
+
+| รายการ | ค่า |
+|---|---|
+| ฐานก่อนเผยแพร่ | `origin/main` = `304d247` (ตรวจแล้วไม่เปลี่ยน) · Working tree สะอาด |
+| Rollback Tag | `sme-trust-v2.2-before-automation` (annotated) → `304d247` · Push แล้ว |
+| Source | `sme-trustv.2` `447a9fa..30316b4` (มี `d3bdc0c`, `8bb6715`, `30316b4` ครบ) · Push แล้ว |
+| Merge Commit | **`06a36e3`** (`--no-ff`, ไม่ Force Push / ไม่ Rewrite History) · `git diff 30316b4 06a36e3` ว่าง |
+| ตรวจหลัง Merge | `npm ci` ✅ · TypeScript ✅ · `npm test` 17 ชุด ✅ · Build `/sme-trust/` + ขั้นตอนตรวจของ Workflow ✅ (`index-myV2if87.js` = Bundle ของ RC) · E2E Chromium 74/74 ✅ · GitHub Pages จำลอง 9/9 ✅ (รอบแรก `EBUSY` จาก Shell ที่เปิดโฟลเดอร์ `.pages/live` ค้าง — ย้ายแล้วรันใหม่ผ่าน) |
+| GitHub Actions | Run #6 `42503472126` · build ✅ 17:08:49–17:09:58 · deploy ✅ 17:10:02–17:10:11 (UTC, 8 พ.ย. 2569) |
+| เว็บจริง | Bundle `index-myV2if87.js` (ตรงกับ Build ในเครื่อง) · Asset 126 ไฟล์ตอบ 200 |
+| Live smoke | Chromium ครบทุกชุด + Live 5 = **79/79** ✅ · Firefox 46 Test: 45 ผ่าน + 1 ไม่ผ่านรอบแรก (ดูหมายเหตุ) → รันซ้ำ 6/6 ✅ · WebKit **19/19** ✅ |
+| Rollback | **ไม่ Rollback** — ไม่พบปัญหาร้ายแรง |
+
+Live smoke ครอบคลุม: เชื่อม Marketplace + Auto-Fill · ประเมินอัตโนมัติ · AUTO_PASS (Scenario 14) · AUTO_REQUEST_INFO (ร้านเปิดใหม่ → Insufficient Data, ไม่มีงานเจ้าหน้าที่) · MANUAL_REVIEW (Scenario 15 + ตัวตนไม่ตรง) · Badge อัตโนมัติ · ร้านใหม่สมัครด้วย Marketplace (Badge active) → เจ้าหน้าที่ Reject คำขอลงทะเบียน → Badge ไม่แสดงต่อผู้บริโภค ร้านเห็นเหตุผล ไม่มีใบรับรอง · Suspended (M-004) / Revoked (M-008) / Withheld (M-009) / Under Review ไม่แสดงตรา Badge และมุมเจ้าหน้าที่แสดงสถานะเดียวกัน · Exception Queue · Request More Information → ร้านตอบในงานเดิม → Reject · ไม่สร้างงานซ้ำเมื่อ Reload / Sync / Run Simulation ×2 · Scenario 14–15 จนจบ · Full Journey ทั้งสองชุดและ Scenario 1–13, 9A, 9B · Direct link + Refresh (`/o/exceptions`, `/o/automation`, `/o`, `/m/marketplace-app`, `/m/trust`, `/shop/:id`, `/verify/:id`, `/demo`) · ไม่มี Request ไปโดเมนอื่น (ไม่มีการเชื่อมต่อ Shopee, Lazada หรือ สคบ. จริง) · ไม่มี Console error (ยกเว้น 404 ของคำขอแรกของ Direct link ตาม KI-03)
+
+หมายเหตุ Firefox: `v2-profile-change` อ่านค่าช่องชื่อร้านด้วย `inputValue()` ก่อนฟอร์มเติมค่าบนเว็บจริงที่โหลดช้ากว่า (ได้ค่าว่าง) — เป็นจังหวะเวลาของ Test ไม่ใช่ปัญหาของแอป (ผ่านบน Chromium/WebKit จริง และรันซ้ำบน Firefox จริง 6/6) · แก้ Test ให้รอค่าก่อนอ่านแล้ว (Branch `sme-trustv.2`, ยังไม่เผยแพร่)
+
+Not Tested (รอบที่ 4): Safari / อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
+
+## 15. Release 5 Candidate — Unified Onboarding + Final Release Validation (ยังไม่เผยแพร่)
+
+### 15.1 ฐาน (ตรวจจริงเมื่อ 9 พ.ย. 2569)
+
+| รายการ | ค่า |
+|---|---|
+| Production | `origin/main` = `06a36e3` (Release 4) |
+| `origin/sme-trustv.2` | `30316b4` |
+| Commit ในเครื่องที่ยังไม่ Push | `65da187` (บันทึก Release 4) · `0123a25` (Unified Onboarding, KYC, Multi-Platform, หน้าแรก Executive) · Commit Final Release Validation |
+| Push / Merge / Deploy | **ยังไม่ทำ** — รออนุมัติ |
+
+### 15.2 สิ่งที่แก้ในรอบ Final Release Validation
+
+- **KI-V2-32 (Bug ของแอป):** ตัวควบคุมการสาธิตข้ามการเปลี่ยนหน้าเมื่อ location ของ React ยังไม่อัปเดต (`v7_startTransition`) → เทียบกับเส้นทางจริงของเบราว์เซอร์ (`livePath()`) · Regression Unit + E2E
+- **KI-V2-31:** ปุ่มเข้าสู่ระบบใน Header ทุกขนาดจอ (320px ขึ้นไป) และกลับไปขั้นตอนลงทะเบียนที่ตั้งใจไว้หลังเข้าสู่ระบบ
+- Test เพิ่ม: ID ไม่ซ้ำทุก Store · นิติบุคคลสมัครเอง · ใบรับรองระงับ/เพิกถอน → ไม่แสดง Badge · หน้าแรก 320/390px
+
+### 15.3 ผลตรวจก่อนเผยแพร่ (ในเครื่อง — ไม่ใช่เว็บจริง)
+
+TypeScript ✅ · `npm test` 18 ชุด ✅ · Build `/sme-trust/` + ตรวจของ Workflow ✅ · E2E Chromium ครบทุกชุด 80/80 ×2 รอบ ✅ · `continuity`+`home` ×10 = 110/110 ✅ · Firefox 27/27 ✅ · WebKit 18/18 ✅ · GitHub Pages จำลอง 9/9 ✅ · รายละเอียด `docs/test-checklist.md`
+
+Not Tested: Safari จริง · มือถือจริง · เว็บจริง (ยังไม่ Deploy)
+
+### 15.4 ขั้นตอนเผยแพร่ (หลังได้รับอนุมัติเท่านั้น — ไม่ Force Push / ไม่ Rewrite History)
+
+```bash
+# 0) ตรวจสถานะจริง
+git fetch origin --tags
+git rev-parse origin/main                      # ต้องเป็น 06a36e3… — ถ้าไม่ใช่ ให้หยุดและรายงาน
+git status                                     # ต้องสะอาด
+git log --oneline sme-trustv.2..origin/main    # ต้องว่าง
+
+# 1) Rollback Tag ของ Production ปัจจุบัน
+git tag -a sme-trust-v2.3-before-onboarding 06a36e3 -m "Production before Unified Onboarding (rollback point)"
+git push origin sme-trust-v2.3-before-onboarding
+
+# 2) Push Branch ต้นทาง → 3) Merge --no-ff → 4) ตรวจหลัง Merge → 5) Push main (เหมือนข้อ 13.4)
+git push origin sme-trustv.2
+git switch main && git merge --ff-only origin/main
+git merge --no-ff sme-trustv.2 -m "Release SME Trust v2 Unified Onboarding to GitHub Pages"
+git diff --stat sme-trustv.2 HEAD              # ต้องว่าง
+npm ci && npm run typecheck && npm test
+MSYS_NO_PATHCONV=1 VITE_BASE=/sme-trust/ npm run build     # ถ้า ENOTEMPTY ที่ dist\assets ให้ลบ dist แล้วรันใหม่
+MSYS_NO_PATHCONV=1 npm run test:e2e:subpath && MSYS_NO_PATHCONV=1 npm run test:e2e:pages
+git push origin main
+git switch sme-trustv.2
+```
+
+### 15.5 Rollback Plan (ฐาน = `06a36e3`)
+
+| เงื่อนไข | การทำ |
+|---|---|
+| Actions ล้มเหลวก่อน Deploy | ไม่มีผลต่อเว็บจริง — แก้บน `sme-trustv.2` แล้วเริ่มใหม่ |
+| เว็บจริงมีปัญหาร้ายแรง | **A (เร็ว):** Actions → Run #6 (`42503472126`, `06a36e3`) → Re-run all jobs · **B (ถาวร):** `git revert -m 1 <merge-commit>` → `git diff sme-trust-v2.3-before-onboarding HEAD --stat` ต้องว่าง → `git push origin main` |
+| ปัญหาเล็ก (P3) | ไม่ Rollback — แก้ในรอบถัดไป |
+
+ข้อมูลในเบราว์เซอร์ผู้ใช้: Release นี้เพิ่มเฉพาะฟิลด์ทางเลือก (`identityDocType`, `ownershipConflict`) — Rollback แล้ว Release 4 อ่านข้อมูลเดิมได้ (ฟิลด์ที่ไม่รู้จักถูกละไว้)
+

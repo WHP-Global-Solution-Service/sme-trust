@@ -7,6 +7,9 @@ import { levelCriteria } from '@/utils/criteria';
 import { fmtDate } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import { Alert, Badge, Button, Card, CardHeader, InfoRow, PageHeader, StatusBadge } from '@/components/common/ui';
+import { useMarketplaceStore } from '@/stores';
+import { VerificationList } from '@/features/onboarding/VerificationParts';
+import { verificationSummary } from '@/features/onboarding/verification';
 import { Timeline } from '@/components/common/Timeline';
 import { DocList } from '@/components/forms/MockUpload';
 import NotFoundPage from '@/features/onboarding/NotFoundPage';
@@ -18,6 +21,7 @@ export default function ApplicationDetail() {
   const app = useVerificationStore((s) => s.items.find((a) => a.id === id));
   const m = useMerchantStore((s) => s.items.find((x) => x.id === app?.merchantId));
   const op = useOperatorStore((s) => s.items.find((o) => o.id === m?.operatorId));
+  const connections = useMarketplaceStore((s) => s.items);
   const audit = useAuditStore((s) => s.items.filter((a) => a.target === id));
   const enrollments = useTrainingStore((s) => s.items);
   const warnings = useWarningStore((s) => s.items);
@@ -88,6 +92,13 @@ export default function ApplicationDetail() {
 
       {/* ข้อมูลที่ร้านนำเข้าจาก Marketplace (จำลอง): คำขอลงทะเบียนใช้บันทึกของคำขอ · คำขออื่นใช้การอัปเดตโปรไฟล์ล่าสุดของร้าน (Scenario 9) */}
       <ImportReviewSection merchantId={m.id} importId={app.importId} className="mb-4" />
+
+      <Card className="mb-4" data-testid="officer-verification">
+        <CardHeader title="สรุปการตรวจสอบผู้ประกอบการ (จำลอง)" subtitle="ตัวตน · การจดทะเบียน/หลักฐานธุรกิจ · ผู้แทน · ความเป็นเจ้าของร้านบน Marketplace · ช่องทางติดต่อ" />
+        <div className="p-4 sm:p-5">
+          <VerificationList items={verificationSummary(m, op, connections)} />
+        </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4">

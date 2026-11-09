@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { appUrl } from '@/utils/appUrl';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BadgeCheck, Bot, CircleAlert, History, Info, Send, ShieldQuestion, UserCheck } from 'lucide-react';
-import { useAssessmentBadgeStore, useAssessmentStore, useAutomationRunStore, useCertificationStore, useOfficerTaskStore, toast } from '@/stores';
+import { useAssessmentBadgeStore, useAssessmentStore, useAutomationRunStore, useCertificationStore, useMerchantStore, useOfficerTaskStore, toast } from '@/stores';
 import { respondToTask } from '@/stores/automation';
 import { latestAssessment } from '@/stores/workflowsV2';
 import { useAssessmentState } from '@/features/trust-assessment/hooks';
@@ -30,23 +32,40 @@ export function RouteBadge({ route }: { route: Route }) {
 
 /** ตรา Trust Assessment Badge — ผลประเมินอัตโนมัติ (คนละอย่างกับ Certification Badge) */
 export function AssessmentBadgeEmblem({ badge, size = 'md' }: { badge: AssessmentBadge; size?: 'sm' | 'md' }) {
+  const shop = useMerchantStore((s) => s.items.find((m) => m.id === badge.merchantId));
   const band = badge.band === 'insufficient' ? '–' : badge.band;
+  const link = appUrl(`/shop/${badge.merchantId}`);
+  const sources = badge.dataSources.map((p) => PLATFORMS[p].label).join(', ') || 'ข้อมูลในระบบ';
   return (
-    <div className={cn('inline-flex items-center gap-3 rounded-2xl border-2 border-dashed border-primary/50 bg-primary-50 px-3 py-2', size === 'sm' && 'gap-2 px-2 py-1.5')} data-testid="assessment-badge" data-status={badge.status}>
+    <div className={cn('inline-flex max-w-full items-center gap-3 rounded-2xl border-2 border-dashed border-primary/50 bg-primary-50 px-3 py-2', size === 'sm' && 'gap-2 px-2 py-1.5')} data-testid="assessment-badge" data-status={badge.status}>
       <span className={cn('grid shrink-0 place-items-center rounded-xl bg-primary font-bold text-white', size === 'sm' ? 'h-8 w-8 text-base' : 'h-12 w-12 text-2xl')} aria-hidden>
         {band}
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-bold text-primary">Trust Assessment Badge</span>
+        {size === 'md' && shop && <span className="block text-sm font-semibold text-ink">{shop.shopName}</span>}
         <span className="block text-xs text-ink-soft">
           {BAND_LABEL[badge.band].label} · ผลประเมินอัตโนมัติ — ไม่ใช่การรับรอง
         </span>
         {size === 'md' && (
-          <span className="block text-[11px] text-ink-soft">
-            {badge.id} · ข้อมูล {badge.dataSources.map((p) => PLATFORMS[p].label).join(', ') || 'ในระบบ'} · ประเมิน {fmtDate(badge.updatedAt, true)} · โมเดล {badge.modelVersion}
-          </span>
+          <>
+            <span className="block text-[11px] text-ink-soft">
+              Coverage {badge.coverage}% · {CONFIDENCE_LABEL[badge.confidence].label} · ประเมิน {fmtDate(badge.updatedAt, true)}
+            </span>
+            <span className="block text-[11px] text-ink-soft">
+              แหล่งข้อมูล: {sources} · {badge.id} · โมเดล {badge.modelVersion}
+            </span>
+            <a href={link} className="block break-all text-[11px] font-medium text-primary hover:underline" data-testid="badge-verify-link">
+              ตรวจสอบสถานะ Badge: {link.replace(/^https?:\/\//, '')}
+            </a>
+          </>
         )}
       </span>
+      {size === 'md' && (
+        <span className="hidden shrink-0 rounded-lg bg-white p-1.5 sm:block" aria-label="QR ตรวจสอบสถานะ Badge (จำลอง)">
+          <QRCodeSVG value={link} size={64} level="M" fgColor="#112E70" />
+        </span>
+      )}
     </div>
   );
 }

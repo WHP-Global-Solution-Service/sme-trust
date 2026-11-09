@@ -23,6 +23,8 @@ export interface RoutingConnection {
   ownerName: string;
   ownerMismatch: boolean;
   identityReview?: 'verified' | 'rejected';
+  /** ร้านเดียวกันบน Marketplace เชื่อมกับร้านอื่นในระบบอยู่แล้ว */
+  claimedBy?: string;
 }
 
 export interface RoutingContext {
@@ -80,7 +82,7 @@ export function routeAssessment(ctx: RoutingContext): RoutingDecision {
         category: 'insufficient_data',
         kind: 'merchant_fixable',
         title: 'ข้อมูลยังไม่เพียงพอ (Insufficient Data)',
-        detail: r.insufficientReasons.join(' · '),
+        detail: `${r.insufficientReasons.join(' · ')}${ctx.connections.length ? '' : ' — ร้านที่ไม่มีบัญชี Marketplace ไม่ถูกหักคะแนน เพิ่มหลักฐานหรือเชื่อมช่องทางขายเมื่อพร้อม'}`,
         action: { label: ctx.connections.some((c) => c.status === 'connected') ? 'ซิงก์หรือเชื่อมต่อแพลตฟอร์มเพิ่ม' : 'เชื่อมต่อ Marketplace (จำลอง)', to: '/m/marketplace' },
         priority: 'medium',
         fingerprint: `insufficient:${m}`,
@@ -103,7 +105,22 @@ export function routeAssessment(ctx: RoutingContext): RoutingDecision {
 
   // ---- ต้องใช้เจ้าหน้าที่ (เฉพาะเมื่อยังไม่มีเรื่องเดิมดูแลอยู่ — ไม่สร้างงานซ้ำ)
   if (!measure) {
-    for (const c of ctx.connections.filter((x) => x.status === 'connected' && x.ownerMismatch && !x.identityReview)) {
+    for (const c of ctx.connections.filter((x) => x.status === 'connected' && x.claimedBy && !x.identityReview)) {
+      const fp = `ownership:${c.id}:${c.claimedBy}`;
+      issues.push(
+        issue({
+          category: 'identity_mismatch',
+          kind: 'manual',
+          title: 'ร้านบน Marketplace ถูกอ้างโดยร้านอื่นในระบบ',
+          detail: `${c.mockShopName} (Shop ID จำลอง ${c.mockShopId}) บน ${PLATFORMS[c.platform].label} เชื่อมกับร้าน ${c.claimedBy} อยู่แล้ว — ระบบไม่รวมหรือเลือกเจ้าของแทนเจ้าหน้าที่`,
+          priority: 'high',
+          fingerprint: fp,
+          clearedByTask: ctx.cleared[fp],
+          evidence: [`Shop ID จำลอง ${c.mockShopId}`, `ร้านที่เชื่อมอยู่ก่อน: ${c.claimedBy}`],
+        }),
+      );
+    }
+    for (const c of ctx.connections.filter((x) => x.status === 'connected' && x.ownerMismatch && !x.identityReview && !x.claimedBy)) {
       const fp = `identity:${c.id}:${c.ownerName}`;
       issues.push(
         issue({

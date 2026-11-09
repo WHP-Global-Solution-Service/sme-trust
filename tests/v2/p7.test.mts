@@ -48,7 +48,7 @@ for (const kind of ['need_info', 'rejected'] as const) {
   asOfficer();
   check(V.decideAssessment(ctx.assessmentId!, kind, 'ทดสอบผลการพิจารณาที่ไม่ใช่การอนุมัติ').ok, `เจ้าหน้าที่บันทึกผล ${kind}`);
   const app = S.useVerificationStore.getState().items.find((a) => a.id === assessment(ctx.assessmentId)!.decision!.applicationId);
-  check(app?.status === (kind === 'need_info' ? 'need_info' : 'rejected'), `  คำขอ ${app?.id} ที่ผูกไว้เปลี่ยนเป็น ${app?.status} ผ่าน Workflow v1`);
+  check(app?.status === (kind === 'need_info' ? 'need_info' : 'rejected'), `  คำขอ ${app?.id} ที่ผูกไว้เปลี่ยนเป็น ${app?.status} ผ่าน กระบวนการรับรอง`);
   check(JSON.stringify(activeCert('M-005').map((c) => `${c.id}:L${c.level}`)) === JSON.stringify(before) && !activeCert('M-005').some((c) => c.level === 4), `  ไม่มีใบรับรองใหม่ — คงระดับเดิม (${before.join(', ')})`);
   // เดินขั้นที่เหลือของ Scenario 12 จนจบ
   let guard = 0;
@@ -82,7 +82,7 @@ W.resetAllDemoData();
 C.startScenario('s12', nav, { journey: true });
 asOfficer();
 const ap = demo().current;
-check(V.decideAssessment(ap.assessmentId!, 'approved', 'ผลประเมินและเกณฑ์ v1 ผ่านครบ', 4).ok, 'เจ้าหน้าที่อนุมัติ Level 4');
+check(V.decideAssessment(ap.assessmentId!, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ', 4).ok, 'เจ้าหน้าที่อนุมัติ Level 4');
 const oA = findScenario('s12')!.outcome!(ap);
 check(oA?.kind === 'approved' && oA.tone === 'success' && activeCert('M-005').some((c) => c.level === 4), `  หน้าจบ: "${oA?.title}" และมีใบรับรอง Level 4`);
 

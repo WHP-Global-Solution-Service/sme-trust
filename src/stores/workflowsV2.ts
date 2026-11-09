@@ -36,6 +36,7 @@ import {
 } from '.';
 import { currentModel } from './assessmentConfig';
 import { processMerchant } from './automation';
+import { withoutEvents } from './events';
 import { applyCertification, approveApplication, audit, currentActor, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, submitShopRegistration, type ShopForm, type WorkflowResult } from './workflows';
 
 const mk = () => useMarketplaceStore.getState();
@@ -176,10 +177,23 @@ export function mockShopProfile(operatorId: string, platform: Platform) {
   };
 }
 
+/**
+ * ร้านบน Marketplace (แพลตฟอร์ม + Shop ID) ที่เชื่อมกับร้านอื่นในระบบอยู่แล้ว — ใช้กันการเชื่อมซ้ำโดยไม่ตั้งใจ
+ * และตรวจกรณีบัญชี Marketplace ถูกอ้างโดยผู้ประกอบการมากกว่าหนึ่งราย (ไม่รวมร้านเพียงเพราะชื่อเหมือนกัน — เทียบที่ Shop ID เท่านั้น)
+ */
+export function shopClaim(platform: Platform, mockShopId: string, exceptMerchantId?: string) {
+  return mk().items.find((c) => c.platform === platform && c.mockShopId === mockShopId && c.merchantId !== exceptMerchantId && c.status !== 'disconnected' && c.identityReview?.status !== 'rejected');
+}
+
 /** หลังส่งคำขอลงทะเบียน: สร้างการเชื่อมต่อจากแพลตฟอร์มที่ร้านนำเข้าข้อมูล (ร้านให้ความยินยอมแล้วตอนนำเข้า) */
 export function attachImportedMarketplaces(merchantId: string, imports: { platform: Platform; archetype: Archetype; pinned?: PinnedSource }[]) {
   return imports.map((im) => {
+    const claimed = im.pinned ? shopClaim(im.platform, im.pinned.mockShopId, merchantId) : undefined;
     const c = connectMarketplace(merchantId, im.platform, im.archetype, im.pinned);
+    if (claimed && !c.ownershipConflict) {
+      mk().update(c.id, { ownershipConflict: { merchantId: claimed.merchantId, detectedAt: nowISO() } });
+      audit('ตรวจพบร้านบน Marketplace ที่ถูกอ้างโดยร้านอื่น', c.id, `${PLATFORMS[im.platform].label} ${im.pinned!.mockShopId} · เชื่อมกับ ${claimed.merchantId} อยู่แล้ว — ส่งเจ้าหน้าที่ตรวจ`, true);
+    }
     grantConsent(c.id);
     completeSync(c.id, true);
     return conn(c.id)!;
@@ -227,7 +241,8 @@ export const importRecordsOf = (merchantId: string) =>
  */
 export function submitMarketplaceRegistration(operatorId: string, form: ShopForm, draft: { draftId: string; source: ImportSource; juristic?: boolean }) {
   const before = imp().items.find((r) => r.draftId === draft.draftId);
-  const { merchant, app, duplicate } = submitShopRegistration(operatorId, form, { draftId: draft.draftId });
+  // ประมวลผลหลังเชื่อมต่อ Marketplace ด้านล่าง (ไม่ประมวลผลร้านที่ยังไม่มีข้อมูลก่อน — กันแจ้งเตือนผลชั่วคราว)
+  const { merchant, app, duplicate } = withoutEvents(() => submitShopRegistration(operatorId, form, { draftId: draft.draftId }));
   if (duplicate && before) return { merchant, app, record: before, connection: conn(before.connectionId ?? ''), duplicate: true };
   const src = draft.source;
   const [connection] = attachImportedMarketplaces(merchant.id, [
@@ -573,7 +588,7 @@ export function decideAssessment(assessmentId: string, kind: OfficerDecisionKind
     if (!level) return { ok: false, error: 'กรุณาเลือกระดับที่อนุมัติ' };
     if (a.result.standing !== 'normal') return { ok: false, error: 'สถานะการรับรองไม่ปกติ จึงอนุมัติ Badge ไม่ได้' };
     const unmet = v1CriteriaFor(a.merchantId, level).filter((c) => !c.met);
-    if (unmet.length) return { ok: false, error: `ยังไม่ผ่านเกณฑ์ v1 ของ Level ${level}: ${unmet.map((c) => c.label).join(', ')}` };
+    if (unmet.length) return { ok: false, error: `ยังไม่ผ่านเกณฑ์การรับรอง ของ Level ${level}: ${unmet.map((c) => c.label).join(', ')}` };
     const cert = currentCert(useCertificationStore.getState().items, a.merchantId);
     if (cert?.status === 'active' && cert.level >= level) return { ok: false, error: `ร้านมีใบรับรองระดับ ${cert.level} อยู่แล้ว` };
     // ใช้คำขอที่ผูกไว้ตอนส่งพิจารณา (ถ้าเป็นคำขอรับรองที่ยังค้าง) — ไม่สร้างคำขอซ้ำ

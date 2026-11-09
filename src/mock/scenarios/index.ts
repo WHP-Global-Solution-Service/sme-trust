@@ -651,7 +651,7 @@ export const journeyScenarios = (t: Track) => trackScenarios(t).filter((s) => !s
 export const scenarioCode = (sc: ScenarioDef) => sc.code ?? String(sc.no);
 export const TRACK_INFO: Record<Track, { name: string; tagline: string; desc: string }> = {
   v1: { name: 'SME Trust — Consumer Protection', tagline: 'Scenario 1–8', desc: 'ยืนยันตัวตน รับรองร้านค้า ร้องเรียน คำเตือน การระงับ/อุทธรณ์ และ AI Simulation ช่วยผู้ประกอบการ' },
-  v2: { name: 'SME Trust — Marketplace & Trust Assessment', tagline: 'Scenario 9–13', desc: 'เน้นการเชื่อมข้อมูลจากแพลตฟอร์มขายเดิม (จำลอง) และประเมินความน่าเชื่อถือจากหลายปัจจัยอย่างอธิบายได้ — เจ้าหน้าที่ยังเป็นผู้ตัดสินการรับรอง' },
+  v2: { name: 'SME Trust — Marketplace & Trust Assessment', tagline: 'Scenario 9–15', desc: 'เชื่อมข้อมูลจากแพลตฟอร์มขายเดิม (จำลอง) ประเมินความน่าเชื่อถืออัตโนมัติจากหลายปัจจัย และส่งเจ้าหน้าที่เฉพาะกรณียกเว้น — การรับรอง Level 2–4 ยังเป็นอำนาจของเจ้าหน้าที่' },
 };
 export const stepInstruction = (ins: string | ((c: DemoCtx) => string), ctx: DemoCtx) => (typeof ins === 'function' ? ins(ctx) : ins);
 

@@ -40,7 +40,7 @@ check(view('/m/trust', merchant('OP-008')).includes('สถานะการร
 
 describe('D3 — Officer Review เท่านั้น');
 const off6 = view(`/o/assessments/${latest('M-006').id}`, officer);
-check(off6.includes('บันทึกผลการพิจารณา') && off6.includes('เกณฑ์ v1 ของ Level 3') && off6.includes('ไม่ออก Badge อัตโนมัติ'), 'หน้าพิจารณามีเกณฑ์ v1 และการตัดสินของเจ้าหน้าที่ — ระบบไม่ออก Badge เอง');
+check(off6.includes('บันทึกผลการพิจารณา') && off6.includes('เกณฑ์การรับรอง ของ Level 3') && off6.includes('ไม่ออก Badge อัตโนมัติ'), 'หน้าพิจารณามีเกณฑ์การรับรอง และการตัดสินของเจ้าหน้าที่ — ระบบไม่ออก Badge เอง');
 check(view('/o/applications/APP-2569-0007', officer).includes('ข้อมูลประกอบ: Trust Assessment'), 'คำขอ Level 3 แสดงผลประเมินเป็นข้อมูลประกอบ');
 
 describe('D5 — โมเดลปรับได้และโปร่งใส');

@@ -244,4 +244,37 @@ asOfficer();
   check(!S.useAuditStore.getState().items.some((a) => a.actorRole === 'system' && /อนุมัติคำขอ|ออกใบรับรอง/.test(a.action)), 'ไม่มี Audit Log ที่ระบบอนุมัติคำขอหรือออกใบรับรอง');
 }
 
+describe('8) KI-V2-32 — Demo Controller เปลี่ยนหน้าตามขั้นจริง แม้ location ของ React ยังไม่อัปเดต (startTransition)');
+{
+  const saved = (globalThis as any).location;
+  const navs: string[] = [];
+  const setLoc = (p: string) => {
+    const [pathname, q] = p.split('?');
+    (globalThis as any).location = { origin: saved.origin, pathname, search: q ? `?${q}` : '' };
+  };
+  const nav = (to: string) => {
+    navs.push(to);
+    setLoc(to);
+  };
+  check(C.livePath('/fallback') === '/fallback', 'ไม่มี pathname (เช่น SSR/Unit) → ใช้ค่าที่ส่งมา');
+  C.startScenario('s4', nav as never);
+  const sc = C.activeScenario()!;
+  const ds = DS.useDemoStore.getState();
+  // อยู่ขั้น 4 (ติดตามสถานะ) หลังส่งเรื่องแล้ว — เบราว์เซอร์อยู่ที่หน้าติดตามสถานะ
+  ds.set({ stepIndex: 3, current: { ...ds.current, complaintId: 'CMP-TEST-0001' }, passed: ['s4-wizard', 's4-submit'] });
+  const route = (i: number) => C.stepRoute(sc.steps[i]);
+  setLoc(route(3));
+  check(C.livePath('/stale') === route(3), `livePath อ่านเส้นทางจริงจากเบราว์เซอร์ (${route(3)})`);
+  // React ยัง Render location เดิม (หน้าแบบฟอร์ม) เพราะการเปลี่ยนหน้าเป็น Transition ที่ยังไม่ Commit
+  const staleReactPath = route(2);
+  navs.length = 0;
+  check(C.back(nav as never, staleReactPath) === 'moved' && DS.useDemoStore.getState().stepIndex === 2, 'ย้อนกลับ 4 → 3');
+  check(navs.length === 1 && C.livePath() === route(2), `ย้อนกลับเปิดหน้าของขั้น 3 จริง แม้ location ของ React ยังเป็น ${staleReactPath} (เดิม: ข้ามการเปลี่ยนหน้า → ขั้นเปลี่ยนแต่หน้าจอค้าง)`);
+  // ขั้น 2 และ 3 ใช้หน้าเดียวกัน → ไม่เปิดหน้าซ้ำ แม้ React ยังส่ง location ของหน้าติดตามสถานะมา
+  navs.length = 0;
+  check(C.back(nav as never, route(3)) === 'moved' && navs.length === 0 && C.livePath() === route(1), 'ย้อนกลับ 3 → 2 (หน้าเดียวกัน) ไม่เปิดหน้าซ้ำ');
+  check(C.gateState(sc.steps[1]).ok, 'ขั้นที่ทำแล้วไปต่อได้โดยไม่ต้องทำซ้ำ');
+  (globalThis as any).location = saved;
+}
+
 finish();

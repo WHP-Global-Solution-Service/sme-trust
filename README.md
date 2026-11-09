@@ -68,6 +68,14 @@ npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/s
 - ชื่อร้าน/หมวดที่ตรงกับต้นฉบับ Marketplace ตรวจสอบอัตโนมัติ · ค่าอื่นใช้ Workflow อนุมัติเดิม
 - Demo: Scenario 14 (เส้นทางปกติ ไม่มีเจ้าหน้าที่) · Scenario 15 (กรณียกเว้น) · ชื่อใน UI รวมเป็นระบบเดียว
 
+**อยู่ใน Branch `sme-trustv.2` — ยังไม่เผยแพร่: Unified Platform Enhancement** ([docs/unified-merchant-onboarding.md](docs/unified-merchant-onboarding.md))
+
+- ลงทะเบียน 2 ช่องทาง (Marketplace / สมัครเอง) ภายใต้ Merchant, Application, Assessment และ Badge กลาง
+- KYC & Business Verification แบบจำลอง: บุคคลธรรมดา / นิติบุคคล (Mock DBD) · เอกสารตามกฎ (Dynamic) · Verification Summary ทั้งมุมร้านค้าและเจ้าหน้าที่
+- หลายแพลตฟอร์มต่อร้าน · เพิ่ม Marketplace ภายหลังโดยไม่สร้างร้านใหม่ · กัน Shop ID ซ้ำ และส่งเจ้าหน้าที่เมื่อความเป็นเจ้าของขัดแย้ง
+- Assessment Badge แสดงชื่อร้าน แหล่งข้อมูล ลิงก์ตรวจสอบ และ Mock QR
+- หน้าแรก Executive Ready · Demo ตาม User Journey · [Executive Demo Guide](docs/executive-demo-guide.md) · [Consistency Audit](docs/cross-system-consistency-audit.md)
+
 ## เทคโนโลยี
 
 React 18 + TypeScript, Vite 5, Tailwind CSS 3, React Router 6, Zustand 4 (persist → localStorage), React Hook Form + Zod, Lucide React, Recharts, date-fns

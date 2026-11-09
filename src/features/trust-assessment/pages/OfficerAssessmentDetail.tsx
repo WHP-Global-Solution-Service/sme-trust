@@ -131,7 +131,7 @@ export default function OfficerAssessmentDetail() {
             </div>
           </Card>
           <Card>
-            <CardHeader title={`เกณฑ์ v1 ของ Level ${kind === 'approved' ? level : recLevel}`} subtitle="ต้องผ่านครบจึงอนุมัติยกระดับได้ (D3)" />
+            <CardHeader title={`เกณฑ์การรับรอง ของ Level ${kind === 'approved' ? level : recLevel}`} subtitle="ต้องผ่านครบจึงอนุมัติยกระดับได้ (D3)" />
             <ul className="space-y-1 p-4 text-sm">
               {criteria.map((c) => (
                 <li key={c.label} className="flex gap-2">
