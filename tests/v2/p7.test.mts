@@ -7,7 +7,7 @@
  * F: หมวดสินค้าของการเปรียบเทียบเปลี่ยนตามร้าน
  * G: KPI v2 คำนวณจาก State และกลับค่าเริ่มต้นเมื่อ Reset
  */
-import { S, W, view, describe, check, finish, storage } from '../harness.mts';
+import { S, W, view, describe, check, finish, storage, actAs } from '../harness.mts';
 import { integrityProblems } from '../integrity.mts';
 
 const { findScenario } = await import('@/mock/scenarios');
@@ -46,7 +46,7 @@ for (const kind of ['need_info', 'rejected'] as const) {
   const ctx = demo().current;
   const before = activeCert('M-005').map((c) => `${c.id}:L${c.level}`);
   asOfficer();
-  check(V.decideAssessment(ctx.assessmentId!, kind, 'ทดสอบผลการพิจารณาที่ไม่ใช่การอนุมัติ').ok, `เจ้าหน้าที่บันทึกผล ${kind}`);
+  check(actAs(['officer', 'admin'], () => V.decideAssessment(ctx.assessmentId!, kind, 'ทดสอบผลการพิจารณาที่ไม่ใช่การอนุมัติ')).ok, `เจ้าหน้าที่บันทึกผล ${kind}`);
   const app = S.useVerificationStore.getState().items.find((a) => a.id === assessment(ctx.assessmentId)!.decision!.applicationId);
   check(app?.status === (kind === 'need_info' ? 'need_info' : 'rejected'), `  คำขอ ${app?.id} ที่ผูกไว้เปลี่ยนเป็น ${app?.status} ผ่าน กระบวนการรับรอง`);
   check(JSON.stringify(activeCert('M-005').map((c) => `${c.id}:L${c.level}`)) === JSON.stringify(before) && !activeCert('M-005').some((c) => c.level === 4), `  ไม่มีใบรับรองใหม่ — คงระดับเดิม (${before.join(', ')})`);
@@ -82,23 +82,23 @@ W.resetAllDemoData();
 C.startScenario('s12', nav, { journey: true });
 asOfficer();
 const ap = demo().current;
-check(V.decideAssessment(ap.assessmentId!, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ', 4).ok, 'เจ้าหน้าที่อนุมัติ Level 4');
+check(actAs(['officer', 'admin'], () => V.decideAssessment(ap.assessmentId!, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ', 4)).ok, 'เจ้าหน้าที่อนุมัติ Level 4');
 const oA = findScenario('s12')!.outcome!(ap);
 check(oA?.kind === 'approved' && oA.tone === 'success' && activeCert('M-005').some((c) => c.level === 4), `  หน้าจบ: "${oA?.title}" และมีใบรับรอง Level 4`);
 
 describe('P7-A — ทางเลือกอื่นของ Journey');
 W.resetAllDemoData();
-const c1 = V.connectMarketplace('M-005', 'lazada');
-V.grantConsent(c1.id, 'established_good');
+const c1 = actAs('merchant', () => V.connectMarketplace('M-005', 'lazada'));
+actAs('merchant', () => V.grantConsent(c1.id, 'established_good'));
 V.completeSync(c1.id, false, 'connect');
 let x = S.useMarketplaceStore.getState().items.find((c) => c.id === c1.id)!;
 check(x.status === 'sync_failed' && x.failKind === 'connect' && x.failReason!.includes('เชื่อมต่อ'), 'Connection Failed: สถานะและเหตุผลเฉพาะ');
-V.resyncMarketplace(c1.id);
+actAs('merchant', () => V.resyncMarketplace(c1.id));
 V.completeSync(c1.id, false, 'import');
 x = S.useMarketplaceStore.getState().items.find((c) => c.id === c1.id)!;
 check(x.failKind === 'import' && x.failReason!.includes('นำเข้า'), 'Import Failed: สถานะและเหตุผลเฉพาะ');
 check(!V.currentInputs('M-005')!.input.marketplace.some((m) => m.connection.id === c1.id), '  การเชื่อมต่อที่ล้มเหลวไม่ถูกใช้ประเมิน');
-V.resyncMarketplace(c1.id);
+actAs('merchant', () => V.resyncMarketplace(c1.id));
 V.completeSync(c1.id, true);
 x = S.useMarketplaceStore.getState().items.find((c) => c.id === c1.id)!;
 check(x.status === 'connected' && x.syncSource === 'sync' && x.syncCount === 3 && !x.failKind, 'ลองใหม่สำเร็จ: ใช้การเชื่อมต่อเดิม (นับการซิงก์ 3 ครั้ง)');
@@ -109,9 +109,9 @@ for (const [mid, st] of [['M-008', 'revoked'], ['M-005', 'suspended']] as const)
     const cert = activeCert(mid)[0];
     S.useCertificationStore.getState().update(cert.id, { status: 'suspended' });
   }
-  const t = V.runAssessment(mid)!;
+  const t = actAs('merchant', () => V.runAssessment(mid))!;
   check(t.result.standing === st && t.result.recommendation.kind === 'blocked', `${st === 'revoked' ? 'Revoked' : 'Suspended'} Merchant (${mid}): Standing แยกจาก Band (${t.result.band}) และขอ Badge ไม่ได้`);
-  check(!V.submitAssessment(t.id).ok, '  ส่งพิจารณาไม่ได้จนกว่าสถานะจะกลับเป็นปกติ');
+  check(!actAs('merchant', () => V.submitAssessment(t.id)).ok, '  ส่งพิจารณาไม่ได้จนกว่าสถานะจะกลับเป็นปกติ');
 }
 
 describe('P7-A — Refresh / Restart Scenario / Restart Journey');
@@ -134,17 +134,17 @@ describe('P7-C — Assessment Configuration');
 W.resetAllDemoData();
 const cfg = () => useAssessmentConfigStore.getState();
 check(cfg().revision === 0 && !cfg().updatedAt, 'เริ่มต้น: ชุดน้ำหนักเริ่มต้น (#0)');
-const t1 = V.runAssessment('M-001')!;
+const t1 = actAs('merchant', () => V.runAssessment('M-001'))!;
 check(t1.result.weightSet?.revision === 0 && t1.result.weights.C1 === 25, '  ผลประเมินบันทึกเลขชุดน้ำหนักและสำเนาน้ำหนัก');
-V.submitAssessment(t1.id);
-check(!!cfg().setWeights({ C1: 50, C2: 25, C3: 20, C4: 10, C5: 20 }) && cfg().revision === 0, 'น้ำหนักผลรวม ≠ 100 → บันทึกไม่ได้ (เลขชุดไม่เปลี่ยน)');
-check(cfg().setWeights({ C1: 40, C2: 20, C3: 10, C4: 10, C5: 20 }) === undefined && cfg().revision === 1 && !!cfg().updatedAt, 'บันทึกน้ำหนักใหม่ → ชุด #1 พร้อมวันที่เริ่มใช้');
-cfg().setWeights({ C1: 40, C2: 20, C3: 10, C4: 10, C5: 20 });
+actAs('merchant', () => V.submitAssessment(t1.id));
+check(!!actAs('admin', () => cfg().setWeights({ C1: 50, C2: 25, C3: 20, C4: 10, C5: 20 })) && cfg().revision === 0, 'น้ำหนักผลรวม ≠ 100 → บันทึกไม่ได้ (เลขชุดไม่เปลี่ยน)');
+check(actAs('admin', () => cfg().setWeights({ C1: 40, C2: 20, C3: 10, C4: 10, C5: 20 })) === undefined && cfg().revision === 1 && !!cfg().updatedAt, 'บันทึกน้ำหนักใหม่ → ชุด #1 พร้อมวันที่เริ่มใช้');
+actAs('admin', () => cfg().setWeights({ C1: 40, C2: 20, C3: 10, C4: 10, C5: 20 }));
 check(cfg().revision === 1, '  บันทึกค่าเดิมซ้ำไม่สร้างชุดใหม่');
 check(currentModel().weightSet?.revision === 1, '  โมเดลปัจจุบันอ้างชุด #1');
 const t1After = assessment(t1.id)!;
 check(t1After.result.weights.C1 === 25 && t1After.result.weightSet?.revision === 0 && t1After.result.score === t1.result.score, 'ผลประเมินเดิมไม่ถูกแก้ย้อนหลัง (ยังเป็นชุด #0)');
-const t2 = V.runAssessment('M-003')!;
+const t2 = actAs('merchant', () => V.runAssessment('M-003'))!;
 check(t2.result.weightSet?.revision === 1 && t2.result.weights.C1 === 40, 'ผลประเมินใหม่ใช้ชุด #1');
 const officerPage = view(`/o/assessments/${t1.id}`, { role: 'officer', officerId: 'OF-001' });
 check(officerPage.includes('ชุดน้ำหนักเริ่มต้น'), '  เจ้าหน้าที่เห็นว่าผลเดิมใช้ชุดน้ำหนักใด');
@@ -173,7 +173,7 @@ check(seedAssess.every((a) => a.result.confidence.reasons.every((r) => !r.includ
 check(V.currentInputs('M-001')!.key === seedAssess.find((a) => a.merchantId === 'M-001')!.inputsKey, '  ผลประเมินตัวอย่างไม่แสดงว่า "ข้อมูลเปลี่ยนแปลง" หลัง Reset');
 
 const conf = (mid: string) => {
-  const r = V.runAssessment(mid)!.result;
+  const r = actAs('merchant', () => V.runAssessment(mid))!.result;
   return r.confidence.score;
 };
 const mk = 'MKC-001';
@@ -191,7 +191,7 @@ check(S.useMarketplaceStore.getState().items.find((c) => c.id === mk)!.syncSourc
 check(S.useAuditStore.getState().items.some((a) => a.action.includes('จำลองอายุข้อมูล')), '  บันทึก Audit ว่าเป็นการจำลอง');
 V.simulateDataAge(mk, 'sync_failed');
 check(S.useMarketplaceStore.getState().items.find((c) => c.id === mk)!.status === 'sync_failed', 'Fixture ซิงก์ไม่สำเร็จ');
-V.resyncMarketplace(mk);
+actAs('merchant', () => V.resyncMarketplace(mk));
 V.completeSync(mk, true);
 const after = S.useMarketplaceStore.getState().items.find((c) => c.id === mk)!;
 check(after.syncSource === 'sync' && Date.now() - new Date(after.lastSyncAt!).getTime() < 60_000, 'Mock Sync: อัปเดตวันที่ซิงก์และที่มาเป็น "ผู้ใช้กดซิงก์"');
@@ -207,11 +207,11 @@ const branch = findScenario('s9b')!;
 check(branch.replayNote?.() === undefined, 'ข้อมูลเริ่มต้น: OP-012 ไม่มีร้าน → ไม่ต้องแจ้งเตือน');
 const register = () => {
   const op = S.useOperatorStore.getState().items.find((o) => o.id === 'OP-012')!;
-  return W.submitShopRegistration('OP-012', {
+  return actAs('merchant', () => W.submitShopRegistration('OP-012', {
     businessType: 'individual', ownerName: op.name, shopName: 'ร้านผ้าทอริมทาง', category: 'แฟชั่นและเครื่องแต่งกาย', province: 'น่าน', district: 'เมือง', phone: op.phone, email: op.email,
     description: 'ขายผ่าน Facebook และหน้าร้านในตลาดชุมชน', channels: [{ type: 'facebook', handle: 'pha.tor.demo' }],
     documents: [{ id: 'd-b', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 1, addedAt: new Date().toISOString() }],
-  });
+  }));
 };
 // เล่นใน Journey: ร้าน v2 ทำ Scenario 9 แล้ว → 9B
 C.startScenario('s11', nav, { journey: true });
@@ -220,8 +220,8 @@ for (const round of [1, 2, 3]) {
   C.startScenario('s9b', nav, { carry: true, journey: true });
   check(V2S.branchShops().length === 0, `รอบที่ ${round}: เริ่ม 9B แล้ว OP-012 ไม่มีร้านค้างจากรอบก่อน`);
   const { merchant, app } = register();
-  const t = V.runAssessment(merchant.id)!;
-  V.submitAssessment(t.id);
+  const t = actAs('merchant', () => V.runAssessment(merchant.id))!;
+  actAs('merchant', () => V.submitAssessment(t.id));
   check(V2S.branchShops().length === 1 && assessment(t.id)!.applicationId === app.id, `  รอบที่ ${round}: มีร้านเดียว (${merchant.id}) ผูกกับคำขอ ${app.id}`);
   if (round < 3) check(!!branch.replayNote?.()?.includes(merchant.shopName), '  เล่นซ้ำ → แจ้งว่ามีร้านเดิมและจะถูกล้าง');
 }

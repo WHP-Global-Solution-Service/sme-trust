@@ -1,3 +1,4 @@
+import { withoutInternalPoints } from '@/features/trust-assessment/publicView';
 import { Gauge, Link2, RefreshCw, Send } from 'lucide-react';
 import { toast } from '@/stores';
 import { useMyMerchants } from '@/hooks/useCurrent';
@@ -97,7 +98,7 @@ export default function MerchantAssessmentPage() {
               {rec && (
                 <p>
                   ข้อเสนอของระบบ: <StatusBadge map={RECOMMENDATION_LABEL} value={rec.kind} />
-                  <span className="mt-1 block text-ink-soft">{rec.reasons.join(' · ')}</span>
+                  <span className="mt-1 block text-ink-soft">{rec.reasons.map(withoutInternalPoints).join(' · ')}</span>
                 </p>
               )}
               {a.status === 'draft' && (

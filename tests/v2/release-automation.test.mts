@@ -7,7 +7,7 @@
  * 5) Scenario 14–15 เดินครบทุกขั้นด้วย Demo Controller จริง
  * 7) Certification Level 2–4 ไม่ถูกอนุมัติอัตโนมัติ
  */
-import { S, W, storage, view, describe, check, finish } from '../harness.mts';
+import { S, W, storage, view, describe, check, finish, actAs } from '../harness.mts';
 
 const V = await import('@/stores/workflowsV2');
 const AU = await import('@/stores/automation');
@@ -28,8 +28,8 @@ const merchant = (id: string) => S.useMerchantStore.getState().items.find((m) =>
 const opOf = (id: string) => merchant(id).operatorId;
 const conn = (id: string) => S.useMarketplaceStore.getState().items.find((c) => c.id === id)!;
 function connect(archetype: Parameters<typeof V.connectMarketplace>[2], platform: 'shopee' | 'lazada' = 'shopee', mid = MID) {
-  const c = V.connectMarketplace(mid, platform, archetype);
-  V.grantConsent(c.id);
+  const c = actAs('merchant', () => V.connectMarketplace(mid, platform, archetype));
+  actAs('merchant', () => V.grantConsent(c.id));
   V.completeSync(c.id, true);
   return conn(c.id);
 }
@@ -78,15 +78,15 @@ asOfficer();
     check(badge(mid)!.status === st && !c.includes('ผลประเมินอัตโนมัติ — ไม่ใช่การรับรอง'), `${mid}: ${st} → ผู้บริโภคไม่เห็นตรา Badge`);
   }
   const cert = S.useCertificationStore.getState().items.find((c) => c.merchantId === 'M-001' && c.status === 'active')!;
-  W.setCertStatus(cert.id, 'revoked', 'ทดสอบเพิกถอนก่อนเผยแพร่');
+  actAs(['officer', 'admin'], () => W.setCertStatus(cert.id, 'revoked', 'ทดสอบเพิกถอนก่อนเผยแพร่'));
   AU.processAll('simulation');
   check(badge('M-001')!.status === 'revoked' && !view('/shop/M-001', { role: 'consumer' }).includes('ผลประเมินอัตโนมัติ — ไม่ใช่การรับรอง'), 'เพิกถอนแล้ว Run Simulation → ยังเป็น Revoked (ประเมินใหม่ไม่ทำให้ Badge กลับมา)');
-  const rsk = W.openRiskCase('M-003', 'ทดสอบเปิดเรื่องพิจารณาความเสี่ยง', []);
+  const rsk = actAs(['officer', 'admin'], () => W.openRiskCase('M-003', 'ทดสอบเปิดเรื่องพิจารณาความเสี่ยง', []));
   check(badge('M-003')!.status === 'withheld', 'เปิดเรื่องพิจารณาความเสี่ยง → Badge ระงับการแสดงทันที');
-  W.riskAction(rsk.id, 'under_investigation', 'เปิดการตรวจสอบเพื่อทดสอบ');
-  W.riskAction(rsk.id, 'suspended', 'ระงับเพื่อทดสอบ');
+  actAs(['officer', 'admin'], () => W.riskAction(rsk.id, 'under_investigation', 'เปิดการตรวจสอบเพื่อทดสอบ'));
+  actAs(['officer', 'admin'], () => W.riskAction(rsk.id, 'suspended', 'ระงับเพื่อทดสอบ'));
   check(badge('M-003')!.status === 'suspended', 'ระงับผ่าน Risk Review → Suspended');
-  W.riskAction(rsk.id, 'dismissed', 'ยุติเรื่องเพื่อทดสอบ');
+  actAs(['officer', 'admin'], () => W.riskAction(rsk.id, 'dismissed', 'ยุติเรื่องเพื่อทดสอบ'));
   check(badge('M-003')!.status === 'active', 'ยุติเรื่อง (คืนสถานะ) → Badge กลับมาแสดงตามผลประเมิน');
   consistent('M-003', 'M-003 หลังยุติเรื่อง');
 }
@@ -98,17 +98,17 @@ asOfficer();
   const { buildImportSource } = await import('@/features/marketplace/autofill');
   const source = buildImportSource({ key: 'REL-1', platform: 'shopee', archetype: 'established_good', seed: 4242, mockShopId: src.mockShopId, shopName: src.shopName, category: src.category });
   const form: Parameters<typeof V.submitMarketplaceRegistration>[1] = { businessType: 'individual', ownerName: 'ผู้ทดสอบ', shopName: src.shopName, description: src.description, category: src.category, phone: '0810000013', email: 'rel@example.com', province: 'กรุงเทพมหานคร', district: 'บางรัก', address: '', channels: [], documents: [] };
-  const r = V.submitMarketplaceRegistration('OP-013', form, { draftId: 'REL-DRAFT-1', source });
+  const r = actAs('merchant', () => V.submitMarketplaceRegistration('OP-013', form, { draftId: 'REL-DRAFT-1', source }));
   const mid = r.merchant.id;
   check(!!badge(mid), `ร้านใหม่ ${mid} ประมวลผลอัตโนมัติหลังนำเข้า (${badge(mid)?.status})`);
   asOfficer();
-  W.rejectApplication(r.app.id, 'เอกสารไม่ครบถ้วนสำหรับการทดสอบ');
+  actAs(['officer', 'admin'], () => W.rejectApplication(r.app.id, 'เอกสารไม่ครบถ้วนสำหรับการทดสอบ'));
   check(merchant(mid).registrationStatus === 'rejected' && badge(mid)!.status !== 'active', `คำขอลงทะเบียนไม่ผ่าน → ไม่แสดง Badge (${badge(mid)!.status})`);
   check(!view(`/shop/${mid}`, { role: 'consumer' }).includes('ผลประเมินอัตโนมัติ — ไม่ใช่การรับรอง'), 'ผู้บริโภคไม่เห็นตรา Badge ของร้านที่คำขอลงทะเบียนไม่ผ่าน');
   check(!S.useCertificationStore.getState().items.some((c) => c.merchantId === mid), 'ร้านใหม่ไม่ได้รับใบรับรองอัตโนมัติ');
   check(view('/m/trust', { role: 'merchant', operatorId: 'OP-013', activeMerchantId: mid }).includes('คำขอลงทะเบียนร้านไม่ผ่าน'), 'ร้านค้าเห็นเหตุผลและทางแก้ (ยื่นคำขอใหม่)');
   asMerchant('OP-013');
-  W.resubmitApplication(r.app.id, 'แก้ไขเอกสารแล้ว', []);
+  actAs('merchant', () => W.resubmitApplication(r.app.id, 'แก้ไขเอกสารแล้ว', []));
   check(badge(mid)!.status === 'active' && S.useOfficerTaskStore.getState().items.filter((x) => x.merchantId === mid).length === 0, 'ยื่นคำขอใหม่ → Badge กลับมาตามผลประเมิน (ไม่สร้างงานกรณียกเว้น — คำขอยังรอเจ้าหน้าที่ตามเดิม)');
   check(S.useVerificationStore.getState().items.find((x) => x.id === r.app.id)!.status === 'submitted', 'คำขอลงทะเบียนยังรอเจ้าหน้าที่ (ไม่อนุมัติอัตโนมัติ)');
 }
@@ -122,8 +122,8 @@ asMerchant();
     ['AUTO_PASS — สัญญาณข้อเดียว (Band สูงสุด B)', () => connect('review_burst'), 'AUTO_PASS', 'active'],
     ['AUTO_REQUEST_INFO — ข้อมูลน้อย', () => connect('new_shop'), 'AUTO_REQUEST_INFO', 'insufficient'],
     ['AUTO_REQUEST_INFO — ข้อมูลหมดอายุ', () => { const c = connect('established_good'); V.simulateDataAge(c.id, 'stale'); }, 'AUTO_REQUEST_INFO', 'needs_update'],
-    ['AUTO_REQUEST_INFO — ซิงก์ไม่สำเร็จ (ไม่มีข้อมูลที่ใช้ได้)', () => { const c = V.connectMarketplace(MID, 'shopee', 'established_good'); V.grantConsent(c.id); V.completeSync(c.id, false, 'import'); }, 'AUTO_REQUEST_INFO', 'insufficient'],
-    ['AUTO_REQUEST_INFO — ยกเลิกการเชื่อมต่อ', () => { const c = connect('established_good'); V.disconnectMarketplace(c.id); }, 'AUTO_REQUEST_INFO', 'insufficient'],
+    ['AUTO_REQUEST_INFO — ซิงก์ไม่สำเร็จ (ไม่มีข้อมูลที่ใช้ได้)', () => { const c = actAs('merchant', () => V.connectMarketplace(MID, 'shopee', 'established_good')); actAs('merchant', () => V.grantConsent(c.id)); V.completeSync(c.id, false, 'import'); }, 'AUTO_REQUEST_INFO', 'insufficient'],
+    ['AUTO_REQUEST_INFO — ยกเลิกการเชื่อมต่อ', () => { const c = connect('established_good'); actAs('merchant', () => V.disconnectMarketplace(c.id)); }, 'AUTO_REQUEST_INFO', 'insufficient'],
     ['MANUAL_REVIEW — ข้อมูลตัวตนไม่ตรง', () => connect('owner_mismatch'), 'MANUAL_REVIEW', 'under_review'],
   ];
   for (const [label, run, route, status] of cases) {
@@ -153,11 +153,11 @@ V2S.fixtureV2Clean();
   const notes = () => S.useNotificationStore.getState().items.filter((n) => n.title.startsWith('กรณียกเว้นรอตรวจสอบ')).length;
   const n0 = notes();
   for (let i = 0; i < 3; i++) {
-    V.resyncMarketplace(c.id);
+    actAs('merchant', () => V.resyncMarketplace(c.id));
     V.completeSync(c.id, true);
     AU.processAll('simulation');
     AU.processMerchant(MID, 'simulation');
-    V.runAssessment(MID);
+    actAs('merchant', () => V.runAssessment(MID));
   }
   check(tasks().length === 1 && notes() === n0, 'Sync ×3 + Run Simulation ×3 + ประเมินเอง ×3 → งานเดียว แจ้งเตือนครั้งเดียว');
   check(JSON.stringify(tasks().map((t) => [t.id, t.fingerprint, t.status])) === JSON.stringify(JSON.parse(t0).map((t: { id: string; fingerprint: string; status: string }) => [t.id, t.fingerprint, t.status])), 'งานเดิม (รหัส Fingerprint สถานะ) ไม่เปลี่ยน');
@@ -190,13 +190,13 @@ describe('5) Scenario 14–15 — Demo Controller ครบทุกขั้น
   sig('mktapp.connect', true);
   check(canProceed() && nextOk(), 'S14 ขั้น 1 → 2');
   check(!canProceed(), 'S14: ต้องยืนยันนำเข้าก่อน');
-  const c = V.connectMarketplace(MID, 'shopee', 'established_good');
-  V.grantConsent(c.id);
+  const c = actAs('merchant', () => V.connectMarketplace(MID, 'shopee', 'established_good'));
+  actAs('merchant', () => V.grantConsent(c.id));
   check(canProceed() && nextOk(), 'S14 ขั้น 2 → 3 (ยืนยันนำเข้าแล้ว)');
   V.completeSync(c.id, true);
   check(canProceed() && nextOk() && demo().current.connectionId === c.id, 'S14 ขั้น 3 → 4 (ระบบประมวลผลอัตโนมัติ · บันทึกการเชื่อมต่อลงบริบท)');
   check(!canProceed(), 'S14: ต้องยืนยัน Auto-Fill ก่อน');
-  const r = V.confirmProfileUpdate(c.id, V.registeredValues(merchant(MID)), 'S14-DRAFT');
+  const r = actAs('merchant', () => V.confirmProfileUpdate(c.id, V.registeredValues(merchant(MID)), 'S14-DRAFT'));
   check(r.ok && canProceed() && nextOk(), 'S14 ขั้น 4 → 5 (ยืนยัน Auto-Fill)');
   check(nextOk() && nextOk(), 'S14 ขั้น 5 → 6 → 7 (ผลอัตโนมัติ → Badge → ผู้บริโภค)');
   const roles = SC.allScenarios.find((s) => s.id === 's14')!.steps.map((s) => s.role);
@@ -208,17 +208,17 @@ describe('5) Scenario 14–15 — Demo Controller ครบทุกขั้น
   C.startScenario('s15', nav as never);
   asMerchant();
   check(demo().activeScenario === 's15' && !badge() && tasks().length === 0, 'S15 เริ่มจากร้านที่ยังไม่ประมวลผล (Reset)');
-  const good = V.connectMarketplace(MID, 'shopee', 'established_good');
-  V.grantConsent(good.id);
+  const good = actAs('merchant', () => V.connectMarketplace(MID, 'shopee', 'established_good'));
+  actAs('merchant', () => V.grantConsent(good.id));
   check(!canProceed(), 'S15: เลือกร้านตัวอย่างอื่น → ยังไปต่อไม่ได้ (ต้องเป็น "บัญชีร้านเป็นชื่อบุคคลอื่น")');
-  V.disconnectMarketplace(good.id);
+  actAs('merchant', () => V.disconnectMarketplace(good.id));
   const m = connect('owner_mismatch', 'lazada');
   check(canProceed() && nextOk(), 'S15 ขั้น 1 → 2');
   check(canProceed() && nextOk() && !!demo().current.taskId, 'S15 ขั้น 2 → 3 (มีงาน 1 งาน · บันทึกรหัสงานลงบริบท)');
   check(nextOk(), 'S15 ขั้น 3 → 4 (Manual Review Queue → Officer Decision)');
   check(!canProceed(), 'S15: ต้องบันทึกผลการพิจารณาก่อน');
   asOfficer();
-  check(AU.resolveTask(demo().current.taskId!, 'approve', 'ยืนยันความเป็นเจ้าของแล้ว (ทดสอบ)').ok && canProceed() && nextOk(), 'S15 ขั้น 4 → 5 (เจ้าหน้าที่อนุมัติ)');
+  check(actAs(['officer', 'admin'], () => AU.resolveTask(demo().current.taskId!, 'approve', 'ยืนยันความเป็นเจ้าของแล้ว (ทดสอบ)')).ok && canProceed() && nextOk(), 'S15 ขั้น 4 → 5 (เจ้าหน้าที่อนุมัติ)');
   check(badge()!.status === 'active' && conn(m.id).identityReview?.status === 'verified', 'S15: Badge แสดงหลังเจ้าหน้าที่ยืนยัน');
   check(nextOk(), 'S15 ขั้น 5 → 6');
   check(nextOk(), 'S15 ขั้นสุดท้าย → จบ Scenario');

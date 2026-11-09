@@ -3,7 +3,7 @@
  * Referential Integrity, Persistence (localStorage), KPI บน Dashboard และ Reset
  * รัน: npm test
  */
-import { S, W, T, MOCK, storage, view, describe, check, finish, merchant, operator, cert, verdict, complaint, notesFor, stats } from './harness.mts';
+import { S, W, T, MOCK, storage, view, describe, check, finish, merchant, operator, cert, verdict, complaint, notesFor, stats, actAs } from './harness.mts';
 import { integrityProblems } from './integrity.mts';
 
 const integrity = (label: string) => {
@@ -26,11 +26,11 @@ as('merchant');
 const op = W.registerOperator({ name: 'ทดสอบ ข้ามบทบาท', phone: '0897770000', email: 'flow@demo.local', province: 'ชลบุรี', pin: '246810' });
 W.setKycResult(op.id, true);
 as('merchant', { operatorId: op.id });
-const { merchant: shop, app } = W.submitShopRegistration(op.id, {
+const { merchant: shop, app } = actAs('merchant', () => W.submitShopRegistration(op.id, {
   businessType: 'individual', ownerName: op.name, shopName: 'ร้านทดสอบข้ามบทบาท', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง',
   phone: op.phone, email: op.email, description: 'ร้านสำหรับทดสอบ Flow ข้ามบทบาททั้งหมด', channels: [{ type: 'facebook', handle: 'flowtest.demo' }],
   documents: [{ id: 'doc-flow-1', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 100, addedAt: new Date().toISOString() }],
-});
+}));
 const M = { role: 'merchant' as const, operatorId: op.id, activeMerchantId: shop.id };
 const O = { role: 'officer' as const, officerId: 'OF-001' };
 const C = { role: 'consumer' as const, consumerId: 'CS-004' };
@@ -46,9 +46,9 @@ integrity(' Flow 1');
 // ---------------------------------------------------------------- 2
 describe('2. Officer อนุมัติ → Merchant เห็นสถานะรับรอง');
 as('officer', { officerId: 'OF-001' });
-W.startReview(app.id);
+actAs(['officer', 'admin'], () => W.startReview(app.id));
 check(merchant(shop.id).registrationStatus === 'under_verification', 'เริ่มตรวจ → ร้านค้าเป็น under_verification');
-const approved = W.approveApplication(app.id);
+const approved = actAs(['officer', 'admin'], () => W.approveApplication(app.id));
 check(approved.ok, 'อนุมัติสำเร็จ');
 const c1 = cert(shop.id)!;
 check(merchant(shop.id).registrationStatus === 'approved' && !!merchant(shop.id).approvedAt, 'สถานะร้าน approved พร้อมวันที่อนุมัติ');
@@ -59,7 +59,7 @@ check(S.useAuditStore.getState().items.some((a) => a.target === app.id && a.acti
 page = view('/m/certification', M);
 check(page.includes(c1.id) && page.includes('ใช้งานได้'), 'หน้าขอรับรอง (Merchant) แสดงใบรับรองที่ใช้งานได้');
 check(view('/m', M).includes('อนุมัติแล้ว'), 'Merchant Home แสดง "อนุมัติแล้ว"');
-check(W.approveApplication(app.id).ok === false, 'อนุมัติซ้ำไม่ได้ (ไม่ออกใบรับรองซ้ำ)');
+check(actAs(['officer', 'admin'], () => W.approveApplication(app.id)).ok === false, 'อนุมัติซ้ำไม่ได้ (ไม่ออกใบรับรองซ้ำ)');
 integrity(' Flow 2');
 
 // ---------------------------------------------------------------- 3
@@ -76,11 +76,11 @@ check(!pub.includes('flowtest') || pub.includes('ลิงก์จำลอง'
 // ---------------------------------------------------------------- 4
 describe('4. Consumer แจ้งปัญหา → Merchant ได้รับเคส');
 as('consumer', { consumerId: 'CS-004' });
-const cmp = W.submitComplaint({
+const cmp = actAs('consumer', () => W.submitComplaint({
   merchantId: shop.id, consumerId: 'CS-004', category: 'not_as_described', title: 'สินค้าไม่ตรงปก',
   description: 'สั่งบริการแพ็กเกจ A แต่ได้รับแพ็กเกจ B ซึ่งไม่ตรงตามรายละเอียดที่โฆษณาไว้ ต้องการให้ร้านแก้ไข',
   incidentDate: '2026-10-18', orderRef: 'FLOW-001', orderAmount: 1500, channel: 'facebook', evidence: [],
-});
+}));
 check(cmp.status === 'awaiting_merchant' && cmp.merchantId === shop.id, `สร้างเคส ${cmp.id} สถานะ awaiting_merchant`);
 check(cmp.screening.missing.some((m) => m.includes('หลักฐาน')), 'Screening ระบุว่าขาดหลักฐาน');
 check(notesFor('merchant', op.id).some((n) => n.link === `/m/complaints/${cmp.id}`), 'ร้านค้าได้รับการแจ้งเตือนพร้อมลิงก์เคส');
@@ -94,7 +94,7 @@ integrity(' Flow 4');
 describe('5. Merchant ตอบกลับ → Consumer เห็นคำตอบ');
 as('merchant', { operatorId: op.id });
 const OFFER = 'ร้านขออภัย ยินดีคืนเงินเต็มจำนวนภายใน 3 วันทำการ';
-W.merchantRespond(cmp.id, { type: 'refund', amount: 1500, note: OFFER });
+actAs('merchant', () => W.merchantRespond(cmp.id, { type: 'refund', amount: 1500, note: OFFER }));
 let x = complaint(cmp.id);
 check(x.status === 'waiting_consumer' && x.offers[0]?.status === 'pending' && !!x.firstMerchantResponseAt, 'เคสเป็น waiting_consumer และมีข้อเสนอรอตอบ');
 check(notesFor('consumer', 'CS-004').some((n) => n.body.includes(OFFER)), 'ผู้บริโภคได้รับแจ้งเตือนพร้อมข้อความของร้าน');
@@ -105,16 +105,16 @@ check(view(`/consumer/cases/${cmp.id}`, { role: 'consumer', consumerId: 'CS-001'
 // ---------------------------------------------------------------- 6
 describe('6. Consumer ยอมรับการแก้ไข → Case เป็น Resolved');
 as('consumer', { consumerId: 'CS-004' });
-W.consumerReplyOffer(cmp.id, x.offers[0].id, 'accepted', '');
+actAs('consumer', () => W.consumerReplyOffer(cmp.id, x.offers[0].id, 'accepted', ''));
 x = complaint(cmp.id);
 check(x.status === 'waiting_consumer' && x.offers[0].status === 'accepted', 'ยอมรับแล้ว → รอผู้บริโภคยืนยันผล');
 check(view(`/consumer/cases/${cmp.id}`, C).includes('ได้รับการแก้ไขแล้ว'), 'ผู้บริโภคเห็นปุ่มยืนยันผล');
 // ร้านค้าส่งคำชี้แจงเพิ่มหลังผู้บริโภคยอมรับ — ข้อตกลงต้องไม่หาย (regression)
 as('merchant', { operatorId: op.id });
-W.merchantRespond(cmp.id, { type: 'explain', note: 'โอนเงินคืนแล้ว แนบสลิปให้ค่ะ' });
+actAs('merchant', () => W.merchantRespond(cmp.id, { type: 'explain', note: 'โอนเงินคืนแล้ว แนบสลิปให้ค่ะ' }));
 check(complaint(cmp.id).status === 'waiting_consumer', 'ร้านส่งคำชี้แจงเพิ่ม → ยังรอผู้บริโภคยืนยัน (ข้อตกลงไม่หาย)');
 as('consumer', { consumerId: 'CS-004' });
-W.consumerConfirmResolved(cmp.id);
+actAs('consumer', () => W.consumerConfirmResolved(cmp.id));
 x = complaint(cmp.id);
 check(x.status === 'resolved' && !!x.resolvedAt, 'เคสเป็น resolved พร้อม resolvedAt');
 check(x.timeline.some((t) => t.title.includes('ยืนยัน')) && x.timeline.some((t) => t.title.includes('แก้ไขสำเร็จ')), 'Timeline บันทึกการยืนยันและการปิดเรื่อง');
@@ -122,18 +122,18 @@ check(notesFor('merchant', op.id).some((n) => n.title === 'ข้อร้อง
 check(view(`/consumer/cases/${cmp.id}`, C).includes('แก้ไขสำเร็จ'), 'หน้าผู้บริโภคแสดง "แก้ไขสำเร็จ"');
 check(stats().kpi.resolvedByMerchant === kpi0.resolvedByMerchant + 1 && stats().kpi.complaints === kpi0.complaints + 1, 'Admin KPI: ข้อร้องเรียน +1 และร้านค้าแก้ไขสำเร็จ +1');
 check(stats().funnel[3].value === stats().kpi.resolvedByMerchant, 'Funnel ขั้น "แก้ไขสำเร็จ" ตรงกับ KPI');
-W.merchantRespond(cmp.id, { type: 'refund', amount: 1, note: 'หลังปิดเรื่อง' });
+actAs('merchant', () => W.merchantRespond(cmp.id, { type: 'refund', amount: 1, note: 'หลังปิดเรื่อง' }));
 check(complaint(cmp.id).status === 'resolved' && complaint(cmp.id).offers.length === 2, 'เคสที่ปิดแล้วไม่รับข้อเสนอใหม่');
 integrity(' Flow 6');
 
 // ---------------------------------------------------------------- 7
 describe('7. Officer ออกคำเตือน → Merchant ได้รับแจ้งเตือน');
 as('officer', { officerId: 'OF-001' });
-const wrn = W.issueWarning({
+const wrn = actAs(['officer', 'admin'], () => W.issueWarning({
   merchantId: shop.id, kind: 'warning', title: 'ข้อความโฆษณาไม่ชัดเจน', issue: 'โพสต์ขายไม่ระบุเงื่อนไขแพ็กเกจให้ครบถ้วน',
   guidance: 'ระบุรายละเอียดแพ็กเกจและเงื่อนไขให้ครบ', items: ['แก้ไขโพสต์ขาย', 'เข้าอบรมหลักสูตรการแสดงราคา'], courseIds: ['CRS-03'],
   dueDate: '2026-11-30', relatedComplaintIds: [cmp.id],
-});
+}));
 check(wrn.status === 'warning_issued' && wrn.officerId === 'OF-001', `ออกคำเตือน ${wrn.id}`);
 check(merchant(shop.id).riskStatus === 'warning', 'สถานะความเสี่ยงของร้านเป็น "มีคำเตือน"');
 check(notesFor('merchant', op.id).some((n) => n.link === `/m/warnings/${wrn.id}`), 'ร้านค้าได้รับแจ้งเตือนพร้อมลิงก์คำเตือน');
@@ -141,16 +141,16 @@ check(view('/m/notifications', M).includes('คุณได้รับคำเ
 check(view('/m/warnings', M).includes(wrn.id), 'หน้าคำเตือน (Merchant) แสดงรายการ');
 check(verdict(shop.id).key === 'business', 'คำเตือนไม่เปลี่ยนสถานะการรับรองที่ผู้บริโภคเห็น (แยกจากมาตรการ)');
 as('merchant', { operatorId: op.id });
-W.acknowledgeWarning(wrn.id);
+actAs('merchant', () => W.acknowledgeWarning(wrn.id));
 check(S.useWarningStore.getState().items.find((w) => w.id === wrn.id)!.status === 'correction_required', 'รับทราบ → ต้องแก้ไข');
 integrity(' Flow 7');
 
 // ---------------------------------------------------------------- 8
 describe('8. Merchant ผ่านการอบรม → Training Record และ Passport อัปเดต');
 const course = MOCK.courses.find((c) => c.id === 'CRS-03')!;
-W.startCourse(op.id, course.id);
-course.lessons.forEach((l) => W.completeLesson(op.id, course.id, l.id));
-const res = W.submitQuiz(op.id, course.id, course.quiz.map((q) => q.answer));
+actAs('merchant', () => W.startCourse(op.id, course.id));
+course.lessons.forEach((l) => actAs('merchant', () => W.completeLesson(op.id, course.id, l.id)));
+const res = actAs('merchant', () => W.submitQuiz(op.id, course.id, course.quiz.map((q) => q.answer)));
 const enr = S.useTrainingStore.getState().items.find((e) => e.operatorId === op.id && e.courseId === course.id)!;
 check(res.passed && res.score === 100, 'สอบผ่าน 100%');
 check(enr.passed && !!enr.certificateNo && enr.completedLessonIds.length === course.lessons.length, `Training Record: ผ่าน, เลขที่ ${enr.certificateNo}, เรียนครบ ${enr.completedLessonIds.length} บท`);
@@ -158,17 +158,17 @@ check(view('/o/training', O).includes(enr.certificateNo!), 'Training Records (Of
 page = view('/m/passport', M);
 check(page.includes(course.title) && page.includes(enr.certificateNo!), 'SME Trust Passport แสดงหลักสูตรที่ผ่านและเลขใบรับรอง');
 check(S.useWarningStore.getState().items.find((w) => w.id === wrn.id)!.items.find((i) => i.text.includes('อบรม'))!.done, 'รายการ "เข้าอบรม" ในคำเตือนถูกติ๊กอัตโนมัติ');
-W.submitQuiz(op.id, course.id, course.quiz.map(() => -1));
+actAs('merchant', () => W.submitQuiz(op.id, course.id, course.quiz.map(() => -1)));
 const enr2 = S.useTrainingStore.getState().items.find((e) => e.id === enr.id)!;
 check(enr2.passed && enr2.bestScore === 100 && enr2.certificateNo === enr.certificateNo, 'สอบซ้ำแล้วตก → ผลผ่านและเลขใบรับรองเดิมยังอยู่');
-check(W.submitQuiz(op.id, 'CRS-01', [0, 1, 2, 1]).passed, 'ทำแบบทดสอบโดยยังไม่ลงทะเบียนเรียน → ระบบลงทะเบียนให้ ไม่ Error');
+check(actAs('merchant', () => W.submitQuiz(op.id, 'CRS-01', [0, 1, 2, 1])).passed, 'ทำแบบทดสอบโดยยังไม่ลงทะเบียนเรียน → ระบบลงทะเบียนให้ ไม่ Error');
 integrity(' Flow 8');
 
 // ---------------------------------------------------------------- 9
 describe('9. Officer ระงับใบรับรอง → Consumer เห็นสถานะ Suspended');
 as('officer', { officerId: 'OF-003' });
 const kpiBefore = stats().kpi.suspended;
-const susp = W.setCertStatus(c1.id, 'suspended', 'อยู่ระหว่างตรวจสอบเพิ่มเติม');
+const susp = actAs(['officer', 'admin'], () => W.setCertStatus(c1.id, 'suspended', 'อยู่ระหว่างตรวจสอบเพิ่มเติม'));
 check(susp.ok, 'ระงับใบรับรองสำเร็จ');
 check(cert(shop.id)!.status === 'suspended' && merchant(shop.id).riskStatus === 'suspended', 'ใบรับรองและสถานะร้านเป็น suspended');
 check(verdict(shop.id).key === 'suspended' && !verdict(shop.id).usable, 'ผลตรวจสอบสาธารณะ = ถูกระงับ และใช้งานไม่ได้');
@@ -178,33 +178,33 @@ check(view('/m/toolkit', M).includes('ยังไม่สามารถใช
 check(view('/m/certification', M).includes('Certificate Suspended'), 'หน้าขอรับรอง (Merchant) แจ้ง Certificate Suspended');
 check(stats().kpi.suspended === kpiBefore + 1, 'Admin KPI ใบรับรองถูกระงับ +1');
 check(notesFor('merchant', op.id).some((n) => n.title === 'ระงับใบรับรอง'), 'ร้านค้าได้รับแจ้งการระงับ');
-check(W.setCertStatus(c1.id, 'active', 'คืนสถานะหลังตรวจสอบ').ok && verdict(shop.id).key === 'business', 'คืนสถานะ → ผู้บริโภคเห็น "ผ่านเกณฑ์ธุรกิจ" อีกครั้ง');
+check(actAs(['officer', 'admin'], () => W.setCertStatus(c1.id, 'active', 'คืนสถานะหลังตรวจสอบ')).ok && verdict(shop.id).key === 'business', 'คืนสถานะ → ผู้บริโภคเห็น "ผ่านเกณฑ์ธุรกิจ" อีกครั้ง');
 check(merchant(shop.id).riskStatus === 'warning', 'หลังคืนสถานะ ความเสี่ยงกลับเป็น "มีคำเตือน" (คำเตือนยังค้าง)');
 integrity(' Flow 9');
 
 // ---------------------------------------------------------------- guards
 describe('Regression: เงื่อนไขป้องกันสถานะขัดกัน');
 as('merchant', { operatorId: 'OP-011' });
-const unverified = W.submitShopRegistration('OP-011', {
+const unverified = actAs('merchant', () => W.submitShopRegistration('OP-011', {
   businessType: 'individual', ownerName: 'x', shopName: 'ร้านยังไม่ e-KYC', category: 'บริการ', province: 'ภูเก็ต', district: 'x',
   phone: '0810000011', email: 'x@demo.local', description: 'ทดสอบการอนุมัติผู้ที่ยังไม่ยืนยันตัวตน', channels: [{ type: 'line', handle: 'abcdef' }], documents: [],
-});
+}));
 as('officer', { officerId: 'OF-001' });
-const blocked = W.approveApplication(unverified.app.id);
+const blocked = actAs(['officer', 'admin'], () => W.approveApplication(unverified.app.id));
 check(!blocked.ok && cert(unverified.merchant.id) === undefined, 'อนุมัติร้านของผู้ที่ยังไม่ผ่าน e-KYC ไม่ได้ และไม่มีการออกใบรับรอง');
 check(view(`/o/applications/${unverified.app.id}`, O).includes('ยังอนุมัติไม่ได้'), 'หน้าคำขอแสดงเหตุผลที่อนุมัติไม่ได้');
 const m4cert = cert('M-004')!;
-check(!W.setCertStatus(m4cert.id, 'active', 'คืนสถานะตรงจากหน้าใบรับรอง').ok && cert('M-004')!.status === 'suspended', 'คืนสถานะใบรับรองที่มี Risk Review เปิดอยู่จากหน้าใบรับรองไม่ได้');
+check(!actAs(['officer', 'admin'], () => W.setCertStatus(m4cert.id, 'active', 'คืนสถานะตรงจากหน้าใบรับรอง')).ok && cert('M-004')!.status === 'suspended', 'คืนสถานะใบรับรองที่มี Risk Review เปิดอยู่จากหน้าใบรับรองไม่ได้');
 const esc = complaint('CMP-2569-0007');
 as('merchant', { operatorId: 'OP-004' });
-W.merchantRespond(esc.id, { type: 'refund', amount: 1590, note: 'ขอคืนเงิน' });
+actAs('merchant', () => W.merchantRespond(esc.id, { type: 'refund', amount: 1590, note: 'ขอคืนเงิน' }));
 check(complaint(esc.id).status === 'escalated', 'เคสที่ส่งต่อแล้ว: ข้อเสนอของร้านไม่ดึงเคสออกจากคิวเจ้าหน้าที่');
 as('consumer', { consumerId: 'CS-006' });
-W.consumerReplyOffer(esc.id, complaint(esc.id).offers.at(-1)!.id, 'accepted', '');
+actAs('consumer', () => W.consumerReplyOffer(esc.id, complaint(esc.id).offers.at(-1)!.id, 'accepted', ''));
 check(complaint(esc.id).status === 'escalated' && W.canConfirmResolved(complaint(esc.id)), 'ยอมรับข้อเสนอระหว่างส่งต่อ → ยังอยู่ในคิว แต่ยืนยันผลได้');
-W.consumerConfirmResolved(esc.id);
+actAs('consumer', () => W.consumerConfirmResolved(esc.id));
 check(complaint(esc.id).status === 'resolved', 'ผู้บริโภคยืนยันผล → resolved');
-W.consumerConfirmResolved('CMP-2569-0008');
+actAs('consumer', () => W.consumerConfirmResolved('CMP-2569-0008'));
 check(complaint('CMP-2569-0008').status === 'awaiting_merchant', 'ยืนยันผลโดยไม่มีข้อเสนอที่ยอมรับไม่ได้');
 integrity('การทดสอบเงื่อนไข');
 

@@ -104,15 +104,21 @@ test.describe('P7 — Desktop flows', () => {
     await open(page, `/m/marketplace/data/${conn.id}`);
     const card = page.getByTestId('freshness');
     await expect(card.getByText(/ข้อมูลใหม่ \(0 วัน\)/)).toBeVisible();
-    const confText = async () => (await card.getByRole('status').first().innerText()).match(/Data Confidence ปัจจุบัน: (\d+)/)![1];
-    const fresh0 = Number(await confText());
+    // ร้านค้าไม่เห็น Confidence เป็นตัวเลขหรือคะแนนที่หัก (สิทธิ์ assessment.score.view) — ตรวจจากเหตุผลที่ Engine ใช้หักความเชื่อมั่นแทน
+    const status = card.getByRole('status').first();
+    const confText = async () => (await status.innerText()).replace(/คำนวณใหม่[\s\S]*$/, '').trim();
+    const fresh0 = await confText();
+    expect(fresh0).toMatch(/^Data Confidence ปัจจุบัน: \D/);
+    expect(fresh0).not.toMatch(/\(−\d/);
+    expect(fresh0).not.toMatch(/ข้อมูลซิงก์ล่าสุดนานกว่า/);
     await card.getByRole('button', { name: 'ข้อมูลเกิน 90 วัน' }).click();
     await expect(card.getByText(/ข้อมูลเก่าเกิน 90 วัน/)).toBeVisible();
-    await expect.poll(async () => Number(await confText())).toBeLessThan(fresh0);
+    await expect(status).toContainText(/ข้อมูลซิงก์ล่าสุดนานกว่า \d+ วัน/); // Engine หักความเชื่อมั่นเพราะข้อมูลเก่า
+    expect(await confText()).not.toMatch(/\(−\d/);
     await card.getByRole('button', { name: 'ซิงก์ข้อมูล (จำลอง)' }).click();
     await expect(card.getByText(/ข้อมูลใหม่ \(0 วัน\)/)).toBeVisible();
     await expect(card.getByText('ผู้ใช้กดซิงก์ (จำลอง)', { exact: false })).toBeVisible();
-    expect(Number(await confText())).toBe(fresh0);
+    expect(await confText()).toBe(fresh0); // กลับเป็นผลเดิมทุกตัวอักษร
     expect((await store<Conn>(page, 'marketplace-connections')).length).toBe(count);
     // Refresh → ค่าเดิม (localStorage)
     await page.reload();

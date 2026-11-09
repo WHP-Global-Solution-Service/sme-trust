@@ -6,6 +6,7 @@
  * - ไม่ออกหรือเปลี่ยนใบรับรอง (Certification Level 1–4 ใช้กฎเดิม) และไม่ระงับ/เพิกถอนอัตโนมัติ
  * - ประมวลผลเมื่อมีเหตุการณ์ขณะผู้ใช้เปิดระบบ หรือกด Run Simulation เท่านั้น (ไม่ใช่การติดตามแบบ Real-time)
  */
+import { authorize } from '@/auth/authorize';
 import type { AutomationRun, AutomationTrigger, OfficerTask, RoutingIssue, TaskAction, TaskCategory, TaskEvent } from '@/features/automation/types';
 import type { TrustAssessment } from '@/features/trust-assessment/types';
 import { evaluate, evidenceSnapshot, latestPerMerchant, nextBadge } from '@/features/automation/derive';
@@ -170,6 +171,7 @@ const ACTION_AUDIT: Record<TaskAction, string> = {
 };
 
 export function resolveTask(taskId: string, action: TaskAction, note: string): WorkflowResult {
+  authorize('exception.resolve');
   const t = tasks().items.find((x) => x.id === taskId);
   if (!t) return { ok: false, error: 'ไม่พบงาน' };
   if (!OPEN(t)) return { ok: false, error: 'งานนี้ดำเนินการเสร็จแล้ว' };
@@ -213,6 +215,7 @@ export function resolveTask(taskId: string, action: TaskAction, note: string): W
 
 /** ร้านค้าตอบคำขอข้อมูลเพิ่มเติม → งานกลับเข้าคิวเจ้าหน้าที่ (งานเดิม ไม่สร้างใหม่) */
 export function respondToTask(taskId: string, response: string): WorkflowResult {
+  authorize('assessment.own.view');
   const t = tasks().items.find((x) => x.id === taskId);
   if (!t) return { ok: false, error: 'ไม่พบงาน' };
   if (t.status !== 'info_requested') return { ok: false, error: 'งานนี้ไม่ได้รอข้อมูลจากร้านค้า' };

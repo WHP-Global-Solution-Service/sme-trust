@@ -6,7 +6,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { S, W, storage, view, describe, check, finish } from '../harness.mts';
+import { S, W, storage, view, describe, check, finish, actAs } from '../harness.mts';
 
 const A = await import('@/features/marketplace/autofill');
 const V = await import('@/stores/workflowsV2');
@@ -95,16 +95,16 @@ const form = {
 };
 const counts = () => ({ m: merchants().length, a: apps().length, c: conns().length, r: records().length });
 const before = counts();
-const res = V.submitMarketplaceRegistration(OP, form, { draftId: 'DRF-AF-1', source: src });
+const res = actAs('merchant', () => V.submitMarketplaceRegistration(OP, form, { draftId: 'DRF-AF-1', source: src }));
 const after1 = counts();
 check(after1.m === before.m + 1 && after1.a === before.a + 1 && after1.c === before.c + 1 && after1.r === before.r + 1, 'ส่งครั้งแรก: ร้าน +1 · คำขอ +1 · การเชื่อมต่อ +1 · บันทึกการนำเข้า +1');
 check(res.app.type === 'registration' && res.app.requestedLevel === 2 && res.app.importId === res.record.id && res.app.sourceDraftId === 'DRF-AF-1', 'คำขอลงทะเบียนตาม Workflow เดิม (Level 2 เมื่ออนุมัติ) ผูกบันทึกการนำเข้าและฉบับร่าง');
 check(!S.useCertificationStore.getState().items.some((c) => c.merchantId === res.merchant.id), 'ไม่ออกใบรับรอง/Badge อัตโนมัติ');
 check(res.app.timeline.some((t) => t.title.includes('เติมแบบฟอร์มจาก Shopee (จำลอง)')), 'Timeline ของคำขอบันทึกว่าเติมจาก Shopee (จำลอง) พร้อมจำนวนช่องที่นำเข้า/แก้ไข');
-const again = V.submitMarketplaceRegistration(OP, form, { draftId: 'DRF-AF-1', source: src });
+const again = actAs('merchant', () => V.submitMarketplaceRegistration(OP, form, { draftId: 'DRF-AF-1', source: src }));
 check(again.duplicate === true && again.app.id === res.app.id && JSON.stringify(counts()) === JSON.stringify(after1), 'ส่งซ้ำ (กดซ้ำ / Refresh / Back) → คำขอเดิม ไม่สร้างร้าน คำขอ การเชื่อมต่อ หรือบันทึกซ้ำ');
-const manualA = W.submitShopRegistration(OP, { ...form, shopName: 'ร้านกรอกเอง' }, { draftId: 'DRF-AF-MANUAL' });
-const manualB = W.submitShopRegistration(OP, { ...form, shopName: 'ร้านกรอกเอง' }, { draftId: 'DRF-AF-MANUAL' });
+const manualA = actAs('merchant', () => W.submitShopRegistration(OP, { ...form, shopName: 'ร้านกรอกเอง' }, { draftId: 'DRF-AF-MANUAL' }));
+const manualB = actAs('merchant', () => W.submitShopRegistration(OP, { ...form, shopName: 'ร้านกรอกเอง' }, { draftId: 'DRF-AF-MANUAL' }));
 check(manualB.duplicate === true && manualB.app.id === manualA.app.id, 'เส้นทางกรอกเอง (9B) ก็ส่งซ้ำไม่ได้คำขอซ้ำ');
 
 const c13 = conns().find((c) => c.id === res.record.connectionId)!;
@@ -115,11 +115,11 @@ function merchant13() {
 }
 const ratingUsed = snapUsed.totalReviews ? Math.round((snapUsed.ratingHistogram.reduce((s, c, i) => s + c * (i + 1), 0) / snapUsed.totalReviews) * 100) / 100 : 0;
 check(ratingUsed === src.rating && snapUsed.totalReviews === src.reviewCount && snapUsed.monthlyOrders.reduce((a, b) => a + b, 0) === src.salesVolume && JSON.stringify(snapUsed.listings.map((l) => l.price)) === JSON.stringify(src.products.map((p) => p.price)), 'ข้อมูลที่ Engine ใช้ = ข้อมูลที่ผู้สมัครเห็นตอน Preview (คะแนน รีวิว ยอดขาย ราคา)');
-const a1 = V.runAssessment(res.merchant.id)!;
+const a1 = actAs('merchant', () => V.runAssessment(res.merchant.id))!;
 S.useMerchantStore.getState().update(res.merchant.id, { category: 'ของใช้ในบ้าน', shopName: 'ชื่อที่แก้ภายหลัง', description: 'คำอธิบายที่แก้ภายหลัง ยาวพอสำหรับการทดสอบ' });
 const input2 = INP.buildAssessmentInput(res.merchant.id, V.dataBundle(), new Date())!;
 check(JSON.stringify(input2.marketplace.map((x) => x.snapshot)) === JSON.stringify([snapUsed]), 'แก้หมวด/ชื่อ/คำอธิบายของร้านภายหลัง → Snapshot ที่ใช้ประเมินเหมือนเดิม');
-const a2 = V.runAssessment(res.merchant.id)!;
+const a2 = actAs('merchant', () => V.runAssessment(res.merchant.id))!;
 check(a2.result.band === a1.result.band && a2.result.score === a1.result.score && a2.result.confidence.level === a1.result.confidence.level, `ผลประเมินไม่เปลี่ยนจากการแก้ข้อมูลลงทะเบียน (Band ${a1.result.band} · คะแนน ${a1.result.score})`);
 check(MODEL.currentModel().version === a1.result.modelVersion && a1.result.modelVersion.includes('2.1'), `ใช้ Model v2.1 เดิม (${a1.result.modelVersion})`);
 
@@ -132,7 +132,7 @@ check(page.includes(src.description) && page.includes(edited.description), 'เ�
 check(page.includes('ช่องที่ผู้สมัครแก้ไข: ชื่อร้านที่ใช้สมัคร, คำอธิบายธุรกิจ') && page.includes('ช่องที่ยังขาด: ไม่มี'), 'เห็นรายการช่องที่แก้ และช่องที่ขาด');
 check(page.includes('สถานะการเชื่อมต่อ') && page.includes('เชื่อมต่อแล้ว') && page.includes('ผลประเมิน') && page.includes(a2.id) && page.includes('ยืนยันแล้ว (Mock e-KYC)'), 'เห็นสถานะการเชื่อมต่อ ผลประเมิน และสถานะยืนยันตัวตน');
 check(page.includes('รอการตรวจสอบ') && page.includes('ขอเอกสารเพิ่มเติม'), 'ชื่อร้านที่ต่างจากต้นฉบับมีป้าย "รอการตรวจสอบ" และขอข้อมูลเพิ่มได้ตาม Workflow เดิม');
-W.requestInfo(res.app.id, 'ขอหลักฐานการเปลี่ยนชื่อร้านให้ต่างจากชื่อบน Marketplace');
+actAs(['officer', 'admin'], () => W.requestInfo(res.app.id, 'ขอหลักฐานการเปลี่ยนชื่อร้านให้ต่างจากชื่อบน Marketplace'));
 check(apps().find((a) => a.id === res.app.id)!.status === 'need_info' && merchants().find((m) => m.id === res.merchant.id)!.registrationStatus === 'need_info', 'เจ้าหน้าที่ขอข้อมูลเพิ่มเติมผ่าน Workflow เดิมได้');
 
 // ------------------------------------------------------------------ 7. Draft Persistence / Refresh & Resume / Cancel
@@ -166,10 +166,10 @@ const src5 = V.sourceOfConnection(c5, m5);
 ses.saveDraft(V.profileDraftKey(c5.id), { step: 1, data: { values: { ...reg5, description: 'ร่างที่ยังไม่ยืนยัน ต้องถูกล้างเมื่อยกเลิกการเชื่อมต่อ' }, draftId: 'DRF-AF-5' }, savedAt: new Date().toISOString() });
 page = view(`/m/marketplace/profile/${c5.id}`, { role: 'merchant', operatorId: 'OP-005', merchantLoggedIn: true });
 check(page.includes('ไม่ใช่การสมัครร้านใหม่') && page.includes('ร่างที่ยังไม่ยืนยัน') && page.includes('Level 3'), 'Refresh หน้าเติมโปรไฟล์ร้านเดิม → ฉบับร่างที่แก้ไว้ยังอยู่');
-V.disconnectMarketplace(c5.id);
+actAs('merchant', () => V.disconnectMarketplace(c5.id));
 check(!S.useSessionStore.getState().shopDrafts[V.profileDraftKey(c5.id)], 'ยกเลิกการเชื่อมต่อ → ฉบับร่างที่ยังไม่ยืนยันจากการเชื่อมต่อนั้นถูกล้าง');
-check(V.confirmProfileUpdate(c5.id, reg5, 'DRF-AF-6').ok === false && merchants().find((m) => m.id === 'M-005')!.description === m5.description, 'ยืนยันอัปเดตจากการเชื่อมต่อที่ยกเลิกแล้วไม่ได้ — โปรไฟล์ร้านไม่เปลี่ยน');
-const c5b = V.connectMarketplace('M-005', 'lazada');
+check(actAs('merchant', () => V.confirmProfileUpdate(c5.id, reg5, 'DRF-AF-6')).ok === false && merchants().find((m) => m.id === 'M-005')!.description === m5.description, 'ยืนยันอัปเดตจากการเชื่อมต่อที่ยกเลิกแล้วไม่ได้ — โปรไฟล์ร้านไม่เปลี่ยน');
+const c5b = actAs('merchant', () => V.connectMarketplace('M-005', 'lazada'));
 check(c5b.id !== c5.id && c5b.status === 'pending_consent', 'เชื่อมต่อใหม่ (Reconnect) ได้การเชื่อมต่อใหม่ที่ต้องยินยอมอีกครั้ง');
 V2S.fixtureV2Clean();
 const [c6] = V.attachImportedMarketplaces('M-005', [{ platform: 'shopee', archetype: 'established_good' }]);
@@ -177,13 +177,13 @@ const m6 = merchants().find((m) => m.id === 'M-005')!;
 const reg6 = V.registeredValues(m6);
 const src6 = V.sourceOfConnection(c6, m6);
 const certBefore = JSON.stringify(S.useCertificationStore.getState().items.filter((c) => c.merchantId === 'M-005'));
-const rename = V.confirmProfileUpdate(c6.id, { ...reg6, shopName: 'ดอยสูงคาเฟ่', category: 'ของใช้ในบ้าน', description: `${src6.description} คั่วสดทุกสัปดาห์`, phone: '0812345678' }, 'DRF-AF-7');
+const rename = actAs('merchant', () => V.confirmProfileUpdate(c6.id, { ...reg6, shopName: 'ดอยสูงคาเฟ่', category: 'ของใช้ในบ้าน', description: `${src6.description} คั่วสดทุกสัปดาห์`, phone: '0812345678' }, 'DRF-AF-7'));
 const m6b = merchants().find((m) => m.id === 'M-005')!;
 check(rename.ok && rename.record!.pending.join() === 'shopName,category' && m6b.shopName === m6.shopName && m6b.category === m6.category, 'ชื่อร้าน/หมวดที่ผูกกับใบรับรอง → รอเจ้าหน้าที่ตรวจ (ยังไม่เปลี่ยนในโปรไฟล์)');
 check(rename.record!.applied.join() === 'description,phone' && m6b.phone === '0812345678' && m6b.description.endsWith('คั่วสดทุกสัปดาห์'), 'คำอธิบายและช่องทางติดต่อบันทึกลงโปรไฟล์ทันที');
 check(JSON.stringify(S.useCertificationStore.getState().items.filter((c) => c.merchantId === 'M-005')) === certBefore, 'ใบรับรอง Level 3 เดิมไม่เปลี่ยน');
 check(S.useNotificationStore.getState().items.some((n) => n.recipientRole === 'officer' && n.title === 'ร้านค้าขอเปลี่ยนข้อมูลที่ผูกกับใบรับรอง'), 'แจ้งเจ้าหน้าที่ให้ตรวจการเปลี่ยนชื่อร้าน/หมวด');
-V.runAssessment('M-005');
+actAs('merchant', () => V.runAssessment('M-005'));
 const as5 = S.useAssessmentStore.getState().items.find((a) => a.merchantId === 'M-005')!;
 page = view(`/o/assessments/${as5.id}`, O);
 check(page.includes('ร้านอัปเดตโปรไฟล์จากข้อมูลที่นำเข้า') && page.includes('ข้อมูลเดิมในระบบ') && page.includes('ดอยสูงคาเฟ่') && page.includes('รอการตรวจสอบ (ยังไม่เปลี่ยนในโปรไฟล์ร้าน): ชื่อร้านที่ใช้สมัคร, หมวดหมู่ธุรกิจ'), 'เจ้าหน้าที่ (หน้าผลประเมิน) เห็นข้อมูลเดิม / จาก Marketplace / ที่ส่ง และช่องที่รอตรวจ');
@@ -223,7 +223,7 @@ for (let round = 1; round <= 2; round++) {
   reportDemo('shop.step', 5);
   C.next(nav, cur);
   check(blocked(), '  ขั้นส่งคำขอ: ระบบไม่ส่งแทนผู้ใช้');
-  const sub = V.submitMarketplaceRegistration(OP, form, { draftId: `DRF-9A-${round}`, source: src });
+  const sub = actAs('merchant', () => V.submitMarketplaceRegistration(OP, form, { draftId: `DRF-9A-${round}`, source: src }));
   // ขั้นถัดไปเปลี่ยนบทบาทเป็นเจ้าหน้าที่ → Controller แสดงคำอธิบายการเปลี่ยนบทบาทก่อน แล้วจึงไปต่อ
   check(C.next(nav, cur) === 'transition' && C.next(nav, cur, true) === 'moved', '  ส่งคำขอแล้ว → เปลี่ยนเป็นมุมเจ้าหน้าที่ (มีคำอธิบายการเปลี่ยนบทบาท)');
   check(cur === `/o/applications/${sub.app.id}` && demo().current.applicationId === sub.app.id && demo().current.importId === sub.record.id && demo().current.merchantId === sub.merchant.id, '  ส่งคำขอแล้ว → เจ้าหน้าที่เปิดคำขอเดียวกัน (ส่งต่อ Application / Import / Merchant ID)');

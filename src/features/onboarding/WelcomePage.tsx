@@ -40,6 +40,7 @@ import { allScenarios } from '@/mock/scenarios';
 import { startJourney, startScenario } from '@/demo/controller';
 import { TRUST_LEVELS } from '@/constants/labels';
 import { COMPONENTS, MODEL_V2 } from '@/features/trust-assessment/model';
+import { BandCriteriaSection } from './BandCriteriaSection';
 
 /** เส้นทางของผู้ประกอบการ — ยังไม่มีบัญชี → สมัคร (แล้วไปต่อที่เป้าหมาย) · มีบัญชีแต่ยังไม่เข้าสู่ระบบ → เข้าสู่ระบบ (แล้วไปต่อ) */
 export const MERCHANT_TARGET = { connect: '/m/register-shop/marketplace', manual: '/m/register-shop' } as const;
@@ -329,6 +330,9 @@ export default function WelcomePage() {
             </div>
           </div>
         </section>
+
+        {/* ---------------------------------------------------------------- 4b. เกณฑ์การจัดระดับ Band + ข้อมูลขั้นต่ำ */}
+        <BandCriteriaSection />
 
         {/* ---------------------------------------------------------------- 5. Assessment Badge */}
         <div className="border-y border-line bg-white">

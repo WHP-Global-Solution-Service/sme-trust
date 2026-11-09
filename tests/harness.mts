@@ -52,6 +52,22 @@ export function view(url: string, session?: Session): string {
   }
 }
 
+/**
+ * ทำรายการในนามบทบาทที่ทำได้จริง — Store/Workflow ตรวจสิทธิ์ด้วย authorize() แล้ว (src/auth)
+ * บทบาทปัจจุบันมีสิทธิ์อยู่แล้ว → เรียกตรง · ไม่มีสิทธิ์ → สลับเป็นบทบาทแรกเฉพาะรายการนี้ แล้วคืนบทบาทเดิม
+ */
+export function actAs<T>(roles: Session['role'] | Session['role'][], fn: () => T): T {
+  const allowed = Array.isArray(roles) ? roles : [roles];
+  const prev = S.useSessionStore.getState().role;
+  if (allowed.includes(prev)) return fn();
+  S.useSessionStore.setState({ role: allowed[0] });
+  try {
+    return fn();
+  } finally {
+    S.useSessionStore.setState({ role: prev });
+  }
+}
+
 // ---------- assertions ----------
 let failures = 0;
 let passes = 0;

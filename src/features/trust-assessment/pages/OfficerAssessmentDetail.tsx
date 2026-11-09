@@ -75,7 +75,7 @@ export default function OfficerAssessmentDetail() {
                 </div>
               </div>
               <p className="text-sm text-ink-soft">{BAND_LABEL[r.band].desc}</p>
-              <DataQuality result={r} detail />
+              <DataQuality result={r} detail internal />
               <SourcesLine result={r} />
             </div>
           </Card>

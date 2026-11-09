@@ -1,3 +1,4 @@
+import { withoutInternalPoints } from '@/features/trust-assessment/publicView';
 import { useEffect } from 'react';
 import { Clock, FlaskConical, Loader2, RefreshCw } from 'lucide-react';
 import type { MarketplaceConnection } from '../types';
@@ -59,11 +60,11 @@ export function FreshnessCard({ connection: c }: { connection: MarketplaceConnec
         {live && (
           <div className="rounded-lg bg-bg p-3" role="status">
             <p className="font-medium text-ink">
-              Data Confidence ปัจจุบัน: {live.confidence.score} — {CONFIDENCE_LABEL[live.confidence.level].label}
+              Data Confidence ปัจจุบัน: {CONFIDENCE_LABEL[live.confidence.level].label}
             </p>
             <ul className="mt-1 space-y-0.5 text-xs text-ink-soft">
               {live.confidence.reasons.map((r) => (
-                <li key={r}>• {r}</li>
+                <li key={r}>• {withoutInternalPoints(r)}</li>
               ))}
             </ul>
             <p className="mt-1 text-xs text-ink-soft">คำนวณใหม่จากข้อมูลล่าสุดทุกครั้งที่เปิดหน้านี้ — ผลประเมินที่บันทึกไว้ไม่เปลี่ยนจนกว่าจะกด "ประเมินใหม่"</p>

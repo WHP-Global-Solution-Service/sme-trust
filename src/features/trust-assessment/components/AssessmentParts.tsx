@@ -14,8 +14,12 @@ import { cn } from '@/utils/cn';
 import { latestAssessment } from '@/stores/workflowsV2';
 import { COMPONENTS } from '../model';
 import { ASSESSMENT_DISCLAIMER, BAND_LABEL, CONFIDENCE_LABEL, STANDING_LABEL } from '../labels';
-import type { AssessmentResult, BandOrInsufficient, Standing, TrustFactor } from '../types';
+import type { AssessmentResult, BandOrInsufficient, ConfidenceLevel, CoverageItem, Standing, TrustFactor } from '../types';
 import type { Platform } from '@/features/marketplace/types';
+import { publicAssessmentView, withoutInternalPoints } from '../publicView';
+
+/** ข้อมูลขั้นต่ำที่ DataQuality ใช้ — ผลประเมินเต็ม (ร้านค้า/เจ้าหน้าที่) หรือ Public projection (ผู้บริโภค ไม่มีเหตุผลของ Confidence) */
+type QualityInput = { coverage: { percent: number; items?: CoverageItem[] }; confidence: { level: ConfidenceLevel; reasons?: string[] } };
 
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const pct = (r: number) => `${(r * 100).toFixed(1)}%`;
@@ -58,7 +62,8 @@ export function CoverageBar({ percent }: { percent: number }) {
 }
 
 /** Data Coverage และ Data Confidence — แสดงแยกกัน (D7) */
-export function DataQuality({ result, detail }: { result: AssessmentResult; detail?: boolean }) {
+/** internal=true เฉพาะหน้าของเจ้าหน้าที่ — แสดงคะแนนที่หักในเหตุผลของ Confidence · บทบาทอื่นเห็นเหตุผลโดยไม่มีตัวเลขภายใน */
+export function DataQuality({ result, detail, internal }: { result: QualityInput; detail?: boolean; internal?: boolean }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="rounded-xl border border-line p-3">
@@ -68,7 +73,7 @@ export function DataQuality({ result, detail }: { result: AssessmentResult; deta
         </p>
         <p className="mt-1 text-xl font-bold text-ink">{result.coverage.percent}%</p>
         <CoverageBar percent={result.coverage.percent} />
-        {detail && (
+        {detail && result.coverage.items && (
           <ul className="mt-2 space-y-0.5 text-xs text-ink-soft">
             {result.coverage.items.map((c) => (
               <li key={c.key} className="flex justify-between gap-2">
@@ -89,17 +94,19 @@ export function DataQuality({ result, detail }: { result: AssessmentResult; deta
         <div className="mt-1">
           <StatusBadge map={CONFIDENCE_LABEL} value={result.confidence.level} />
         </div>
-        <ul className="mt-2 space-y-0.5 text-xs text-ink-soft">
-          {result.confidence.reasons.map((r) => (
-            <li key={r}>• {r}</li>
-          ))}
-        </ul>
+        {result.confidence.reasons && (
+          <ul className="mt-2 space-y-0.5 text-xs text-ink-soft">
+            {result.confidence.reasons.map((r) => (
+              <li key={r}>• {internal ? r : withoutInternalPoints(r)}</li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
 }
 
-export function SourcesLine({ result }: { result: AssessmentResult }) {
+export function SourcesLine({ result }: { result: Pick<AssessmentResult, 'dataSources' | 'computedAt' | 'modelVersion' | 'weightSet'> }) {
   return (
     <p className="text-xs text-ink-soft">
       แหล่งข้อมูล: ข้อมูลในระบบ{result.dataSources.map((p) => ` · ${PLATFORMS[p].label}`).join('')} · ประเมินเมื่อ {fmtDate(result.computedAt, true)} · โมเดล {result.modelVersion} · {weightSetLabel(result.weightSet)}
@@ -112,7 +119,9 @@ export function SourcesLine({ result }: { result: AssessmentResult }) {
  */
 export function PublicAssessmentCard({ merchantId }: { merchantId: string }) {
   const items = useAssessmentStore((s) => s.items);
-  const a = latestAssessment(merchantId, items);
+  const latest = latestAssessment(merchantId, items);
+  // หน้าสาธารณะใช้เฉพาะ Public projection — ไม่มีคะแนนตัวเลข รายละเอียด Risk Signal หรือเหตุผลของ Confidence
+  const a = latest && { result: publicAssessmentView(latest.result) };
   const badge = useAssessmentBadgeStore((s) => s.items.find((b) => b.merchantId === merchantId));
   // ระหว่างเจ้าหน้าที่ตรวจข้อมูลตัวตน/หลักฐานที่ขัดแย้ง ข้อมูลอาจไม่ใช่ของร้านนี้ — ไม่แสดง Band
   const showBand = !badge || publicBadgeView(badge.status).showBand;
