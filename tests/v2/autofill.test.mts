@@ -223,17 +223,25 @@ for (let round = 1; round <= 2; round++) {
   reportDemo('shop.step', 5);
   C.next(nav, cur);
   check(blocked(), '  ขั้นส่งคำขอ: ระบบไม่ส่งแทนผู้ใช้');
-  const sub = asOwner(OP, () => V.submitMarketplaceRegistration(OP, form, { draftId: `DRF-9A-${round}`, source: src }));
-  // ขั้นถัดไปเปลี่ยนบทบาทเป็นเจ้าหน้าที่ → Controller แสดงคำอธิบายการเปลี่ยนบทบาทก่อน แล้วจึงไปต่อ
-  check(C.next(nav, cur) === 'transition' && C.next(nav, cur, true) === 'moved', '  ส่งคำขอแล้ว → เปลี่ยนเป็นมุมเจ้าหน้าที่ (มีคำอธิบายการเปลี่ยนบทบาท)');
-  check(cur === `/o/applications/${sub.app.id}` && demo().current.applicationId === sub.app.id && demo().current.importId === sub.record.id && demo().current.merchantId === sub.merchant.id, '  ส่งคำขอแล้ว → เจ้าหน้าที่เปิดคำขอเดียวกัน (ส่งต่อ Application / Import / Merchant ID)');
-  page = view(cur, O);
-  check(page.includes('คำขอนี้เติมข้อมูลจาก Marketplace') && page.includes('ช่องที่ผู้สมัครแก้ไข'), '  เจ้าหน้าที่เห็นต้นฉบับเทียบกับข้อมูลที่แก้ไข');
+  // กรณีปกติ: แก้เฉพาะรายละเอียด (ชื่อร้านตรงกับร้านบน Marketplace) → ระบบผ่านการลงทะเบียนอัตโนมัติ
+  const sub = asOwner(OP, () => V.submitMarketplaceRegistration(OP, { ...form, shopName: src.shopName }, { draftId: `DRF-9A-${round}`, source: src }));
+  check(sub.app.status === 'approved' && sub.app.autoDecision?.route === 'AUTO_PASS' && !S.useCertificationStore.getState().items.some((c) => c.merchantId === sub.merchant.id), '  ส่งคำขอแล้ว → ระบบตรวจอัตโนมัติ ผ่านการลงทะเบียน (AUTO_PASS) โดยไม่ออกใบรับรอง');
+  check(C.next(nav, cur) === 'moved' && cur === '/m/shop' && demo().current.applicationId === sub.app.id && demo().current.importId === sub.record.id && demo().current.merchantId === sub.merchant.id, '  ไปขั้นผลการตรวจอัตโนมัติ (ร้านค้า ไม่มีขั้นเจ้าหน้าที่) — ส่งต่อ Application / Import / Merchant ID');
+  check(view(cur).includes('ผ่านการตรวจสอบอัตโนมัติ'), '  ร้านเห็นผลการตรวจสอบอัตโนมัติ');
+  check(C.next(nav, cur) === 'moved' && cur === '/m/trust', '  ไปขั้นผลประเมินความน่าเชื่อถืออัตโนมัติ');
+  check(C.next(nav, cur) === 'transition' && C.next(nav, cur, true) === 'moved' && cur === `/shop/${sub.merchant.id}`, '  เปลี่ยนเป็นมุมผู้บริโภค (มีคำอธิบายการเปลี่ยนบทบาท)');
   check(C.next(nav, cur) === 'completed' && cur === '/demo/complete/s9a', '  จบ 9A → หน้าสรุป');
   page = view(cur);
-  check(page.includes('เส้นทางทางเลือก 9A') && page.includes('Level 2 เมื่ออนุมัติ'), '  สรุป 9A: เป็นเส้นทางสมัครใหม่ (Level 2 เมื่ออนุมัติ ไม่มี Badge อัตโนมัติ)');
-  check(merchants().filter((m) => m.operatorId === OP).length === 1 && records().filter((x) => x.operatorId === OP).length === 1, '  มีร้านและบันทึกการนำเข้าของ OP-013 อย่างละ 1 รายการ (ไม่ซ้ำ)');
+  check(page.includes('เส้นทางทางเลือก 9A') && page.includes('AUTO_PASS'), '  สรุป 9A: ระบบผ่านการลงทะเบียนอัตโนมัติ (ไม่ใช่ใบรับรอง)');
+  check(merchants().filter((m) => m.operatorId === OP).length === 1 && records().filter((x) => x.operatorId === OP).length === 1, '  มีร้านและบันทึกการนำเข้าของ OP-013 อย่างละ 1 รายการ (ส่งซ้ำ/เล่นซ้ำไม่สร้างซ้ำ)');
 }
+check(!sc9a.steps.some((s) => s.role === 'officer') && sc9a.audience.every((r) => r !== 'officer'), 'เส้นทาง 9A กรณีปกติไม่มีขั้นตอนเจ้าหน้าที่');
+// กรณียกเว้น: ชื่อร้านที่กรอกต่างจากร้านบน Marketplace (ตรวจกับแหล่งอ้างอิงไม่ได้) → MANUAL_REVIEW และเจ้าหน้าที่เห็นต้นฉบับเทียบกับข้อมูลที่แก้
+const exc = asOwner(OP, () => V.submitMarketplaceRegistration(OP, form, { draftId: 'DRF-9A-EXC', source: src }));
+check(exc.app.status === 'pending_review' && exc.app.autoDecision?.route === 'MANUAL_REVIEW' && exc.app.autoDecision.reasons.some((r) => r.includes('ชื่อร้าน')), 'แก้ชื่อร้านให้ต่างจากต้นฉบับ → MANUAL_REVIEW (ตรวจกับแหล่งอ้างอิงไม่ได้)');
+check(view('/o/exceptions', O).includes(exc.app.id), '  คำขอนี้อยู่ใน Exception Queue ของเจ้าหน้าที่');
+page = view(`/o/applications/${exc.app.id}`, O);
+check(page.includes('คำขอนี้เติมข้อมูลจาก Marketplace') && page.includes('ช่องที่ผู้สมัครแก้ไข') && page.includes('MANUAL_REVIEW'), '  เจ้าหน้าที่เห็นต้นฉบับเทียบกับข้อมูลที่แก้ไข และเหตุผลที่ระบบส่งตรวจ');
 check(!!sc9a.replayNote?.()?.includes('OP-013'), 'เล่นซ้ำ: แจ้งก่อนล้างร้านเดิมของ OP-013');
 W.resetAllDemoData();
 check(records().length === 0 && !merchants().some((m) => m.operatorId === OP) && Object.keys(S.useSessionStore.getState().shopDrafts).length === 0, 'Reset Demo Data → ไม่มีบันทึกการนำเข้า ร้านของ OP-013 หรือฉบับร่างค้าง');

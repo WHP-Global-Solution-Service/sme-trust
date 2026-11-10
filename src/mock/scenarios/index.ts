@@ -37,6 +37,13 @@ const verdictText = (merchantId?: string) => {
 };
 const courseOfWarning = (ctx: DemoCtx) => warning(ctx.warningId)?.courseIds[0] ?? 'CRS-02';
 
+/** คำขอรับรองระดับ Business Verified (Level 2) ที่ร้านยื่นระหว่างการสาธิตครั้งนี้ */
+const certApp = (g: GateInput) =>
+  useVerificationStore
+    .getState()
+    .items.filter((a) => a.merchantId === g.ctx.merchantId && a.type === 'certification' && a.requestedLevel === 2 && a.submittedAt >= g.startedAt)
+    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0];
+
 /** ร้านที่อนุมัติแล้วและใบรับรองใช้งานได้ (ใช้ต่อจาก Scenario ก่อนหน้า) */
 const certifiedShop = (id?: string) => {
   const m = merchant(id);
@@ -138,7 +145,7 @@ export const scenarios: ScenarioDef[] = [
     id: 's2',
     no: 2,
     title: 'สมัครร้านค้าและได้รับการรับรองหลังการตรวจสอบ',
-    objective: 'ผู้ประกอบการยื่นข้อมูลร้าน เจ้าหน้าที่ตรวจตาม Checklist และอนุมัติ ใบรับรองตัวอย่างและ Badge อัปเดตทันที',
+    objective: 'ร้านลงทะเบียนและผ่านการตรวจสอบอัตโนมัติ (ไม่ต้องรอเจ้าหน้าที่) จากนั้นยื่นขอใบรับรอง Business Verified — เจ้าหน้าที่ตรวจตาม Checklist และอนุมัติใบรับรอง แล้ว Badge อัปเดตทันที',
     keyMessage: 'การตรวจสอบเป็นมาตรฐานเดียวกัน มีหลักฐานทุกขั้น และร้านค้านำผลไปใช้บนช่องทางขายเดิมได้',
     audience: ['merchant', 'officer'],
     duration: '≈ 7 นาที',
@@ -175,14 +182,32 @@ export const scenarios: ScenarioDef[] = [
           return { applicationId: a.id, merchantId: a.merchantId };
         },
       },
-      { id: 's2-pending', role: 'merchant', route: () => '/m/shop', title: 'รอการตรวจสอบ', instruction: (c) => `ร้าน "${shopName(c)}" สถานะ Pending Approval — คำขอ ${c.applicationId} ถูกส่งถึงเจ้าหน้าที่แล้ว`, nextLabel: 'ดูการตรวจสอบในมุมเจ้าหน้าที่' },
+      {
+        id: 's2-auto',
+        role: 'merchant',
+        route: () => '/m/shop',
+        title: 'ระบบตรวจสอบอัตโนมัติ → ลงทะเบียนร้านแล้ว',
+        instruction: (c) => `คำขอ ${c.applicationId} ผ่านการตรวจสอบอัตโนมัติ (AUTO_PASS) — ร้าน "${shopName(c)}" ลงทะเบียนแล้วโดยไม่ต้องรอเจ้าหน้าที่ · การลงทะเบียนยังไม่ใช่ใบรับรอง`,
+        tip: 'เจ้าหน้าที่เข้ามาเฉพาะกรณีพบความผิดปกติ (Exception) — ข้อมูลไม่ครบระบบส่งกลับให้ร้านแก้เอง',
+        gate: { check: (g) => app(g.ctx.applicationId)?.status === 'approved', hint: 'ระบบยังไม่ผ่านคำขอ — เพิ่มข้อมูลตามที่ระบบแจ้งบนหน้านี้' },
+      },
+      {
+        id: 's2-apply',
+        role: 'merchant',
+        route: () => '/m/certification',
+        title: 'ยื่นขอใบรับรอง Business Verified',
+        instruction: 'กด "ยื่นขอ Business Verified" แล้วยืนยัน — ใบรับรองต้องให้เจ้าหน้าที่พิจารณาตามนโยบาย (แยกจากการลงทะเบียน)',
+        gate: { check: (g) => !!certApp(g), hint: 'กด "ยื่นขอ Business Verified" แล้วยืนยัน' },
+        capture: (g) => ({ applicationId: certApp(g)!.id }),
+        nextLabel: 'ดูในมุมเจ้าหน้าที่',
+      },
       {
         id: 's2-review',
         role: 'officer',
         route: (c) => `/o/applications/${c.applicationId}`,
-        transition: 'คำขอของผู้ประกอบการถูกส่งแล้ว ขั้นตอนต่อไปคือเจ้าหน้าที่ตรวจสอบข้อมูลร้านค้าในคำขอเดียวกัน',
+        transition: 'ร้านยื่นขอใบรับรองแล้ว ขั้นตอนต่อไปคือเจ้าหน้าที่ตรวจคำขอรับรองเดียวกัน (การออกใบรับรองต้องใช้อำนาจของเจ้าหน้าที่)',
         title: 'เจ้าหน้าที่เปิดคำขอ',
-        instruction: (c) => `คำขอ ${c.applicationId} — ตรวจข้อมูลและเอกสาร แล้วกด "เริ่มตรวจสอบ"`,
+        instruction: (c) => `คำขอรับรอง ${c.applicationId} — ตรวจข้อมูลและเอกสาร แล้วกด "เริ่มตรวจสอบ"`,
         gate: { check: (g) => ['under_verification', 'approved'].includes(app(g.ctx.applicationId)?.status ?? ''), hint: 'กด "เริ่มตรวจสอบ" บนหน้าคำขอ' },
       },
       {
@@ -190,13 +215,13 @@ export const scenarios: ScenarioDef[] = [
         role: 'officer',
         route: (c) => `/o/applications/${c.applicationId}`,
         title: 'ตรวจ Checklist และอนุมัติ',
-        instruction: 'กด "ผ่าน" ในรายการตรวจ แล้วกด "อนุมัติ" (ระบบไม่อนุมัติให้อัตโนมัติ)',
+        instruction: 'กด "ผ่าน" ในรายการตรวจ แล้วกด "อนุมัติ" (ใบรับรองไม่ออกอัตโนมัติ — ต่างจากการลงทะเบียน)',
         tip: 'ระบบไม่ให้อนุมัติหากยังไม่ผ่าน e-KYC หรือมีรายการตรวจไม่ผ่าน',
         nextLabel: 'ดูผลในมุมผู้ประกอบการ',
         gate: { check: (g) => app(g.ctx.applicationId)?.status === 'approved', hint: 'กด "อนุมัติ" และยืนยัน' },
         capture: (g) => ({ certId: certOf(g.ctx.merchantId)?.id }),
       },
-      { id: 's2-notify', role: 'merchant', route: () => '/m/notifications', transition: 'เจ้าหน้าที่อนุมัติคำขอแล้ว กลับไปดูผลในมุมผู้ประกอบการ (ร้านเดิม)', title: 'การแจ้งเตือนผลอนุมัติ', instruction: 'ร้านค้าได้รับแจ้ง "คำขอลงทะเบียนได้รับอนุมัติ" พร้อมเลขใบรับรอง' },
+      { id: 's2-notify', role: 'merchant', route: () => '/m/notifications', transition: 'เจ้าหน้าที่อนุมัติใบรับรองแล้ว กลับไปดูผลในมุมผู้ประกอบการ (ร้านเดิม)', title: 'การแจ้งเตือนผลอนุมัติ', instruction: 'ร้านค้าได้รับแจ้ง "คำขอรับรองได้รับอนุมัติ" พร้อมเลขใบรับรอง' },
       { id: 's2-badge', role: 'merchant', route: () => '/m/toolkit', title: 'Trust Badge', instruction: 'Badge ระดับ Business Verified พร้อม QR และลิงก์ตรวจสอบ — คัดลอกไปใช้บนช่องทางขายเดิมได้', tip: 'ไม่สร้าง Marketplace ใหม่ ร้านค้าขายบนช่องทางเดิมต่อได้' },
       { id: 's2-passport', role: 'merchant', route: () => '/m/passport', title: 'SME Trust Passport', instruction: 'Passport แสดงร้านใหม่ ระดับการตรวจสอบ ใบรับรอง และช่องทางขาย', nextLabel: 'จบ Scenario และดูสรุป' },
     ],

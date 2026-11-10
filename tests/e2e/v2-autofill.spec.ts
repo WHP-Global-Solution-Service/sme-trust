@@ -125,6 +125,9 @@ test('ร้านใหม่: Marketplace → อนุญาต (จำลอ
   expect(conn.mockShopId).toBe(recs[0].source.mockShopId);
   expect(conn.sourceCategory).toBeTruthy();
   expect((await store<{ merchantId: string }>(page, 'certifications')).some((c) => c.merchantId === shops[0].id)).toBe(false); // ไม่ออก Badge อัตโนมัติ
+  // Automation First: แก้เฉพาะรายละเอียด (ชื่อร้านตรงกับต้นฉบับ) → ระบบผ่านการลงทะเบียนอัตโนมัติ (ไม่ออกใบรับรอง)
+  expect(app.status).toBe('approved');
+  expect((app as App & { autoDecision?: { route: string } }).autoDecision?.route).toBe('AUTO_PASS');
 
   // Refresh หลังส่ง → ไม่สร้างคำขอซ้ำ (ฉบับร่างถูกล้างแล้ว)
   await page.reload();
@@ -144,7 +147,10 @@ test('ร้านใหม่: Marketplace → อนุญาต (จำลอ
   await expect(main(page).getByTestId('missing-fields')).toContainText('ไม่มี');
   await expect(review.locator('[data-field="description"]')).toContainText(original);
   await expect(review.locator('[data-field="description"]')).toContainText('รับประกันสินค้า 30 วัน');
-  await expect(main(page).getByRole('button', { name: 'ขอเอกสารเพิ่มเติม' })).toBeVisible();
+  // กรณีปกติระบบผ่านการลงทะเบียนอัตโนมัติ — เจ้าหน้าที่เห็นผลการตรวจและข้อมูลต้นฉบับ แต่ไม่มีงานที่ต้องกดอนุมัติ
+  await expect(main(page).getByTestId('auto-decision')).toContainText('AUTO_PASS');
+  await expect(main(page).getByRole('button', { name: 'อนุมัติ', exact: true })).toHaveCount(0);
+  await expect(main(page).getByRole('button', { name: 'ขอเอกสารเพิ่มเติม' })).toHaveCount(0);
 
   expect(external).toEqual([]);
 });

@@ -133,6 +133,11 @@ export interface VerificationApplication {
   sourceDraftId?: string;
   /** v2: บันทึกการนำเข้าข้อมูลจาก Marketplace (จำลอง) ที่ใช้เติมแบบฟอร์ม */
   importId?: string;
+  /**
+   * Automation First: ผลการตรวจคำขอลงทะเบียนอัตโนมัติล่าสุด
+   * AUTO_PASS = ลงทะเบียนร้านแล้ว (ไม่ใช่ใบรับรองหรือ Badge) · AUTO_REQUEST_INFO = ส่งกลับให้ร้านแก้ · MANUAL_REVIEW = เจ้าหน้าที่ตรวจเฉพาะกรณี
+   */
+  autoDecision?: { route: 'AUTO_PASS' | 'AUTO_REQUEST_INFO' | 'MANUAL_REVIEW'; reasons: string[]; at: ISODate };
 }
 
 // ----- การรับรอง -----

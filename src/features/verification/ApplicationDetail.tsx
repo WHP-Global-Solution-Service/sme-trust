@@ -15,6 +15,7 @@ import { DocList } from '@/components/forms/MockUpload';
 import NotFoundPage from '@/features/onboarding/NotFoundPage';
 import { AssessmentSupportPanel } from '@/features/trust-assessment/components/AssessmentSupportPanel';
 import { ImportReviewSection } from '@/features/marketplace/components/ImportReviewSection';
+import { REGISTRATION_ROUTE_LABEL } from '@/features/automation/registration';
 
 export default function ApplicationDetail() {
   const { id } = useParams();
@@ -75,9 +76,28 @@ export default function ApplicationDetail() {
           <Link to="/o/risk" className="underline">ดู Risk Reviews</Link>
         </Alert>
       )}
-      {app.status === 'need_info' && <Alert tone="warning" title="รอร้านค้าส่งข้อมูลเพิ่มเติม" className="mb-4">{app.infoRequest}</Alert>}
+      {app.autoDecision && (
+        <div data-testid="auto-decision">
+          <Alert tone={app.autoDecision.route === 'MANUAL_REVIEW' ? 'warning' : 'info'} title={`ระบบตรวจสอบอัตโนมัติ: ${REGISTRATION_ROUTE_LABEL[app.autoDecision.route]} (${app.autoDecision.route})`} className="mb-4">
+            {app.autoDecision.reasons.join(' · ')}
+            {app.autoDecision.route === 'MANUAL_REVIEW' && <span className="mt-1 block text-xs">ระบบส่งมาเฉพาะกรณีนี้ — การตัดสินของเจ้าหน้าที่ใช้กับการลงทะเบียนเท่านั้น ไม่ออกใบรับรอง</span>}
+          </Alert>
+        </div>
+      )}
+      {app.status === 'need_info' && (
+        <Alert tone="warning" title={app.autoDecision?.route === 'AUTO_REQUEST_INFO' ? 'ระบบส่งกลับให้ร้านค้าเพิ่มข้อมูล (ไม่ต้องใช้เจ้าหน้าที่)' : 'รอร้านค้าส่งข้อมูลเพิ่มเติม'} className="mb-4">
+          {app.infoRequest}
+        </Alert>
+      )}
       {app.status === 'rejected' && <Alert tone="error" title="ไม่อนุมัติ" className="mb-4">{app.rejectReason}</Alert>}
-      {app.status === 'approved' && <Alert tone="success" title="อนุมัติแล้ว" className="mb-4">ร้านค้าเห็นสถานะใหม่และใบรับรองแล้ว</Alert>}
+      {app.status === 'approved' &&
+        (app.type === 'registration' ? (
+          <Alert tone="success" title={app.autoDecision?.route === 'AUTO_PASS' ? 'ลงทะเบียนร้านค้าแล้ว — ระบบผ่านอัตโนมัติ' : 'ลงทะเบียนร้านค้าแล้ว — เจ้าหน้าที่อนุมัติ (กรณียกเว้น)'} className="mb-4">
+            การลงทะเบียนไม่ออกใบรับรอง — ร้านยื่นขอใบรับรองแยกต่างหากตาม Certification Policy
+          </Alert>
+        ) : (
+          <Alert tone="success" title="อนุมัติแล้ว" className="mb-4">ร้านค้าเห็นสถานะใหม่และใบรับรองแล้ว</Alert>
+        ))}
 
       {open && (
         <Card className="mb-4 flex flex-wrap items-center gap-2 p-4">

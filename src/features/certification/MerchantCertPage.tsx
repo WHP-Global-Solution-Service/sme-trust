@@ -97,7 +97,7 @@ export default function MerchantCertPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <div className="space-y-4">
-          {cert ? <CertificateCard cert={cert} merchant={m} /> : <Card><EmptyState icon={BadgeCheck} title="ยังไม่มีใบรับรอง" desc="ใบรับรองระดับ Business Verified จะออกให้อัตโนมัติเมื่อคำขอลงทะเบียนร้านค้าได้รับอนุมัติ" /></Card>}
+          {cert ? <CertificateCard cert={cert} merchant={m} /> : <Card><EmptyState icon={BadgeCheck} title="ยังไม่มีใบรับรอง" desc="การลงทะเบียนร้านค้าไม่ใช่ใบรับรอง — ยื่นขอระดับ Business Verified ได้ด้านขวาเมื่อลงทะเบียนร้านแล้ว (เจ้าหน้าที่พิจารณาตามนโยบาย)" /></Card>}
           {cert && (
             <Card>
               <CardHeader title="ประวัติใบรับรองและการต่ออายุ" />
@@ -135,7 +135,7 @@ export default function MerchantCertPage() {
                       </li>
                     ))}
                   </ul>
-                  {lvl >= 3 && !reached && (
+                  {lvl >= 2 && !reached && (
                     <div className="mt-3 pl-10">
                       <Button size="sm" icon={Send} disabled={!met || !!pending} onClick={() => apply(lvl)}>
                         ยื่นขอ {info.name}

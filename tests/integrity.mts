@@ -56,7 +56,12 @@ export function integrityProblems(): string[] {
     const op = ops.find((o) => o.id === m.operatorId);
     if (active.length && op?.kycStatus !== 'verified') p.push(`${m.id}: มีใบรับรอง active แต่เจ้าของยังไม่ผ่าน e-KYC`);
     if (active.length && m.registrationStatus !== 'approved') p.push(`${m.id}: มีใบรับรอง active แต่คำขอลงทะเบียนยังไม่อนุมัติ`);
-    if (m.registrationStatus === 'approved' && !certs.some((c) => c.merchantId === m.id)) p.push(`${m.id}: อนุมัติแล้วแต่ไม่มีใบรับรอง`);
+    // Automation First: การลงทะเบียน (ระบบผ่านอัตโนมัติ หรือเจ้าหน้าที่อนุมัติกรณียกเว้น) ไม่ใช่ใบรับรอง — ร้านที่ลงทะเบียนแล้วต้องมีคำขอลงทะเบียนที่ผ่าน หรือมีใบรับรอง (ข้อมูลตัวอย่างเดิม)
+    if (m.registrationStatus === 'approved' && !certs.some((c) => c.merchantId === m.id) && !apps.some((a) => a.merchantId === m.id && a.type === 'registration' && a.status === 'approved'))
+      p.push(`${m.id}: ลงทะเบียนแล้วแต่ไม่มีคำขอลงทะเบียนที่ผ่าน และไม่มีใบรับรอง`);
+    // คำขอลงทะเบียนที่ระบบผ่านอัตโนมัติต้องไม่ออกใบรับรองให้ในเวลาเดียวกัน
+    for (const a of apps.filter((x) => x.merchantId === m.id && x.type === 'registration' && x.autoDecision?.route === 'AUTO_PASS'))
+      if (certs.some((c) => c.merchantId === m.id && c.issuedAt === a.autoDecision!.at)) p.push(`${a.id}: ผ่านอัตโนมัติแล้วออกใบรับรองพร้อมกัน (การลงทะเบียนต้องไม่เท่ากับการรับรอง)`);
     const latest = certs.filter((c) => c.merchantId === m.id).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))[0];
     if (latest?.status === 'suspended' && !['suspended', 'appeal_submitted'].includes(m.riskStatus)) p.push(`${m.id}: ใบรับรองถูกระงับแต่ riskStatus=${m.riskStatus}`);
     if (latest?.status === 'revoked' && !['revoked', 'appeal_submitted', 'appeal_reviewed'].includes(m.riskStatus)) p.push(`${m.id}: ใบรับรองถูกเพิกถอนแต่ riskStatus=${m.riskStatus}`);

@@ -56,9 +56,18 @@ export default function ShopPage() {
         </Alert>
       )}
       {['submitted', 'pending_review', 'under_verification'].includes(m.registrationStatus) && (
-        <Alert tone="warning" title="Pending Approval" className="mb-4">
-          คำขออยู่ระหว่างการพิจารณา ระหว่างนี้ร้านค้ายังไม่ได้รับสถานะผ่านเกณฑ์ธุรกิจ
+        <Alert tone="warning" title={regApp?.autoDecision?.route === 'MANUAL_REVIEW' ? 'เจ้าหน้าที่ตรวจสอบเฉพาะกรณี' : 'Pending Approval'} className="mb-4">
+          {regApp?.autoDecision?.route === 'MANUAL_REVIEW'
+            ? `ระบบตรวจพบ: ${regApp.autoDecision.reasons.join(' · ')} — ส่งเจ้าหน้าที่ตรวจสอบกรณีนี้ (ไม่ได้หมายความว่าร้านกระทำผิด)`
+            : 'คำขออยู่ระหว่างการพิจารณา ระหว่างนี้ร้านค้ายังไม่ได้รับสถานะผ่านเกณฑ์ธุรกิจ'}
         </Alert>
+      )}
+      {m.registrationStatus === 'approved' && regApp?.autoDecision?.route === 'AUTO_PASS' && (
+        <div data-testid="registration-auto-pass">
+          <Alert tone="success" title="ลงทะเบียนร้านค้าแล้ว — ผ่านการตรวจสอบอัตโนมัติ" className="mb-4">
+            ไม่ต้องรอเจ้าหน้าที่ในกรณีปกติ · การลงทะเบียนยังไม่ใช่ใบรับรองหรือ Assessment Badge — Badge แสดงตามผลประเมินและเงื่อนไขการแสดง
+          </Alert>
+        </div>
       )}
 
       <VerifySection merchantId={m.id} />
@@ -67,7 +76,7 @@ export default function ShopPage() {
         <div className="space-y-4">
           {canResubmit && (
             <Card className="border-warning/40">
-              <CardHeader title={regApp.status === 'rejected' ? 'คำขอไม่ได้รับอนุมัติ' : 'เจ้าหน้าที่ขอข้อมูลเพิ่มเติม'} icon={AlertTriangle} />
+              <CardHeader title={regApp.status === 'rejected' ? 'คำขอไม่ได้รับอนุมัติ' : regApp.autoDecision?.route === 'AUTO_REQUEST_INFO' ? 'ระบบขอข้อมูลเพิ่มเติม (ตรวจสอบอัตโนมัติ)' : 'เจ้าหน้าที่ขอข้อมูลเพิ่มเติม'} icon={AlertTriangle} />
               <div className="space-y-3 p-4 sm:p-5">
                 <Alert tone={regApp.status === 'rejected' ? 'error' : 'warning'} title="เหตุผล / สิ่งที่ต้องดำเนินการ">
                   {regApp.rejectReason ?? regApp.infoRequest}
@@ -86,7 +95,7 @@ export default function ShopPage() {
                     resubmitApplication(regApp.id, note, docs);
                     setNote('');
                     setDocs([]);
-                    toast.success('ส่งข้อมูลเพิ่มเติมแล้ว', 'คำขอกลับเข้าสู่คิวตรวจสอบ');
+                    toast.success('ส่งข้อมูลเพิ่มเติมแล้ว', 'ระบบตรวจคำขออีกครั้งอัตโนมัติ');
                   }}
                 >
                   {regApp.status === 'rejected' ? 'ยื่นคำขออีกครั้ง' : 'ส่งข้อมูลเพิ่มเติม'}

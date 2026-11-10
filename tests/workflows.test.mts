@@ -74,30 +74,43 @@ asOwner(newOp.id, () => W.setKycResult(newOp.id, true));
 ok(op(newOp.id).kycStatus === 'verified', 'kyc verified');
 sess.set({ operatorId: newOp.id });
 const form = { businessType: 'individual' as const, ownerName: 'x', shopName: 'ร้านทดสอบ', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง', phone: '0899999999', email: 'a@b.c', description: 'รายละเอียดทดสอบยาวพอสมควร', channels: [{ type: 'facebook' as const, handle: 'testshop' }], documents: [] };
+const officerNotes = () => S.useNotificationStore.getState().items.filter((n: any) => n.recipientRole === 'officer').length;
+const officerBefore = officerNotes();
 const { merchant: nm, app } = asOwner(newOp.id, () => W.submitShopRegistration(newOp.id, form));
-ok(nm.id === 'M-013' && app.status === 'submitted', `shop ${nm.id} submitted ${app.id}`);
+// Automation First: ไม่มีเอกสาร → ระบบส่งกลับให้ร้านค้าเพิ่มข้อมูลเอง (AUTO_REQUEST_INFO) ไม่เข้าคิวเจ้าหน้าที่
+ok(nm.id === 'M-013' && app.status === 'need_info' && app.autoDecision?.route === 'AUTO_REQUEST_INFO' && app.autoDecision.reasons.some((r) => r.includes('เอกสาร')), `shop ${nm.id} ${app.id} AUTO_REQUEST_INFO (missing documents)`);
+ok(m(nm.id).registrationStatus === 'need_info' && officerNotes() === officerBefore, 'merchant fixes it — no officer task/notification');
 ok(verdict(nm.id) === 'pending', 'consumer sees pending');
+asOwner(app.id, () => W.resubmitApplication(app.id, 'แนบเอกสารแล้ว', [{ id: 'doc-wf-1', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 90, addedAt: new Date().toISOString() }]));
+const regApp = S.useVerificationStore.getState().items.find((a: any) => a.id === app.id)!;
+ok(regApp.status === 'approved' && regApp.autoDecision?.route === 'AUTO_PASS' && m(nm.id).registrationStatus === 'approved', 'resubmitted → AUTO_PASS (registration accepted by the system)');
+ok(!cert(nm.id) && verdict(nm.id) === 'identity' && officerNotes() === officerBefore, 'registration ≠ certificate (no cert, no officer)');
+ok(S.useAuditStore.getState().items.some((a: any) => a.target === app.id && a.action.includes('AUTO_PASS')), 'audit logged (AUTO_PASS)');
+// Level 2 certificate stays an officer decision (Certification Policy)
+const l2 = asOwner(nm.id, () => W.applyCertification(nm.id, 2));
 sess.set({ role: 'officer', officerId: 'OF-001' });
-actAs(['officer', 'admin'], () => W.startReview(app.id));
-ok(m(nm.id).registrationStatus === 'under_verification', 'under verification on merchant');
-actAs(['officer', 'admin'], () => W.approveApplication(app.id));
+actAs(['officer', 'admin'], () => W.startReview(l2.id));
+ok(S.useVerificationStore.getState().items.find((a: any) => a.id === l2.id)!.status === 'under_verification', 'certification request under verification');
+actAs(['officer', 'admin'], () => W.approveApplication(l2.id));
 ok(m(nm.id).registrationStatus === 'approved', 'approved on merchant');
 ok(cert(nm.id)?.status === 'active' && cert(nm.id)?.level === 2, 'cert L2 issued');
 ok(verdict(nm.id) === 'business', 'consumer sees business verified');
 ok(S.useNotificationStore.getState().items.some((n: any) => n.recipientId === newOp.id && n.title.includes('อนุมัติ')), 'merchant notified');
-ok(S.useAuditStore.getState().items.some((a: any) => a.target === app.id && a.action === 'อนุมัติคำขอ'), 'audit logged');
+ok(S.useAuditStore.getState().items.some((a: any) => a.target === l2.id && a.action === 'อนุมัติคำขอ'), 'audit logged');
 
+// Legacy seed application (before automation): officer asks for info → merchant resubmits → system re-checks automatically
 actAs(['officer', 'admin'], () => W.requestInfo('APP-2569-0002', 'ขอเอกสารเพิ่ม'));
 ok(m('M-002').registrationStatus === 'need_info', 'need_info');
 asOwner('APP-2569-0002', () => W.resubmitApplication('APP-2569-0002', 'ส่งแล้ว', []));
-ok(m('M-002').registrationStatus === 'submitted', 'resubmitted');
-actAs(['officer', 'admin'], () => W.rejectApplication('APP-2569-0002', 'เหตุผลทดสอบ'));
-ok(m('M-002').registrationStatus === 'rejected', 'rejected');
+ok(m('M-002').registrationStatus === 'approved' && S.useVerificationStore.getState().items.find((a: any) => a.id === 'APP-2569-0002')!.autoDecision?.route === 'AUTO_PASS' && !cert('M-002'), 'resubmitted → system re-check AUTO_PASS (no certificate)');
 
-const r3 = asOwner('OP-008', () => W.submitShopRegistration('OP-008', { ...form, shopName: 'ร้านใหม่อีก' }));
+const r3 = asOwner('OP-008', () => W.submitShopRegistration('OP-008', { ...form, shopName: 'ร้านใหม่อีก', documents: [{ id: 'doc-wf-2', name: 'บัตร.pdf', kind: 'บัตรประชาชน', sizeKb: 40, addedAt: new Date().toISOString() }] }));
 ok(!!r3.merchant.identityFlag && r3.merchant.riskStatus === 'allegation', 'identity flag on re-open');
 ok(S.useRiskStore.getState().items.some((r: any) => r.merchantId === r3.merchant.id && r.status === 'allegation'), 'risk allegation created');
-ok(r3.app.status === 'submitted', 'not auto-rejected');
+ok(r3.app.status === 'pending_review' && r3.app.autoDecision?.route === 'MANUAL_REVIEW', 'not auto-rejected — MANUAL_REVIEW');
+ok(S.useNotificationStore.getState().items.some((n: any) => n.recipientRole === 'officer' && n.link === `/o/applications/${r3.app.id}`), 'exception sent to officer');
+actAs(['officer', 'admin'], () => W.rejectApplication(r3.app.id, 'เหตุผลทดสอบ'));
+ok(m(r3.merchant.id).registrationStatus === 'rejected', 'rejected');
 
 // Scenario 4
 sess.set({ role: 'consumer', consumerId: 'CS-003' });

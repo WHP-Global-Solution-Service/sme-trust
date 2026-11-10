@@ -99,11 +99,11 @@ test('Scenario 14: Marketplace App → SME Trust → Auto-Fill → ประเ�
   await playS14(page);
 });
 
-test('หน้า Demo: "เริ่ม Demo เส้นทางหลัก" → Scenario 14 ครบทุกขั้น · บทบาท · ย้อนกลับข้ามบทบาท · Refresh', async ({ page }) => {
+test('หน้า Demo: การ์ด "แสดงผล Assessment Badge" → Scenario 14 ครบทุกขั้น · บทบาท · ย้อนกลับข้ามบทบาท · Refresh', async ({ page }) => {
   test.setTimeout(300_000);
   await fresh(page);
   await open(page, '/demo');
-  await page.getByTestId('main-cta').click();
+  await page.getByTestId('mvp-section').getByRole('button', { name: 'เริ่ม Demo: แสดงผล Assessment Badge', exact: true }).click();
   await expect(panel(page).getByText('Scenario 14:')).toBeVisible();
   await expectStep(page, 1);
   expect(await sessionRole(page)).toBe('merchant');

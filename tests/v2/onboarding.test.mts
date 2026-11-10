@@ -68,7 +68,7 @@ const SID = self.merchant.id;
   const a = V.latestAssessment(SID)!;
   check(!!b && b.status === 'insufficient' && b.route === 'AUTO_REQUEST_INFO' && a.origin === 'automation', 'ส่งคำขอแล้วระบบประเมินอัตโนมัติ → Insufficient Data · ร้านเพิ่มข้อมูลเอง');
   check(a.result.band === 'insufficient' && a.result.scoreBand !== undefined && a.result.components.filter((c) => ['C2', 'C3', 'C4'].includes(c.id)).every((c) => !c.available && c.effectiveWeight === 0), 'ไม่มี Marketplace → C2–C4 ไม่นับ (ไม่ใช่ศูนย์) ไม่ได้ Band ลบ');
-  check(tasks(SID).length === 0 && S.useVerificationStore.getState().items.find((x) => x.id === self.app.id)!.status === 'submitted' && !S.useCertificationStore.getState().items.some((c) => c.merchantId === SID), 'ไม่สร้างงานเจ้าหน้าที่ · คำขอยังรอเจ้าหน้าที่ · ไม่มีใบรับรองอัตโนมัติ');
+  { const sa = S.useVerificationStore.getState().items.find((x) => x.id === self.app.id)!; check(tasks(SID).length === 0 && sa.status === 'approved' && sa.autoDecision?.route === 'AUTO_PASS' && !S.useCertificationStore.getState().items.some((c) => c.merchantId === SID), 'ไม่สร้างงานเจ้าหน้าที่ · ระบบผ่านการลงทะเบียนอัตโนมัติ (AUTO_PASS) · ไม่มีใบรับรองอัตโนมัติ'); }
   check(merchants().find((m) => m.id === SID)!.identityDocType === 'id_card', 'บันทึกประเภทเอกสารยืนยันตัวตน (ไม่เก็บเลขเอกสาร)');
   const page = view('/m/trust', { role: 'merchant', operatorId: 'OP-012', activeMerchantId: SID });
   check(page.includes('ไม่ถูกหักคะแนน') && page.includes('Insufficient Data'), 'ร้านเห็นคำแนะนำ: ไม่มี Marketplace ไม่ถูกหักคะแนน');
