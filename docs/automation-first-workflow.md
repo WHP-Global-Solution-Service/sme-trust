@@ -149,7 +149,7 @@ Exception Queue รวมทุกอย่างข้างต้นเป็�
 
 ## 10. Demo
 
-- **เส้นทางหลักบนหน้า Demo (ปุ่ม "เริ่ม Demo เส้นทางหลัก") = Scenario 9A:** ลงทะเบียน (Marketplace + Auto-Fill) → ส่งคำขอ → ตรวจข้อมูลอัตโนมัติ → ผ่านการลงทะเบียน (AUTO_PASS) → Trust Assessment อัตโนมัติ → ผู้บริโภคตรวจสอบ · ไม่มีขั้นตอนเจ้าหน้าที่
+- **เส้นทางหลักบนหน้า Demo (ปุ่ม "ทดลองกระบวนการ SME Trust ตั้งแต่ต้น") = Scenario 9A:** ลงทะเบียน (Marketplace + Auto-Fill) → ส่งคำขอ → ตรวจข้อมูลอัตโนมัติ → ผ่านการลงทะเบียน (AUTO_PASS) → Trust Assessment อัตโนมัติ → ผู้บริโภคตรวจสอบ · ไม่มีขั้นตอนเจ้าหน้าที่
 - **Scenario 9B / Scenario 2:** ลงทะเบียนด้วยตนเอง → AUTO_PASS เช่นกัน · Scenario 2 ต่อด้วยการยื่นขอใบรับรอง Level 2 ที่เจ้าหน้าที่อนุมัติ (แสดงการแยกการลงทะเบียนกับการรับรอง)
 - **Scenario 14 — เส้นทางปกติของร้านเดิม:** Marketplace App Simulation (`/m/marketplace-app`) → SME Trust → Auto-Fill → Automatic Trust Assessment → Automatic Assessment Badge → Consumer Verification · ใช้บทบาทผู้ประกอบการและผู้บริโภคเท่านั้น
 - **Scenario 15 — กรณียกเว้น:** Marketplace Connection (ร้านตัวอย่าง "บัญชีร้านเป็นชื่อบุคคลอื่น") → Data Conflict → Manual Review Queue → Officer Decision → Updated Assessment / Certification Status

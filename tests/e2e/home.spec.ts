@@ -82,9 +82,9 @@ test('หน้าแรก: Demo ตาม User Journey เริ่ม Scenari
   await open(page, '/');
   await main(page).getByRole('button', { name: 'ดู Demo ทั้งหมด' }).click();
   await expect(page).toHaveURL(/\/demo$/);
-  // หน้า Demo (MVP-First): เห็น 5 ระบบหลักก่อน และมี CTA หลักเพียงปุ่มเดียว
-  await expect(main(page).getByTestId('mvp-card')).toHaveCount(5);
-  await expect(page.getByTestId('main-cta')).toHaveText('เริ่ม Demo เส้นทางหลัก');
+  // หน้า Demo: เส้นทางหลักเส้นเดียว และมี CTA หลักเพียงปุ่มเดียว
+  await expect(main(page).getByTestId('mvp-card')).toHaveCount(3);
+  await expect(page.getByTestId('main-cta')).toHaveText('ทดลองกระบวนการ SME Trust ตั้งแต่ต้น');
   await expect(main(page).getByTestId('recommended-flow')).toContainText('ผู้บริโภคตรวจสอบ');
 });
 
