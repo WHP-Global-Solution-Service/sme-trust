@@ -29,6 +29,11 @@ check(mvpIds.every((id) => !!SC.findScenario(id)), `ทุกปุ่มใน 
 check(JSON.stringify(P.MVP_FEATURES[0].actions.map((a) => a.id)) === JSON.stringify(['s9a', 's9b']), 'ลงทะเบียนร้านค้า: ทั้งเชื่อม Marketplace (9A) และสมัครเอง (9B)');
 check(P.MVP_FEATURES[1].actions[0].id === 's11' && P.MVP_FEATURES[3].actions[0].id === 's13' && P.MVP_FEATURES[4].actions[0].id === 's15', 'ประเมิน = Scenario 11 · ตรวจสอบร้านค้า = Scenario 13 · กรณีจำเป็น = Scenario 15 (Exception Queue)');
 check(visible.includes('ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.') && visible.includes('Trust Band · Coverage · Confidence'), 'Badge แยกจากใบรับรอง และการประเมินระบุ Band · Coverage · Confidence');
+// Regression: การ์ด Badge เปิด Scenario 14 ทั้งเส้น — ต้องไม่เขียนเหมือน Demo เฉพาะ Badge
+const badge = P.MVP_FEATURES[2];
+check(badge.actions.length === 1 && badge.actions[0].id === P.MAIN_JOURNEY_ID && badge.actions[0].label === 'เริ่มเส้นทางหลัก' && badge.inMainStep === 's14-badge', 'การ์ด Badge: ปุ่ม "เริ่มเส้นทางหลัก" (ไม่ใช่ "เริ่ม Demo") และระบุว่าเป็นขั้นหนึ่งของเส้นทางหลัก');
+check(P.mainStepNo('s14-badge') === 4 && visible.includes('สาธิตในเส้นทางหลัก · ขั้นที่ 4 จาก 5') && (html.match(/data-testid="mvp-in-main"/g) ?? []).length === 1, 'การ์ด Badge แสดง "สาธิตในเส้นทางหลัก · ขั้นที่ 4 จาก 5" ตรงกับลำดับเส้นทางแนะนำ (มีเฉพาะการ์ดนี้)');
+check(P.MVP_FEATURES.filter((f) => f.actions.some((a) => a.id === P.MAIN_JOURNEY_ID)).every((f) => !!f.inMainStep), 'การ์ดใดที่เปิดเส้นทางหลักต้องระบุขั้นในเส้นทางหลักเสมอ');
 
 describe('เส้นทาง Demo ที่แนะนำ — ตรงกับขั้นจริงของ Scenario 14');
 const flowSteps = P.RECOMMENDED_FLOW.flatMap((s) => s.steps);

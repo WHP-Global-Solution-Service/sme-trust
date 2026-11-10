@@ -15,6 +15,13 @@ test('MVP-First: เปิดหน้า Demo เห็น 5 ระบบหล
   await expect(cards).toHaveCount(5);
   for (const [i, t] of ['ลงทะเบียนร้านค้า', 'ประเมินความน่าเชื่อถือ', 'แสดงผล Assessment Badge', 'ตรวจสอบร้านค้า', 'ตรวจสอบเฉพาะกรณีจำเป็น'].entries()) await expect(cards.nth(i)).toContainText(t);
   await expect(page.getByTestId('recommended-flow').getByRole('listitem')).toHaveCount(5);
+  // การ์ด Badge ไม่มี Scenario แยก — บอกชัดว่าเริ่มเส้นทางหลักทั้งเส้น (Badge อยู่ขั้นที่ 4 จาก 5) ไม่ใช่ Demo เฉพาะ Badge
+  const badgeCard = cards.nth(2);
+  await expect(badgeCard.getByTestId('mvp-in-main')).toHaveText('สาธิตในเส้นทางหลัก · ขั้นที่ 4 จาก 5');
+  await expect(badgeCard.getByRole('button')).toHaveText('เริ่มเส้นทางหลัก');
+  await expect(badgeCard.getByRole('button', { name: /^เริ่ม Demo/ })).toHaveCount(0);
+  await expect(page.getByTestId('recommended-flow').getByRole('listitem').nth(3)).toContainText('แสดง Assessment Badge');
+  await expect(page.getByTestId('mvp-in-main')).toHaveCount(1);
   // พับไว้เป็นค่าเริ่มต้น: ไม่เห็นปุ่มเริ่มของระบบเพิ่มเติมหรือ Scenario เดี่ยว
   await expect(page.getByTestId('secondary-group')).toHaveCount(6);
   await expect(page.getByRole('button', { name: /^เริ่มสาธิต:/ })).toHaveCount(0);
@@ -83,7 +90,7 @@ test('ปุ่มของ 5 ระบบหลักและระบบเ�
     ['เริ่ม Demo: เชื่อมร้านค้าออนไลน์', 'Scenario 9A:', 's9a'],
     ['เริ่ม Demo: สมัครด้วยตนเอง', 'Scenario 9B:', 's9b'],
     ['เริ่ม Demo: ประเมินความน่าเชื่อถือ', 'Scenario 11:', 's11'],
-    ['เริ่ม Demo: แสดงผล Assessment Badge', 'Scenario 14:', 's14'],
+    ['เริ่มเส้นทางหลัก: แสดงผล Assessment Badge อยู่ขั้นที่ 4', 'Scenario 14:', 's14'],
     ['เริ่ม Demo: ตรวจสอบร้านค้า', 'Scenario 13:', 's13'],
     ['เริ่ม Demo: ตรวจสอบเฉพาะกรณีจำเป็น', 'Scenario 15:', 's15'],
   ];

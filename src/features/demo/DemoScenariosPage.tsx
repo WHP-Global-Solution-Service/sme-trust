@@ -67,11 +67,14 @@ const STATUS_CHIP = {
 /** เส้นทางหลักสำหรับนำเสนอ — Scenario 14 ครอบคลุม ลงทะเบียน/เชื่อมร้าน → ตรวจข้อมูล → ประเมินอัตโนมัติ → Badge → ผู้บริโภค (ใช้ Scenario เดิม ไม่สร้าง Logic ใหม่) */
 export const MAIN_JOURNEY_ID = 's14';
 
-/** 5 ระบบหลัก (MVP) — แต่ละปุ่มเริ่ม Scenario ที่มีอยู่จริง */
-export const MVP_FEATURES: { no: number; icon: LucideIcon; title: string; desc: string; note?: string; actions: { label: string; id: string }[] }[] = [
+/**
+ * 5 ระบบหลัก (MVP) — แต่ละปุ่มเริ่ม Scenario ที่มีอยู่จริง
+ * inMainStep: ระบบที่ไม่มี Scenario แยก และสาธิตเป็นขั้นหนึ่งของเส้นทางหลัก — ปุ่มบอกชัดว่าเริ่มเส้นทางหลักทั้งเส้น ไม่ใช่ Demo เฉพาะระบบนั้น
+ */
+export const MVP_FEATURES: { no: number; icon: LucideIcon; title: string; desc: string; note?: string; inMainStep?: string; actions: { label: string; id: string }[] }[] = [
   { no: 1, icon: Store, title: 'ลงทะเบียนร้านค้า', desc: 'เชื่อมร้านค้าออนไลน์ หรือสมัครด้วยตนเอง', actions: [{ label: 'เชื่อมร้านค้าออนไลน์', id: 's9a' }, { label: 'สมัครด้วยตนเอง', id: 's9b' }] },
   { no: 2, icon: BarChart3, title: 'ประเมินความน่าเชื่อถือ', desc: 'ระบบประเมินข้อมูลร้านค้าอัตโนมัติ', note: 'Trust Band · Coverage · Confidence', actions: [{ label: 'เริ่ม Demo', id: 's11' }] },
-  { no: 3, icon: BadgeCheck, title: 'แสดงผล Assessment Badge', desc: 'แสดงผลประเมินเมื่อข้อมูลผ่านเงื่อนไข', note: 'ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.', actions: [{ label: 'เริ่ม Demo', id: MAIN_JOURNEY_ID }] },
+  { no: 3, icon: BadgeCheck, title: 'แสดงผล Assessment Badge', desc: 'แสดงผลประเมินเมื่อข้อมูลผ่านเงื่อนไข', note: 'ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.', inMainStep: 's14-badge', actions: [{ label: 'เริ่มเส้นทางหลัก', id: MAIN_JOURNEY_ID }] },
   { no: 4, icon: SearchCheck, title: 'ตรวจสอบร้านค้า', desc: 'ผู้บริโภคค้นหาและตรวจสอบผลประเมิน', actions: [{ label: 'เริ่ม Demo', id: 's13' }] },
   { no: 5, icon: UserCheck, title: 'ตรวจสอบเฉพาะกรณีจำเป็น', desc: 'เจ้าหน้าที่พิจารณาเฉพาะข้อมูลที่ต้องตรวจเพิ่ม', actions: [{ label: 'เริ่ม Demo', id: 's15' }] },
 ];
@@ -84,6 +87,9 @@ export const RECOMMENDED_FLOW: { icon: LucideIcon; title: string; steps: string[
   { icon: BadgeCheck, title: 'แสดง Assessment Badge', steps: ['s14-badge'] },
   { icon: SearchCheck, title: 'ผู้บริโภคตรวจสอบ', steps: ['s14-consumer'] },
 ];
+
+/** ขั้นของเส้นทางแนะนำ (1–5) ที่มีขั้นนี้ของ Scenario 14 */
+export const mainStepNo = (stepId: string) => RECOMMENDED_FLOW.findIndex((s) => s.steps.includes(stepId)) + 1;
 
 /** ระบบเพิ่มเติม — จัดกลุ่มจาก Scenario ที่มีอยู่จริง (แต่ละ Scenario อยู่กลุ่มเดียว ไม่ซ้ำกับระบบหลัก) */
 export const SECONDARY_GROUPS: { title: string; icon: LucideIcon; ids: string[] }[] = [
@@ -181,9 +187,22 @@ export default function DemoScenariosPage() {
                 <h3 className="mt-3 font-bold leading-snug text-ink">{f.title}</h3>
                 <p className="mt-1 flex-1 text-sm text-ink-soft">{f.desc}</p>
                 {f.note && <p className="mt-2 text-xs font-medium text-primary">{f.note}</p>}
+                {f.inMainStep && (
+                  <p className="mt-2 flex items-center gap-1 text-xs text-ink-soft" data-testid="mvp-in-main">
+                    <Route className="h-3.5 w-3.5 shrink-0" />
+                    สาธิตในเส้นทางหลัก · ขั้นที่ {mainStepNo(f.inMainStep)} จาก {RECOMMENDED_FLOW.length}
+                  </p>
+                )}
                 <div className="mt-3 flex flex-col gap-2">
                   {f.actions.map((a) => (
-                    <Button key={a.id} size="sm" variant={f.actions.length > 1 && a.id === 's9b' ? 'outline' : 'secondary'} icon={Play} aria-label={`เริ่ม Demo: ${f.actions.length > 1 ? a.label : f.title}`} onClick={() => startById(a.id)}>
+                    <Button
+                      key={a.id}
+                      size="sm"
+                      variant={f.actions.length > 1 && a.id === 's9b' ? 'outline' : 'secondary'}
+                      icon={Play}
+                      aria-label={f.inMainStep ? `เริ่มเส้นทางหลัก: ${f.title} อยู่ขั้นที่ ${mainStepNo(f.inMainStep)}` : `เริ่ม Demo: ${f.actions.length > 1 ? a.label : f.title}`}
+                      onClick={() => startById(a.id)}
+                    >
                       {a.label}
                     </Button>
                   ))}
