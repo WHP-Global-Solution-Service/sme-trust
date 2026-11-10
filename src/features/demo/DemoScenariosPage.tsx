@@ -11,7 +11,9 @@ import {
   ChevronDown,
   Circle,
   Clock,
+  Eye,
   FileCheck,
+  FileWarning,
   GitBranch,
   GraduationCap,
   Layers,
@@ -32,13 +34,16 @@ import {
   UserCog,
   type LucideIcon,
 } from 'lucide-react';
-import type { Role } from '@/types';
-import { confirmDialog, toast } from '@/stores';
+import type { Merchant, Role } from '@/types';
+import type { AssessmentBadge } from '@/features/automation/types';
+import { confirmDialog, toast, useAssessmentBadgeStore, useMerchantStore, useSessionStore } from '@/stores';
 import { useDemoStore } from '@/stores/demo';
 import { resetAllDemoData } from '@/stores/workflows';
 import { findScenario, journeyScenarios, scenarioCode, trackOf, trackScenarios, TRACK_INFO } from '@/mock/scenarios';
 import type { ScenarioDef, Track } from '@/demo/types';
-import { resetScenarioData, resumeDemo, scenarioStatus, startJourney, startScenario } from '@/demo/controller';
+import { pauseDemo, resetScenarioData, resumeDemo, scenarioStatus, startJourney, startScenario } from '@/demo/controller';
+import { switchRole } from '@/components/layout/demo';
+import { isPublicMerchant } from '@/utils/trust';
 import { Badge, Button } from '@/components/common/ui';
 import { cn } from '@/utils/cn';
 import { DemoFrame, PrototypeDisclaimer } from './DemoFrame';
@@ -63,33 +68,75 @@ const STATUS_CHIP = {
   not_started: { label: 'Not Started', tone: 'neutral' as const, icon: Circle },
 };
 
-// ---------------------------------------------------------------- MVP-First content
-/** เส้นทางหลักสำหรับนำเสนอ — Scenario 9A: ลงทะเบียน (Marketplace + Auto-Fill) → ตรวจข้อมูลอัตโนมัติ → ผ่านการลงทะเบียน (AUTO_PASS) → ประเมินความน่าเชื่อถือ → ผู้บริโภคตรวจสอบ (ใช้ Scenario เดิม ไม่สร้าง Logic ใหม่) */
+// ---------------------------------------------------------------- Demo content (เส้นทางหลักเส้นเดียว)
+/** เส้นทางหลักเส้นเดียว — Scenario 9A (Logic เดิมทั้งหมด): ลงทะเบียน → ตรวจสอบอัตโนมัติ → AUTO_PASS → ประเมิน → Badge ตามเงื่อนไข → ผู้บริโภคตรวจสอบ */
 export const MAIN_JOURNEY_ID = 's9a';
+export const MAIN_CTA_LABEL = 'ทดลองกระบวนการ SME Trust ตั้งแต่ต้น';
 
-/**
- * 5 ระบบหลัก (MVP) — แต่ละปุ่มเริ่ม Scenario ที่มีอยู่จริง
- * inMainStep: ระบบที่ไม่มี Scenario แยก และสาธิตเป็นขั้นหนึ่งของเส้นทางหลัก — ปุ่มบอกชัดว่าเริ่มเส้นทางหลักทั้งเส้น ไม่ใช่ Demo เฉพาะระบบนั้น
- */
-export const MVP_FEATURES: { no: number; icon: LucideIcon; title: string; desc: string; note?: string; inMainStep?: string; actions: { label: string; id: string }[] }[] = [
-  { no: 1, icon: Store, title: 'ลงทะเบียนร้านค้า', desc: 'เชื่อมร้านค้าออนไลน์ หรือสมัครด้วยตนเอง', note: 'ตรวจสอบอัตโนมัติ — ไม่ต้องรอเจ้าหน้าที่ในกรณีปกติ', actions: [{ label: 'เชื่อมร้านค้าออนไลน์', id: 's9a' }, { label: 'สมัครด้วยตนเอง', id: 's9b' }] },
-  { no: 2, icon: BarChart3, title: 'ประเมินความน่าเชื่อถือ', desc: 'ระบบประเมินข้อมูลร้านค้าอัตโนมัติ', note: 'Trust Band · Coverage · Confidence', actions: [{ label: 'เริ่ม Demo', id: 's11' }] },
-  { no: 3, icon: BadgeCheck, title: 'แสดงผล Assessment Badge', desc: 'แสดงผลประเมินเมื่อข้อมูลผ่านเงื่อนไข', note: 'ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.', actions: [{ label: 'เริ่ม Demo', id: 's14' }] },
-  { no: 4, icon: SearchCheck, title: 'ตรวจสอบร้านค้า', desc: 'ผู้บริโภคค้นหาและตรวจสอบผลประเมิน', actions: [{ label: 'เริ่ม Demo', id: 's13' }] },
-  { no: 5, icon: UserCheck, title: 'ตรวจสอบเฉพาะกรณีจำเป็น', desc: 'เจ้าหน้าที่พิจารณาเฉพาะข้อมูลที่ต้องตรวจเพิ่ม', note: 'เฉพาะกรณีผิดปกติ — ไม่ใช่การอนุมัติทุกร้าน', actions: [{ label: 'เริ่ม Demo', id: 's15' }] },
-];
-
-/** ลำดับเส้นทางแนะนำ → ขั้นของ Scenario 9A ในตัวควบคุมการสาธิต */
+/** 6 ขั้นของเส้นทางหลัก → ขั้นของ Scenario 9A ในตัวควบคุมการสาธิต (ขั้น 4–5 แสดงในหน้าผลประเมินเดียวกัน) */
 export const RECOMMENDED_FLOW: { icon: LucideIcon; title: string; steps: string[] }[] = [
-  { icon: Link2, title: 'ลงทะเบียน / เชื่อมร้านค้า', steps: ['s9a-home', 's9a-entry', 's9a-authorize', 's9a-shop', 's9a-import', 's9a-review', 's9a-missing'] },
-  { icon: FileCheck, title: 'ส่งคำขอ → ตรวจข้อมูลอัตโนมัติ', steps: ['s9a-submit'] },
-  { icon: BadgeCheck, title: 'ผ่านการลงทะเบียน (AUTO_PASS)', steps: ['s9a-auto'] },
-  { icon: BarChart3, title: 'ประเมินความน่าเชื่อถือ · แสดงผลตามเงื่อนไข', steps: ['s9a-assess'] },
+  { icon: Link2, title: 'ลงทะเบียนร้านค้า', steps: ['s9a-home', 's9a-entry', 's9a-authorize', 's9a-shop', 's9a-import', 's9a-review', 's9a-missing'] },
+  { icon: FileCheck, title: 'ตรวจสอบอัตโนมัติ', steps: ['s9a-submit'] },
+  { icon: CheckCircle2, title: 'AUTO_PASS', steps: ['s9a-auto'] },
+  { icon: BarChart3, title: 'ประเมินความน่าเชื่อถือ', steps: ['s9a-assess'] },
+  { icon: BadgeCheck, title: 'แสดงผล Badge ตามเงื่อนไข', steps: ['s9a-assess'] },
   { icon: SearchCheck, title: 'ผู้บริโภคตรวจสอบ', steps: ['s9a-consumer'] },
 ];
 
-/** ขั้นของเส้นทางแนะนำ (1–5) ที่มีขั้นนี้ของเส้นทางหลัก */
-export const mainStepNo = (stepId: string) => RECOMMENDED_FLOW.findIndex((s) => s.steps.includes(stepId)) + 1;
+/** A. Demo หลัก — ส่วนหนึ่งของเส้นทางหลัก (ไม่มีปุ่มเริ่มแยก จึงไม่เริ่ม Journey ซ้ำ) · flow = ลำดับขั้นใน RECOMMENDED_FLOW (1-based) */
+export const MAIN_HIGHLIGHTS: { icon: LucideIcon; title: string; desc: string; flow: number[] }[] = [
+  { icon: Store, title: 'ลงทะเบียนและเชื่อม Marketplace', desc: 'เติมข้อมูลจากร้านค้าออนไลน์ ระบบตรวจคำขอและผ่านการลงทะเบียนทันทีเมื่อข้อมูลครบ', flow: [1, 2, 3] },
+  { icon: BarChart3, title: 'ประเมินอัตโนมัติ', desc: 'ระบบประเมินความน่าเชื่อถือ และแสดง Badge เมื่อผ่านเงื่อนไข', flow: [4, 5] },
+  { icon: SearchCheck, title: 'ผู้บริโภคตรวจสอบ', desc: 'ผู้บริโภคเห็นผลประเมินหรือสถานะจริงของร้านเดียวกัน', flow: [6] },
+];
+
+/** มุมมองโดยตรงจากข้อมูลจำลองที่มีอยู่ (ไม่เริ่ม Scenario และไม่สร้างผลประเมินใหม่) */
+export type DirectView = 'assessment' | 'badge' | 'consumer' | 'request_info' | 'exceptions';
+
+/** B. Demo เฉพาะกรณี — ใช้ Scenario เดิม + มุมมองโดยตรง */
+export const SPECIAL_CASES: { key: string; icon: LucideIcon; route: string; title: string; desc: string; example: string; scenario: string; view: DirectView; viewLabel: string }[] = [
+  {
+    key: 'request-info',
+    icon: FileWarning,
+    route: 'AUTO_REQUEST_INFO',
+    title: 'ข้อมูลยังไม่พอ — ร้านเพิ่มข้อมูลเอง',
+    desc: 'ระบบแจ้งสิ่งที่ต้องเพิ่มให้ร้านค้า โดยไม่สร้างงานให้เจ้าหน้าที่',
+    example: 'ตัวอย่างจาก Scenario 9B: ร้านที่ไม่มี Marketplace ลงทะเบียนด้วยตนเอง ผ่านการลงทะเบียน แต่ข้อมูลการขายยังไม่พอแสดง Badge',
+    scenario: 's9b',
+    view: 'request_info',
+    viewLabel: 'ดูร้านตัวอย่าง',
+  },
+  {
+    key: 'manual-review',
+    icon: UserCheck,
+    route: 'MANUAL_REVIEW',
+    title: 'พบความผิดปกติ — เจ้าหน้าที่ตรวจ',
+    desc: 'เช่น เจ้าของบัญชีร้านไม่ตรงกับผู้ยืนยันตัวตน ระบบส่งเข้า Officer Exception Queue พร้อมเหตุผล',
+    example: 'Scenario 15: ข้อมูลตัวตนขัดแย้ง → เจ้าหน้าที่ตัดสิน → ระบบดำเนินการต่อเอง',
+    scenario: 's15',
+    view: 'exceptions',
+    viewLabel: 'เปิด Exception Queue',
+  },
+];
+
+/** C. ผลลัพธ์ — เปิดดูโดยตรงก่อน · ดูแบบทีละขั้นด้วย Scenario เดิมได้ (ไม่บังคับ) */
+export const RESULT_VIEWS: { icon: LucideIcon; title: string; desc: string; view: DirectView; viewLabel: string; scenario: string }[] = [
+  { icon: BarChart3, title: 'Trust Assessment', desc: 'ผลประเมิน 5 ด้าน ระดับ Band เหตุผล และสิ่งที่ควรปรับปรุง (มุมร้านค้า)', view: 'assessment', viewLabel: 'ดูผลประเมินร้านตัวอย่าง', scenario: 's11' },
+  { icon: BadgeCheck, title: 'Assessment Badge', desc: 'Badge ที่ระบบแสดงอัตโนมัติเมื่อผ่านเงื่อนไข — ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.', view: 'badge', viewLabel: 'ดู Badge ของร้านตัวอย่าง', scenario: 's14' },
+  { icon: SearchCheck, title: 'Consumer Verification', desc: 'ค้นหาร้านค้าและตรวจสอบสถานะก่อนซื้อ โดยไม่ต้องเข้าสู่ระบบ', view: 'consumer', viewLabel: 'เปิดหน้าตรวจสอบร้านค้า', scenario: 's13' },
+];
+
+/** ร้านตัวอย่างจากข้อมูลปัจจุบัน (คำนวณด้วยกฎเดิมของระบบ) — ใช้ร้านตั้งต้นก่อน ถ้าข้อมูลเปลี่ยนใช้ร้านอื่นที่มีสถานะเดียวกัน · ไม่มี → undefined (ไม่สร้างข้อมูลแทน) */
+export function exampleShop(kind: 'active' | 'request_info', badges: AssessmentBadge[], merchants: Merchant[]): Merchant | undefined {
+  const preferred = kind === 'active' ? 'M-001' : 'M-002';
+  const fits = (x: AssessmentBadge) => (kind === 'active' ? x.status === 'active' : x.route === 'AUTO_REQUEST_INFO' && x.status === 'insufficient');
+  const ids = badges.filter(fits).map((x) => x.merchantId).sort((a, c) => (a === preferred ? -1 : c === preferred ? 1 : a.localeCompare(c)));
+  for (const id of ids) {
+    const m = merchants.find((x) => x.id === id);
+    if (m && isPublicMerchant(m)) return m;
+  }
+  return undefined;
+}
 
 /** ระบบเพิ่มเติม — จัดกลุ่มจาก Scenario ที่มีอยู่จริง (แต่ละ Scenario อยู่กลุ่มเดียว ไม่ซ้ำกับระบบหลัก) */
 export const SECONDARY_GROUPS: { title: string; icon: LucideIcon; ids: string[] }[] = [
@@ -114,6 +161,27 @@ export default function DemoScenariosPage() {
   const [tab, setTab] = useState<Track>(() => (asked === 'v1' || asked === 'v2' ? asked : d.journeyMode ? d.journeyTrack ?? 'v1' : active ? trackOf(active) : 'v1'));
   const [allOpen, setAllOpen] = useState(asked === 'v1' || asked === 'v2');
   const main = findScenario(MAIN_JOURNEY_ID)!;
+  const badges = useAssessmentBadgeStore((s) => s.items);
+  const merchants = useMerchantStore((s) => s.items);
+  const activeShop = exampleShop('active', badges, merchants);
+  const infoShop = exampleShop('request_info', badges, merchants);
+  /** ปลายทางของมุมมองโดยตรง — undefined เมื่อไม่มีร้านตัวอย่างในข้อมูลปัจจุบัน */
+  const viewTarget = (v: DirectView): { role: Role; path: string; shop?: Merchant } | undefined => {
+    if (v === 'consumer') return { role: 'consumer', path: '/check' };
+    if (v === 'exceptions') return { role: 'officer', path: '/o/exceptions' };
+    const shop = v === 'request_info' ? infoShop : activeShop;
+    if (!shop) return undefined;
+    return v === 'assessment' ? { role: 'merchant', path: '/m/trust', shop } : { role: 'consumer', path: `/shop/${shop.id}`, shop };
+  };
+  /** เปิดผลลัพธ์โดยตรง — ไม่เริ่ม Scenario ไม่เปลี่ยนข้อมูลสาธิต · การสาธิตที่ค้างอยู่ถูกหยุดชั่วคราว (กด "สาธิตต่อ" กลับมาได้) */
+  const openView = (v: DirectView) => {
+    const t = viewTarget(v);
+    if (!t) return;
+    if (inProgress && d.status === 'running') pauseDemo();
+    if (t.role === 'merchant' && t.shop) useSessionStore.getState().set({ role: 'merchant', operatorId: t.shop.operatorId, activeMerchantId: t.shop.id, merchantLoggedIn: true });
+    else switchRole(t.role);
+    nav(t.path);
+  };
 
   const startSingle = async (sc: ScenarioDef) => {
     if (d.journeyMode && inProgress) {
@@ -143,17 +211,17 @@ export default function DemoScenariosPage() {
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
             <Sparkles className="h-3.5 w-3.5" />
-            เริ่มจากระบบหลัก (MVP)
+            เส้นทางหลักเส้นเดียว
           </span>
           <h1 className="mt-3 text-2xl font-bold sm:text-3xl">ทดลองใช้งาน SME Trust</h1>
           <p className="mt-2 max-w-2xl text-white/85">สาธิตการลงทะเบียนร้านค้า ประเมินความน่าเชื่อถือ และตรวจสอบผลผ่านระบบอัตโนมัติ</p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button variant="inverse" size="lg" icon={Play} onClick={startMainFromBeginning} data-testid="main-cta">
-              เริ่ม Demo เส้นทางหลัก
+              {MAIN_CTA_LABEL}
             </Button>
             <p className="flex items-center gap-1.5 text-sm text-white/80">
               <Clock className="h-4 w-4" />
-              {main.duration} · ไม่ต้องเลือก Scenario
+              {main.duration} · ร้านปกติไม่ต้องรอเจ้าหน้าที่
             </p>
           </div>
           {inProgress && (
@@ -170,96 +238,127 @@ export default function DemoScenariosPage() {
       </section>
 
       <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
-        {/* ---------------- MVP ---------------- */}
-        <section aria-labelledby="mvp-heading" data-testid="mvp-section">
-          <SectionHead id="mvp-heading" title="ระบบหลัก (MVP)" sub="5 ระบบที่เสนอให้เริ่มทดลองใช้ (Pilot)" />
-          <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {MVP_FEATURES.map((f) => (
-              <li key={f.no} className="flex flex-col rounded-card border border-line bg-white p-4 shadow-card" data-testid="mvp-card">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary">
-                    <f.icon className="h-6 w-6" />
-                  </span>
-                  <span className="ml-auto grid h-7 w-7 place-items-center rounded-full bg-primary text-xs font-bold text-white" aria-hidden>
-                    {f.no}
-                  </span>
-                </div>
-                <h3 className="mt-3 font-bold leading-snug text-ink">{f.title}</h3>
-                <p className="mt-1 flex-1 text-sm text-ink-soft">{f.desc}</p>
-                {f.note && <p className="mt-2 text-xs font-medium text-primary">{f.note}</p>}
-                {f.inMainStep && (
-                  <p className="mt-2 flex items-center gap-1 text-xs text-ink-soft" data-testid="mvp-in-main">
-                    <Route className="h-3.5 w-3.5 shrink-0" />
-                    สาธิตในเส้นทางหลัก · ขั้นที่ {mainStepNo(f.inMainStep)} จาก {RECOMMENDED_FLOW.length}
-                  </p>
-                )}
-                <div className="mt-3 flex flex-col gap-2">
-                  {f.actions.map((a) => (
-                    <Button
-                      key={a.id}
-                      size="sm"
-                      variant={f.actions.length > 1 && a.id === 's9b' ? 'outline' : 'secondary'}
-                      icon={Play}
-                      aria-label={f.inMainStep ? `เริ่มเส้นทางหลัก: ${f.title} อยู่ขั้นที่ ${mainStepNo(f.inMainStep)}` : `เริ่ม Demo: ${f.actions.length > 1 ? a.label : f.title}`}
-                      onClick={() => startById(a.id)}
-                    >
-                      {a.label}
-                    </Button>
-                  ))}
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {/* ---------------- Recommended flow ---------------- */}
-        <section aria-labelledby="flow-heading" className="rounded-card border-2 border-primary/30 bg-white p-5 shadow-card" data-testid="recommended-flow">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <SectionHead id="flow-heading" title="เส้นทาง Demo ที่แนะนำ" sub="ตัวควบคุมการสาธิตพาไปทีละขั้น — ถัดไป · ย้อนกลับ · เริ่มใหม่ และแจ้งทุกครั้งที่เปลี่ยนบทบาท" flush />
-            <Button icon={RotateCcw} className="shrink-0" onClick={startMainFromBeginning}>
-              เริ่มสาธิตตั้งแต่ต้น
-            </Button>
-          </div>
-          <ol className="mt-4 grid gap-3 sm:grid-cols-5">
+        {/* ---------------- A. เส้นทางหลัก (Demo หลัก) ---------------- */}
+        <section aria-labelledby="main-heading" className="rounded-card border-2 border-primary/30 bg-white p-5 shadow-card" data-testid="main-journey">
+          <SectionHead id="main-heading" title="เส้นทางหลัก" sub={`กดปุ่ม "${MAIN_CTA_LABEL}" ครั้งเดียว ตัวควบคุมการสาธิตพาไปครบทุกขั้น`} flush />
+          <ol className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6" data-testid="recommended-flow">
             {RECOMMENDED_FLOW.map((s, i) => (
-              <li key={s.title} className="relative flex items-center gap-3 rounded-xl bg-bg p-3 sm:flex-col sm:text-center">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white">
-                  <s.icon className="h-5 w-5" />
+              <li key={s.title} className="relative flex items-center gap-2 rounded-xl bg-bg p-2.5 sm:gap-3 sm:p-3 lg:flex-col lg:text-center">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-white sm:h-10 sm:w-10">
+                  <s.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </span>
                 <span className="text-sm font-semibold leading-snug text-ink">
                   <span className="text-primary">{i + 1}.</span> {s.title}
                 </span>
-                {i < RECOMMENDED_FLOW.length - 1 && <ArrowRight className="absolute -right-3 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-ink-soft sm:block" aria-hidden />}
+                {i < RECOMMENDED_FLOW.length - 1 && <ArrowRight className="absolute -right-3 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-ink-soft lg:block" aria-hidden />}
               </li>
             ))}
           </ol>
+          <h3 className="mt-6 text-sm font-bold text-ink">Demo หลักครอบคลุม</h3>
+          <ul className="mt-2 grid gap-3 sm:grid-cols-3" data-testid="mvp-section">
+            {MAIN_HIGHLIGHTS.map((h) => (
+              <li key={h.title} className="flex gap-3 rounded-xl border border-line p-3" data-testid="mvp-card">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary">
+                  <h.icon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold leading-snug text-ink">{h.title}</p>
+                  <p className="mt-0.5 text-sm text-ink-soft">{h.desc}</p>
+                  <p className="mt-1 text-xs font-medium text-primary">ขั้นที่ {h.flow.length > 1 ? `${h.flow[0]}–${h.flow[h.flow.length - 1]}` : h.flow[0]} ของเส้นทางหลัก</p>
+                </div>
+              </li>
+            ))}
+          </ul>
           <p className="mt-3 text-xs text-ink-soft">ร้านปกติผ่านการลงทะเบียนอัตโนมัติโดยไม่ต้องรอเจ้าหน้าที่ · ถ้าข้อมูลร้านยังไม่พอหรือยังไม่ผ่านเงื่อนไข ระบบแสดงสถานะจริงแทน Badge</p>
         </section>
 
-        {/* ---------------- Secondary features ---------------- */}
+        {/* ---------------- B. Demo เฉพาะกรณี ---------------- */}
+        <section aria-labelledby="case-heading" data-testid="case-section">
+          <SectionHead id="case-heading" title="Demo เฉพาะกรณี" sub="เจ้าหน้าที่เข้ามาเฉพาะกรณีผิดปกติ — ไม่ใช่ขั้นตอนของร้านค้าปกติ" />
+          <div className="grid gap-4 md:grid-cols-2">
+            {SPECIAL_CASES.map((c) => {
+              const target = viewTarget(c.view);
+              return (
+                <article key={c.key} className="flex flex-col rounded-card border border-line bg-white p-4 shadow-card" data-testid="case-card">
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary-50 text-secondary">
+                      <c.icon className="h-6 w-6" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <Badge tone="neutral">{c.route}</Badge>
+                      <h3 className="mt-1 font-bold leading-snug text-ink">{c.title}</h3>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-ink-soft">{c.desc}</p>
+                  <p className="mt-2 flex-1 text-xs text-ink-soft">{c.example}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" icon={Play} aria-label={`เริ่ม Demo: ${c.title}`} onClick={() => startById(c.scenario)}>
+                      เริ่ม Demo
+                    </Button>
+                    <Button size="sm" variant="outline" icon={Eye} disabled={!target} aria-label={`${c.viewLabel}: ${c.title}`} onClick={() => openView(c.view)} data-testid="direct-view">
+                      {c.viewLabel}
+                    </Button>
+                  </div>
+                  {!target && <p className="mt-2 text-xs text-ink-soft">ไม่พบร้านตัวอย่างในข้อมูลปัจจุบัน — Reset Demo Data ได้ในส่วน "ดู Scenario ทั้งหมด"</p>}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ---------------- C. ผลลัพธ์และฟังก์ชันเพิ่มเติม (พับไว้) ---------------- */}
         <section aria-labelledby="secondary-heading" data-testid="secondary-section">
-          <SectionHead id="secondary-heading" title="ระบบเพิ่มเติม" sub="ฟังก์ชันสนับสนุนและเส้นทางสาธิตอื่น ๆ" />
-          <div className="grid gap-3 lg:grid-cols-2">
-            {SECONDARY_GROUPS.map((g) => (
-              <Collapsible key={g.title} testId="secondary-group" summary={<><g.icon className="h-5 w-5 shrink-0 text-primary" /><span className="flex-1">{g.title}</span><span className="text-xs font-normal text-ink-soft">{g.ids.length} เรื่อง</span></>}>
-                <ul className="divide-y divide-line">
-                  {g.ids.map((id) => {
-                    const sc = findScenario(id)!;
-                    return (
-                      <li key={id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-ink">{sc.title}</p>
-                          <p className="truncate text-xs text-ink-soft">{sc.objective}</p>
-                        </div>
-                        <Button size="sm" variant="outline" icon={Play} aria-label={`เริ่มสาธิต: ${sc.title}`} onClick={() => void startSingle(sc)}>
-                          เริ่มสาธิต
+          <SectionHead id="secondary-heading" title="ผลลัพธ์และฟังก์ชันเพิ่มเติม" sub="เปิดดูผลลัพธ์จากข้อมูลจำลองได้ทันที โดยไม่ต้องเริ่ม Demo ใหม่" />
+          <div className="space-y-3">
+            <Collapsible testId="results-section" summary={<><Eye className="h-5 w-5 shrink-0 text-primary" /><span className="flex-1">ดูผลลัพธ์โดยตรง</span><span className="hidden text-xs font-normal text-ink-soft sm:inline">Trust Assessment · Assessment Badge · Consumer Verification</span></>}>
+              <ul className="divide-y divide-line">
+                {RESULT_VIEWS.map((r) => {
+                  const target = viewTarget(r.view);
+                  const sc = findScenario(r.scenario)!;
+                  return (
+                    <li key={r.title} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center" data-testid="result-view">
+                      <r.icon className="hidden h-5 w-5 shrink-0 text-primary sm:block" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-ink">{r.title}</p>
+                        <p className="text-xs text-ink-soft">{r.desc}</p>
+                        {target?.shop && <p className="text-xs text-ink-soft">ร้านตัวอย่าง: {target.shop.shopName} (ข้อมูลจำลอง)</p>}
+                        {!target && <p className="text-xs text-ink-soft">ไม่พบร้านตัวอย่างในข้อมูลปัจจุบัน — ดูแบบทีละขั้นแทน หรือ Reset Demo Data</p>}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="secondary" icon={Eye} disabled={!target} aria-label={`${r.viewLabel}: ${r.title}`} onClick={() => openView(r.view)} data-testid="direct-view">
+                          {r.viewLabel}
                         </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Collapsible>
-            ))}
+                        <Button size="sm" variant="ghost" icon={Play} aria-label={`ดูทีละขั้น (Scenario ${scenarioCode(sc)}): ${r.title}`} onClick={() => void startSingle(sc)}>
+                          ดูทีละขั้น (Scenario {scenarioCode(sc)})
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Collapsible>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {SECONDARY_GROUPS.map((g) => (
+                <Collapsible key={g.title} testId="secondary-group" summary={<><g.icon className="h-5 w-5 shrink-0 text-primary" /><span className="flex-1">{g.title}</span><span className="text-xs font-normal text-ink-soft">{g.ids.length} เรื่อง</span></>}>
+                  <ul className="divide-y divide-line">
+                    {g.ids.map((id) => {
+                      const sc = findScenario(id)!;
+                      return (
+                        <li key={id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-ink">{sc.title}</p>
+                            <p className="truncate text-xs text-ink-soft">{sc.objective}</p>
+                          </div>
+                          <Button size="sm" variant="outline" icon={Play} aria-label={`เริ่มสาธิต: ${sc.title}`} onClick={() => void startSingle(sc)}>
+                            เริ่มสาธิต
+                          </Button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Collapsible>
+              ))}
+            </div>
           </div>
         </section>
 

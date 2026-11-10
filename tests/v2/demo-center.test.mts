@@ -1,8 +1,10 @@
-/** หน้า Demo — MVP-First Demo Center: ระบบหลักก่อน · เส้นทางแนะนำ · ระบบเพิ่มเติม/Scenario ทั้งหมดพับไว้ · ไม่กระทบ Scenario และโมเดลเดิม */
+/** หน้า Demo — เส้นทางหลักเส้นเดียว (9A) · Demo เฉพาะกรณี · ผลลัพธ์โดยตรงและฟังก์ชันเพิ่มเติมพับไว้ · ไม่กระทบ Scenario และโมเดลเดิม */
 import { check, describe, finish, viewHtml } from '../harness.mts';
 
 const P = await import('@/features/demo/DemoScenariosPage');
 const SC = await import('@/mock/scenarios');
+const S = await import('@/stores');
+const W = await import('@/stores/workflows');
 const { MODEL_V2 } = await import('@/features/trust-assessment/model');
 
 const consumer = { role: 'consumer' as const, consumerId: 'CS-001' };
@@ -12,8 +14,8 @@ const visible = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/
 const before = (a: string, b: string) => html.indexOf(a) >= 0 && html.indexOf(b) > html.indexOf(a);
 
 describe('Hero — ข้อความตามข้อกำหนด และ CTA หลักเพียงปุ่มเดียว');
-check(visible.includes('ทดลองใช้งาน SME Trust') && visible.includes('สาธิตการลงทะเบียนร้านค้า ประเมินความน่าเชื่อถือ และตรวจสอบผลผ่านระบบอัตโนมัติ') && visible.includes('เริ่มจากระบบหลัก (MVP)'), 'Title · Subtitle · Highlight "เริ่มจากระบบหลัก (MVP)"');
-check((html.match(/data-testid="main-cta"/g) ?? []).length === 1 && visible.includes('เริ่ม Demo เส้นทางหลัก'), 'มี CTA หลัก "เริ่ม Demo เส้นทางหลัก" ปุ่มเดียว');
+check(visible.includes('ทดลองใช้งาน SME Trust') && visible.includes('สาธิตการลงทะเบียนร้านค้า ประเมินความน่าเชื่อถือ และตรวจสอบผลผ่านระบบอัตโนมัติ') && visible.includes('เส้นทางหลักเส้นเดียว'), 'Title · Subtitle · Highlight "เส้นทางหลักเส้นเดียว"');
+check((html.match(/data-testid="main-cta"/g) ?? []).length === 1 && P.MAIN_CTA_LABEL === 'ทดลองกระบวนการ SME Trust ตั้งแต่ต้น' && visible.includes(P.MAIN_CTA_LABEL) && !visible.includes('เริ่มสาธิตตั้งแต่ต้น'), 'มี CTA หลัก "ทดลองกระบวนการ SME Trust ตั้งแต่ต้น" ปุ่มเดียว (ไม่มีปุ่มเริ่มเส้นทางหลักซ้ำ)');
 const main = SC.findScenario(P.MAIN_JOURNEY_ID)!;
 check(!!main && main.id === 's9a', `CTA หลักเชื่อมกับ Scenario ที่มีอยู่จริง (${P.MAIN_JOURNEY_ID}: ${main?.title})`);
 // เส้นทางหลักต้องแสดง Automation First ครบ: ลงทะเบียน → ตรวจข้อมูลอัตโนมัติ → AUTO_PASS → ประเมิน → ผู้บริโภค และไม่มีขั้นตอนเจ้าหน้าที่
@@ -21,42 +23,58 @@ const mainIds = main.steps.map((s) => s.id);
 check(['s9a-submit', 's9a-auto', 's9a-assess', 's9a-consumer'].every((id, k, arr) => mainIds.indexOf(id) >= 0 && (k === 0 || mainIds.indexOf(id) > mainIds.indexOf(arr[k - 1]))) && !main.steps.some((s) => s.role === 'officer'), 'เส้นทางหลักครอบคลุม ส่งคำขอ → ผ่านอัตโนมัติ → ประเมิน → ผู้บริโภค โดยไม่มีขั้นตอนเจ้าหน้าที่');
 check(main.steps.find((s) => s.id === 's9a-auto')?.title.includes('ผ่านการลงทะเบียน') === true, 'มีขั้นแสดงผลการตรวจอัตโนมัติ (ผ่านการลงทะเบียน) ก่อนประเมิน');
 
-describe('MVP — 5 ระบบหลักตามลำดับ ก่อนส่วนอื่น');
-const titles = ['ลงทะเบียนร้านค้า', 'ประเมินความน่าเชื่อถือ', 'แสดงผล Assessment Badge', 'ตรวจสอบร้านค้า', 'ตรวจสอบเฉพาะกรณีจำเป็น'];
-const descs = ['เชื่อมร้านค้าออนไลน์ หรือสมัครด้วยตนเอง', 'ระบบประเมินข้อมูลร้านค้าอัตโนมัติ', 'แสดงผลประเมินเมื่อข้อมูลผ่านเงื่อนไข', 'ผู้บริโภคค้นหาและตรวจสอบผลประเมิน', 'เจ้าหน้าที่พิจารณาเฉพาะข้อมูลที่ต้องตรวจเพิ่ม'];
-check(JSON.stringify(P.MVP_FEATURES.map((f) => f.title)) === JSON.stringify(titles) && JSON.stringify(P.MVP_FEATURES.map((f) => f.desc)) === JSON.stringify(descs), 'ชื่อและคำอธิบาย 5 ระบบตรงตามข้อกำหนด เรียงตามลำดับ 1–5');
-check((html.match(/data-testid="mvp-card"/g) ?? []).length === 5 && titles.every((t) => visible.includes(t)), 'หน้า Demo แสดงการ์ด MVP 5 ใบ ไม่ซ้ำ');
-check(new Set(P.MVP_FEATURES.map((f) => f.title)).size === 5, 'ไม่มีการ์ดซ้ำ');
-check(before('data-testid="mvp-section"', 'data-testid="recommended-flow"') && before('data-testid="recommended-flow"', 'data-testid="secondary-section"') && before('data-testid="secondary-section"', 'data-testid="all-scenarios"'), 'ลำดับหน้า: MVP → เส้นทางแนะนำ → ระบบเพิ่มเติม → Scenario ทั้งหมด');
-const mvpIds = P.MVP_FEATURES.flatMap((f) => f.actions.map((a) => a.id));
-check(mvpIds.every((id) => !!SC.findScenario(id)), `ทุกปุ่มใน MVP เริ่ม Scenario ที่มีอยู่จริง (${mvpIds.join(', ')})`);
-check(JSON.stringify(P.MVP_FEATURES[0].actions.map((a) => a.id)) === JSON.stringify(['s9a', 's9b']), 'ลงทะเบียนร้านค้า: ทั้งเชื่อม Marketplace (9A) และสมัครเอง (9B)');
-check(P.MVP_FEATURES[1].actions[0].id === 's11' && P.MVP_FEATURES[3].actions[0].id === 's13' && P.MVP_FEATURES[4].actions[0].id === 's15', 'ประเมิน = Scenario 11 · ตรวจสอบร้านค้า = Scenario 13 · กรณีจำเป็น = Scenario 15 (Exception Queue)');
-check(visible.includes('ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.') && visible.includes('Trust Band · Coverage · Confidence'), 'Badge แยกจากใบรับรอง และการประเมินระบุ Band · Coverage · Confidence');
-// Regression: การ์ด Badge ต้องไม่เขียนเหมือน Demo เฉพาะ Badge ถ้าเปิดเส้นทางทั้งเส้น — ปัจจุบันเปิด Scenario 14 (ขั้น Automatic Assessment Badge) โดยตรง
-const badge = P.MVP_FEATURES[2];
-check(badge.actions.length === 1 && badge.actions[0].id === 's14' && badge.actions[0].label === 'เริ่ม Demo' && !badge.inMainStep && SC.findScenario('s14')!.steps.some((s) => s.id === 's14-badge'), 'การ์ด Badge เปิด Scenario 14 ซึ่งมีขั้น Automatic Assessment Badge (Scenario 14 ยังอยู่ครบ)');
-check((html.match(/data-testid="mvp-in-main"/g) ?? []).length === 0, 'ไม่มีการ์ดที่อ้างขั้นของเส้นทางหลักผิด');
-check(P.MVP_FEATURES.filter((f) => f.no !== 1 && f.actions.some((a) => a.id === P.MAIN_JOURNEY_ID)).every((f) => !!f.inMainStep), 'การ์ดอื่น (นอกจากการ์ดลงทะเบียนซึ่งคือเส้นทางหลักเอง) ที่เปิดเส้นทางหลักต้องระบุขั้นในเส้นทางหลักเสมอ');
+describe('เส้นทางหลัก — 6 ขั้นตรงกับขั้นจริงของ Scenario 9A');
+const flowSteps = [...new Set(P.RECOMMENDED_FLOW.flatMap((s) => s.steps))];
+check(JSON.stringify(flowSteps) === JSON.stringify(main.steps.map((s) => s.id)), `6 ขั้นครอบคลุมทุกขั้นของ Scenario 9A ตามลำดับ (${flowSteps.length} ขั้นในตัวควบคุม)`);
+check(JSON.stringify(P.RECOMMENDED_FLOW.map((s) => s.title)) === JSON.stringify(['ลงทะเบียนร้านค้า', 'ตรวจสอบอัตโนมัติ', 'AUTO_PASS', 'ประเมินความน่าเชื่อถือ', 'แสดงผล Badge ตามเงื่อนไข', 'ผู้บริโภคตรวจสอบ']), 'ลำดับ: ลงทะเบียน → ตรวจสอบอัตโนมัติ → AUTO_PASS → ประเมิน → Badge ตามเงื่อนไข → ผู้บริโภคตรวจสอบ');
+check(P.RECOMMENDED_FLOW.every((s) => s.steps.every((id) => main.steps.find((x) => x.id === id)?.role !== 'officer')), 'เส้นทางหลักไม่มีขั้นตอนเจ้าหน้าที่');
+check(visible.includes('ร้านปกติผ่านการลงทะเบียนอัตโนมัติโดยไม่ต้องรอเจ้าหน้าที่') && visible.includes('ถ้าข้อมูลร้านยังไม่พอหรือยังไม่ผ่านเงื่อนไข ระบบแสดงสถานะจริงแทน Badge'), 'ร้านปกติไม่ต้องรอเจ้าหน้าที่ · ไม่สร้าง Badge หลอก');
 
-describe('เส้นทาง Demo ที่แนะนำ — ตรงกับขั้นจริงของ Scenario 9A');
-const flowSteps = P.RECOMMENDED_FLOW.flatMap((s) => s.steps);
-check(JSON.stringify(flowSteps) === JSON.stringify(main.steps.map((s) => s.id)), `5 ขั้นครอบคลุมทุกขั้นของ Scenario 9A ตามลำดับ (${flowSteps.length} ขั้นในตัวควบคุม)`);
-check(JSON.stringify(P.RECOMMENDED_FLOW.map((s) => s.title)) === JSON.stringify(['ลงทะเบียน / เชื่อมร้านค้า', 'ส่งคำขอ → ตรวจข้อมูลอัตโนมัติ', 'ผ่านการลงทะเบียน (AUTO_PASS)', 'ประเมินความน่าเชื่อถือ · แสดงผลตามเงื่อนไข', 'ผู้บริโภคตรวจสอบ']), 'ชื่อขั้นตามกระบวนการ Automation First');
-check(visible.includes('เริ่มสาธิตตั้งแต่ต้น') && visible.includes('ร้านปกติผ่านการลงทะเบียนอัตโนมัติโดยไม่ต้องรอเจ้าหน้าที่') && visible.includes('ถ้าข้อมูลร้านยังไม่พอหรือยังไม่ผ่านเงื่อนไข ระบบแสดงสถานะจริงแทน Badge'), 'ปุ่ม "เริ่มสาธิตตั้งแต่ต้น" · ร้านปกติไม่ต้องรอเจ้าหน้าที่ · ไม่สร้าง Badge หลอก');
+describe('A. Demo หลัก — เป็นส่วนของเส้นทางหลัก ไม่มีปุ่มเริ่ม Journey ซ้ำ');
+check(JSON.stringify(P.MAIN_HIGHLIGHTS.map((h) => h.title)) === JSON.stringify(['ลงทะเบียนและเชื่อม Marketplace', 'ประเมินอัตโนมัติ', 'ผู้บริโภคตรวจสอบ']), 'Demo หลัก 3 รายการ: ลงทะเบียนและเชื่อม Marketplace · ประเมินอัตโนมัติ · ผู้บริโภคตรวจสอบ');
+check(JSON.stringify(P.MAIN_HIGHLIGHTS.flatMap((h) => h.flow)) === JSON.stringify([1, 2, 3, 4, 5, 6]), 'ทั้ง 3 รายการชี้ไปที่ขั้นของเส้นทางหลักครบ 6 ขั้น ไม่ซ้ำ');
+const mainSection = html.slice(html.indexOf('data-testid="main-journey"'), html.indexOf('data-testid="case-section"'));
+check((html.match(/data-testid="mvp-card"/g) ?? []).length === 3 && !/<button/.test(mainSection), 'การ์ด Demo หลัก 3 ใบ และไม่มีปุ่มเริ่ม Scenario แยกในส่วนเส้นทางหลัก');
+check(before('data-testid="demo-hero"', 'data-testid="main-journey"') && before('data-testid="main-journey"', 'data-testid="case-section"') && before('data-testid="case-section"', 'data-testid="secondary-section"') && before('data-testid="secondary-section"', 'data-testid="all-scenarios"'), 'ลำดับหน้า: CTA → เส้นทางหลัก → Demo เฉพาะกรณี → ผลลัพธ์และฟังก์ชันเพิ่มเติม → Scenario ทั้งหมด');
+const firstScreen = html.slice(html.indexOf('data-testid="demo-hero"'), html.indexOf('data-testid="secondary-section"'));
+check((firstScreen.match(/<button/g) ?? []).length === 5, 'หน้าจอแรก (ก่อนส่วนพับ) มีปุ่มไม่เกิน 5 ปุ่ม: CTA หลัก 1 + Demo เฉพาะกรณี 2 × 2');
+
+describe('B. Demo เฉพาะกรณี — AUTO_REQUEST_INFO และ MANUAL_REVIEW ใช้ Scenario เดิม');
+check(JSON.stringify(P.SPECIAL_CASES.map((c) => [c.route, c.scenario, c.view])) === JSON.stringify([['AUTO_REQUEST_INFO', 's9b', 'request_info'], ['MANUAL_REVIEW', 's15', 'exceptions']]), 'AUTO_REQUEST_INFO → ตัวอย่าง Scenario 9B + ร้านตัวอย่าง · MANUAL_REVIEW → Scenario 15 + Exception Queue');
+check(P.SPECIAL_CASES.every((c) => !!SC.findScenario(c.scenario)) && (html.match(/data-testid="case-card"/g) ?? []).length === 2, 'การ์ดกรณีพิเศษ 2 ใบ เริ่ม Scenario ที่มีอยู่จริง');
+check(visible.includes('ตัวอย่างจาก Scenario 9B') && visible.includes('เจ้าหน้าที่เข้ามาเฉพาะกรณีผิดปกติ — ไม่ใช่ขั้นตอนของร้านค้าปกติ'), 'อธิบายชัดว่าใช้ Scenario ตัวอย่าง และเจ้าหน้าที่ตรวจเฉพาะกรณีผิดปกติ');
+const s9b = SC.findScenario('s9b')!;
+check(!s9b.steps.some((s) => s.role === 'officer') && SC.findScenario('s15')!.steps.some((s) => s.role === 'officer'), 'Scenario 9B ไม่มีขั้นเจ้าหน้าที่ · Scenario 15 มีขั้นเจ้าหน้าที่ (กรณียกเว้น)');
+
+describe('C. ผลลัพธ์โดยตรง — ใช้ข้อมูลจำลองที่มีอยู่ ไม่สร้าง Badge/ผลประเมินปลอม');
+check(JSON.stringify(P.RESULT_VIEWS.map((r) => [r.title, r.view, r.scenario])) === JSON.stringify([['Trust Assessment', 'assessment', 's11'], ['Assessment Badge', 'badge', 's14'], ['Consumer Verification', 'consumer', 's13']]), 'Trust Assessment · Assessment Badge · Consumer Verification เปิดดูโดยตรงได้ (และดูทีละขั้นด้วย Scenario เดิม)');
+W.resetAllDemoData();
+const badgesNow = () => S.useAssessmentBadgeStore.getState().items;
+const merchantsNow = () => S.useMerchantStore.getState().items;
+const countsBefore = JSON.stringify([badgesNow().length, S.useAssessmentStore.getState().items.length]);
+const act = P.exampleShop('active', badgesNow(), merchantsNow());
+const info = P.exampleShop('request_info', badgesNow(), merchantsNow());
+check(act?.id === 'M-001' && badgesNow().find((x) => x.merchantId === 'M-001')?.status === 'active', 'ร้านตัวอย่าง Badge = M-001 ซึ่งมี Badge active จากกฎเดิม (Seed)');
+check(info?.id === 'M-002' && badgesNow().find((x) => x.merchantId === 'M-002')?.route === 'AUTO_REQUEST_INFO', 'ร้านตัวอย่าง AUTO_REQUEST_INFO = M-002 (ข้อมูลยังไม่เพียงพอจากกฎเดิม)');
+check(JSON.stringify([badgesNow().length, S.useAssessmentStore.getState().items.length]) === countsBefore, 'การเลือกร้านตัวอย่างไม่สร้าง Badge หรือผลประเมินใหม่');
+const noActive = badgesNow().map((x) => ({ ...x, status: x.status === 'active' ? ('withheld' as const) : x.status }));
+check(P.exampleShop('active', noActive, merchantsNow()) === undefined, 'ไม่มีร้านที่ Badge active → ไม่มีร้านตัวอย่าง (ปุ่มถูกปิด ไม่สร้างข้อมูลแทน)');
+const resultsTag = html.match(/<details[^>]*data-testid="results-section"[^>]*>/)?.[0] ?? '';
+check(!!resultsTag && !/\sopen(=|\s|>)/.test(resultsTag) && (html.match(/data-testid="result-view"/g) ?? []).length === 3, 'ผลลัพธ์โดยตรง 3 รายการ อยู่ในส่วนพับไว้');
 
 describe('ระบบเพิ่มเติม และ Scenario ทั้งหมด — พับไว้เป็นค่าเริ่มต้น');
 const secIds = P.SECONDARY_GROUPS.flatMap((g) => g.ids);
 check(secIds.every((id) => !!SC.findScenario(id)) && new Set(secIds).size === secIds.length, `ระบบเพิ่มเติมใช้ Scenario ที่มีอยู่จริง ไม่ซ้ำกัน (${secIds.length} เรื่อง)`);
-check(secIds.every((id) => !mvpIds.includes(id)), 'ระบบเพิ่มเติมไม่ซ้ำกับระบบหลัก');
+const primaryIds = [P.MAIN_JOURNEY_ID, ...P.SPECIAL_CASES.map((c) => c.scenario)];
+check(secIds.every((id) => !primaryIds.includes(id)), 'ระบบเพิ่มเติมไม่ซ้ำกับเส้นทางหลักและ Demo เฉพาะกรณี');
 const allIds = SC.allScenarios.map((s) => s.id);
-const reachable = new Set([...mvpIds, ...secIds]);
-check(allIds.every((id) => reachable.has(id)), `ทุก Scenario (${allIds.length}) เริ่มได้จากระบบหลักหรือระบบเพิ่มเติม`);
+const reachable = new Set([...primaryIds, ...P.RESULT_VIEWS.map((r) => r.scenario), ...secIds]);
+check(allIds.every((id) => reachable.has(id)), `ทุก Scenario (${allIds.length}) เริ่มได้จากหน้า Demo (เส้นทางหลัก · กรณีพิเศษ · ผลลัพธ์ · ระบบเพิ่มเติม)`);
 check(JSON.stringify([...allIds].sort()) === JSON.stringify(['s1', 's10', 's11', 's12', 's13', 's14', 's15', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's9a', 's9b']), 'Scenario ID เดิมครบ 17 รายการ (ไม่เปลี่ยน ID)');
 check(SC.journeyScenarios('v1').map((s) => s.id).join() === 's1,s2,s3,s4,s5,s6,s7,s8' && SC.journeyScenarios('v2').map((s) => s.id).join() === 's9,s10,s11,s12,s13', 'Full Journey 2 ชุดเดิม (1→8 และ 9→13)');
-const detailsTags = html.match(/<details[^>]*data-testid="(secondary-group|all-scenarios)"[^>]*>/g) ?? [];
-check(detailsTags.length === 7 && detailsTags.every((t) => !/\sopen(=|\s|>)/.test(t)), `ระบบเพิ่มเติม 6 กลุ่ม + Scenario ทั้งหมด พับไว้เป็นค่าเริ่มต้น (${detailsTags.length} ส่วน)`);
-check(visible.includes('ระบบเพิ่มเติม') && visible.includes('ฟังก์ชันสนับสนุนและเส้นทางสาธิตอื่น ๆ') && visible.includes('ดู Scenario ทั้งหมด'), 'หัวข้อ "ระบบเพิ่มเติม" และ "ดู Scenario ทั้งหมด"');
+const detailsTags = html.match(/<details[^>]*data-testid="(results-section|secondary-group|all-scenarios)"[^>]*>/g) ?? [];
+check(detailsTags.length === 8 && detailsTags.every((t) => !/\sopen(=|\s|>)/.test(t)), `ผลลัพธ์โดยตรง + ระบบเพิ่มเติม 6 กลุ่ม + Scenario ทั้งหมด พับไว้เป็นค่าเริ่มต้น (${detailsTags.length} ส่วน)`);
+check(visible.includes('ผลลัพธ์และฟังก์ชันเพิ่มเติม') && visible.includes('เปิดดูผลลัพธ์จากข้อมูลจำลองได้ทันที โดยไม่ต้องเริ่ม Demo ใหม่') && visible.includes('ดู Scenario ทั้งหมด'), 'หัวข้อ "ผลลัพธ์และฟังก์ชันเพิ่มเติม" และ "ดู Scenario ทั้งหมด"');
 check(SC.trackScenarios('v1').every((s) => html.includes(s.title)) && html.includes('สาธิตระบบแบบต่อเนื่อง (Full Journey Demo)') && html.includes('Full Journey — Marketplace &amp; Trust Assessment'), 'ส่วน Scenario ทั้งหมดมี Full Journey 2 ชุด และ Scenario เดี่ยว');
 const opened = viewHtml('/demo?track=v2', consumer);
 check(/<details[^>]*data-testid="all-scenarios"[^>]*\sopen/.test(opened.replace(/open=""/g, ' open')) && SC.trackScenarios('v2').every((s) => opened.includes(s.title)), 'ลิงก์เดิม /demo?track=v2 เปิดส่วน Scenario ทั้งหมดที่ชุด Marketplace & Trust');

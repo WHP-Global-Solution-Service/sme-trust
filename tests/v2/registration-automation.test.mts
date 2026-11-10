@@ -111,6 +111,6 @@ const s2 = findScenario('s2')!;
 const ids = s2.steps.map((st) => st.id);
 check(ids.indexOf('s2-auto') === ids.indexOf('s2-submit') + 1 && ids.indexOf('s2-apply') === ids.indexOf('s2-auto') + 1 && s2.steps.filter((st) => st.role === 'officer').every((st) => ids.indexOf(st.id) > ids.indexOf('s2-apply')), 'Scenario 2: ลงทะเบียนผ่านอัตโนมัติ → ยื่นขอใบรับรอง → เจ้าหน้าที่ตรวจเฉพาะใบรับรอง');
 const demo = view('/demo', { role: 'consumer', consumerId: 'CS-001' });
-check(demo.includes('ตรวจสอบอัตโนมัติ — ไม่ต้องรอเจ้าหน้าที่ในกรณีปกติ') && demo.includes('เฉพาะกรณีผิดปกติ — ไม่ใช่การอนุมัติทุกร้าน'), 'หน้า Demo ระบุว่าลงทะเบียนตรวจอัตโนมัติ และเจ้าหน้าที่ตรวจเฉพาะกรณีผิดปกติ');
+check(demo.includes('ร้านปกติผ่านการลงทะเบียนอัตโนมัติโดยไม่ต้องรอเจ้าหน้าที่') && demo.includes('เจ้าหน้าที่เข้ามาเฉพาะกรณีผิดปกติ — ไม่ใช่ขั้นตอนของร้านค้าปกติ'), 'หน้า Demo ระบุว่าลงทะเบียนตรวจอัตโนมัติ และเจ้าหน้าที่ตรวจเฉพาะกรณีผิดปกติ');
 
 finish();
