@@ -24,6 +24,7 @@ const SUITES = [
   'tests/v2/onboarding.test.mts',
   'tests/v2/permissions.test.mts',
   'tests/v2/demo-center.test.mts',
+  'tests/v2/registration-automation.test.mts',
   'tests/render.test.mts',
 ];
 

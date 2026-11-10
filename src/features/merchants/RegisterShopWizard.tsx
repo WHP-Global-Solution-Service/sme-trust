@@ -9,6 +9,7 @@ import type { ChannelType, MockDocument } from '@/types';
 import { useSessionStore, toast, confirmDialog } from '@/stores';
 import { submitShopRegistration } from '@/stores/workflows';
 import { submitMarketplaceRegistration } from '@/stores/workflowsV2';
+import { REGISTRATION_ROUTE_LABEL, type RegistrationRoute } from '@/features/automation/registration';
 import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { clearImported, fieldRows, newRegistrationRules, summarize, type FieldKey, type FieldValues, type ImportSource } from '@/features/marketplace/autofill';
 import { FieldDiffTable, FieldStatusBadge, ImportSummaryBar, SourceDataCard } from '@/features/marketplace/components/ImportProvenance';
@@ -102,7 +103,7 @@ export default function RegisterShopWizard() {
   const [draftId, setDraftId] = useState(() => initial?.draftId ?? uid('DRF'));
   // มาจากการยืนยันนำเข้า → เปิดฉบับร่างทันที (ไม่ต้องถาม)
   const [showDraftPrompt, setShowDraftPrompt] = useState(!!draft && !fromImport);
-  const [result, setResult] = useState<{ appId: string; merchantId: string; flagged: boolean }>();
+  const [result, setResult] = useState<{ appId: string; merchantId: string; flagged: boolean; route?: RegistrationRoute; reasons?: string[] }>();
 
   const defaults: Form = useMemo(
     () => ({
@@ -218,7 +219,7 @@ export default function RegisterShopWizard() {
       ? submitMarketplaceRegistration(op.id, form, { draftId, source: importSource, juristic: v.businessType === 'juristic' })
       : submitShopRegistration(op.id, form, { draftId });
     saveDraft(op.id, undefined);
-    setResult({ appId: app.id, merchantId: merchant.id, flagged: !!merchant.identityFlag });
+    setResult({ appId: app.id, merchantId: merchant.id, flagged: !!merchant.identityFlag, route: app.autoDecision?.route, reasons: app.autoDecision?.reasons });
     setStep(6);
     toast.success('ส่งคำขอลงทะเบียนแล้ว', app.id);
   };
@@ -621,8 +622,20 @@ export default function RegisterShopWizard() {
               </p>
             </div>
             {result.flagged && <Alert tone="warning">ระบบพบข้อสังเกตเกี่ยวกับประวัติของบัญชีนี้ คำขอจะได้รับการพิจารณาเป็นพิเศษโดยเจ้าหน้าที่ (ไม่ใช่การปฏิเสธอัตโนมัติ)</Alert>}
+            {result.route && (
+              <div data-testid="registration-decision" className={cn('mx-auto max-w-md rounded-xl p-3 text-left text-sm', result.route === 'AUTO_PASS' ? 'bg-success-50 text-ink' : result.route === 'AUTO_REQUEST_INFO' ? 'bg-warning-50 text-ink' : 'bg-info-50 text-ink')}>
+                <p className="font-semibold">ระบบตรวจสอบอัตโนมัติ: {REGISTRATION_ROUTE_LABEL[result.route]}</p>
+                <p className="mt-0.5 text-ink-soft">
+                  {result.route === 'AUTO_PASS'
+                    ? 'ลงทะเบียนร้านค้าแล้วโดยไม่ต้องรอเจ้าหน้าที่ — ยังไม่ใช่ใบรับรองหรือ Assessment Badge (Badge แสดงตามผลประเมินและเงื่อนไขการแสดง)'
+                    : result.route === 'AUTO_REQUEST_INFO'
+                      ? `กรุณาเพิ่มข้อมูล: ${(result.reasons ?? []).join(' · ')} — แก้ไขได้ที่หน้าร้านค้าของฉัน ไม่ต้องรอเจ้าหน้าที่`
+                      : `${(result.reasons ?? []).join(' · ')} — เจ้าหน้าที่ตรวจสอบเฉพาะกรณีนี้ ไม่ได้หมายความว่าร้านกระทำผิด`}
+                </p>
+              </div>
+            )}
             <ol className="mx-auto max-w-sm space-y-2 text-left text-sm">
-              {['ส่งคำขอแล้ว (Submitted)', 'รอเจ้าหน้าที่ตรวจสอบ (Pending Review)', 'ตรวจสอบข้อมูล (Under Verification)', 'ผลการพิจารณา (Approved / Need More Info / Rejected)'].map((t, i) => (
+              {['ส่งคำขอแล้ว (Submitted)', 'ระบบตรวจสอบอัตโนมัติ', 'ลงทะเบียนร้าน (เจ้าหน้าที่ตรวจเฉพาะกรณีผิดปกติ)', 'ประเมินความน่าเชื่อถืออัตโนมัติ', 'แสดง Badge ตามเงื่อนไข / ผู้บริโภคตรวจสอบ'].map((t, i) => (
                 <li key={t} className="flex items-center gap-2">
                   <span className={cn('grid h-6 w-6 place-items-center rounded-full text-xs font-semibold', i === 0 ? 'bg-success text-white' : 'bg-bg text-ink-soft')}>{i + 1}</span>
                   {t}

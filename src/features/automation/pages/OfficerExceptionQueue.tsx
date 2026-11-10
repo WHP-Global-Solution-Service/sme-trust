@@ -52,11 +52,26 @@ export function useExceptionQueue() {
         tabs: open ? ['pending', cat, ...(t.priority === 'high' ? (['high'] as QueueTab[]) : [])] : ['completed', cat],
       });
     }
-    // คำขอที่ต้องใช้อำนาจอนุมัติ (Certification Policy: Level 2–4 = เจ้าหน้าที่) — อยู่ในกระบวนการเดิม
+    // คำขอลงทะเบียน: Automation First — เข้าคิวเฉพาะกรณีที่ระบบส่งตรวจ (MANUAL_REVIEW) · กรณีข้อมูลไม่ครบระบบส่งกลับร้านค้าเอง (ไม่เข้าคิว)
     apps
-      .filter((a) => ['submitted', 'pending_review', 'under_verification', 'need_info'].includes(a.status))
+      .filter((a) => a.type === 'registration' && ['submitted', 'pending_review', 'under_verification', 'need_info'].includes(a.status) && a.autoDecision?.route !== 'AUTO_REQUEST_INFO')
       .forEach((a) =>
-        items.push({ key: a.id, to: `/o/applications/${a.id}`, kind: `${a.type === 'registration' ? 'คำขอลงทะเบียน (Level 2)' : `คำขอรับรอง Level ${a.requestedLevel ?? ''}`} · ${a.id}`, title: shop(a.merchantId), reason: 'การรับรองต้องใช้อำนาจอนุมัติของเจ้าหน้าที่ตามนโยบาย (ยังไม่ได้กำหนดสิทธิ์อนุมัติอัตโนมัติ)', priority: 'medium', at: a.submittedAt, tabs: a.status === 'need_info' ? ['certification'] : ['pending', 'certification'] }),
+        items.push({
+          key: a.id,
+          to: `/o/applications/${a.id}`,
+          kind: `${a.autoDecision?.route === 'MANUAL_REVIEW' ? 'คำขอลงทะเบียน — กรณียกเว้น' : 'คำขอลงทะเบียน'} · ${a.id}`,
+          title: shop(a.merchantId),
+          reason: a.autoDecision?.route === 'MANUAL_REVIEW' ? `ระบบตรวจพบ: ${a.autoDecision.reasons.join(' · ')}` : 'คำขอลงทะเบียนในข้อมูลตัวอย่าง (ก่อนใช้การตรวจอัตโนมัติ) รอเจ้าหน้าที่พิจารณา',
+          priority: a.autoDecision?.route === 'MANUAL_REVIEW' ? 'high' : 'medium',
+          at: a.updatedAt,
+          tabs: a.status === 'need_info' ? ['identity'] : ['pending', 'identity', ...(a.autoDecision?.route === 'MANUAL_REVIEW' ? (['high'] as QueueTab[]) : [])],
+        }),
+      );
+    // คำขอรับรอง (Certification Policy: Level 2–4 = เจ้าหน้าที่) — อยู่ในกระบวนการเดิม
+    apps
+      .filter((a) => a.type === 'certification' && ['submitted', 'pending_review', 'under_verification', 'need_info'].includes(a.status))
+      .forEach((a) =>
+        items.push({ key: a.id, to: `/o/applications/${a.id}`, kind: `คำขอรับรอง Level ${a.requestedLevel ?? ''} · ${a.id}`, title: shop(a.merchantId), reason: 'การรับรองต้องใช้อำนาจอนุมัติของเจ้าหน้าที่ตามนโยบาย (ยังไม่ได้กำหนดสิทธิ์อนุมัติอัตโนมัติ)', priority: 'medium', at: a.submittedAt, tabs: a.status === 'need_info' ? ['certification'] : ['pending', 'certification'] }),
       );
     assessments
       .filter((a) => a.status === 'pending_review' && !a.applicationId)

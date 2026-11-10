@@ -220,9 +220,9 @@ for (const round of [1, 2, 3]) {
   C.startScenario('s9b', nav, { carry: true, journey: true });
   check(V2S.branchShops().length === 0, `รอบที่ ${round}: เริ่ม 9B แล้ว OP-012 ไม่มีร้านค้างจากรอบก่อน`);
   const { merchant, app } = register();
-  const t = asOwner(merchant.id, () => V.runAssessment(merchant.id))!;
-  asOwner(t.id, () => V.submitAssessment(t.id));
-  check(V2S.branchShops().length === 1 && assessment(t.id)!.applicationId === app.id, `  รอบที่ ${round}: มีร้านเดียว (${merchant.id}) ผูกกับคำขอ ${app.id}`);
+  // Automation First: 9B ไม่มีขั้นส่งเจ้าหน้าที่ — ระบบผ่านการลงทะเบียนอัตโนมัติและประเมินทันที
+  const t = V.latestAssessment(merchant.id)!;
+  check(V2S.branchShops().length === 1 && app.merchantId === merchant.id && app.autoDecision?.route === 'AUTO_PASS' && t?.merchantId === merchant.id && t.origin === 'automation', `  รอบที่ ${round}: มีร้านเดียว (${merchant.id}) คำขอ ${app.id} ผ่านอัตโนมัติ และมีผลประเมินอัตโนมัติ`);
   if (round < 3) check(!!branch.replayNote?.()?.includes(merchant.shopName), '  เล่นซ้ำ → แจ้งว่ามีร้านเดิมและจะถูกล้าง');
 }
 check(JSON.stringify({ c: S.useMarketplaceStore.getState().items.filter((c) => c.merchantId === 'M-005'), a: S.useAssessmentStore.getState().items.filter((a) => a.merchantId === 'M-005') }) === journeyShop, 'ข้อมูลร้านของ Journey v2 (M-005) ไม่ถูกแตะ');

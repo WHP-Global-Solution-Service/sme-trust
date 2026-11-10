@@ -25,6 +25,7 @@ import { attachImportedMarketplaces, changeRequestDraftKey, decideAssessment, im
 import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { BAND_LABEL, CONFIDENCE_LABEL, DECISION_LABEL, RECOMMENDATION_LABEL } from '@/features/trust-assessment/labels';
 import { currentCert } from '@/utils/trust';
+import { REGISTRATION_ROUTE_LABEL } from '@/features/automation/registration';
 import type { ContinuityIssue, GateInput, ScenarioDef, ScenarioOutcome } from '@/demo/types';
 
 /** ร้านค้าตัวอย่างของ Demo v2 — ร้านกาแฟดอยสูง (Level 3 ผ่านเกณฑ์ v1 ของ Level 4) */
@@ -65,6 +66,23 @@ const newAssessment = (g: GateInput) => {
 };
 
 const connected = (id?: string) => connection(id)?.status === 'connected';
+
+/** ผลประเมินล่าสุดที่เกิดระหว่างการสาธิตครั้งนี้ (รวมผลที่ระบบประเมินอัตโนมัติหลังลงทะเบียน) */
+const assessedSince = (g: GateInput) => {
+  const a = latestAssessment(g.ctx.merchantId ?? '');
+  return a && a.createdAt >= g.startedAt ? a : undefined;
+};
+
+/** ผลการตรวจคำขอลงทะเบียนอัตโนมัติ (Automation First) */
+const regLine = (c: DemoCtx) => {
+  const a = application(c.applicationId);
+  if (!a) return 'ยังไม่มีคำขอ';
+  const d = a.autoDecision;
+  if (!d) return `สถานะ: ${REGISTRATION_STATUS[a.status].label}`;
+  if (d.route === 'AUTO_PASS') return 'ระบบตรวจสอบอัตโนมัติ: ผ่าน (AUTO_PASS) — ลงทะเบียนร้านแล้วโดยไม่ต้องรอเจ้าหน้าที่ · การลงทะเบียนยังไม่ใช่ใบรับรองหรือ Badge';
+  return `ระบบตรวจสอบอัตโนมัติ: ${REGISTRATION_ROUTE_LABEL[d.route]} (${d.route}) — ${d.reasons.join(' · ')}`;
+};
+
 
 /** บันทึกการนำเข้า/อัปเดตโปรไฟล์ที่เกิดระหว่างการสาธิตครั้งนี้ (Scenario 9 / 9A) */
 const newImport = (g: GateInput, operatorId?: string) =>
@@ -596,7 +614,7 @@ export const v2Scenarios: ScenarioDef[] = [
     title: 'ร้านใหม่ — สมัครด้วยข้อมูลจาก Marketplace (Auto-Fill)',
     objective: 'ผู้ประกอบการที่ยังไม่มีร้านใน SME Trust แต่ขายบน Shopee/Lazada (จำลอง) เชื่อมบัญชี เลือกร้าน นำเข้าข้อมูล แล้วแบบฟอร์มลงทะเบียนถูกเติมอัตโนมัติ ตรวจ/แก้ไข กรอกส่วนที่ขาด และกดส่งคำขอเอง',
     keyMessage: 'ร้านใหม่สมัครได้เร็วขึ้นโดยไม่ต้องกรอกข้อมูลซ้ำ — เริ่มที่ Level 1–2 ตามขั้นตอนปกติ และเจ้าหน้าที่เห็นต้นฉบับเทียบกับข้อมูลที่แก้ไข',
-    audience: ['merchant', 'officer'],
+    audience: ['merchant', 'consumer'],
     duration: '≈ 6 นาที',
     caseNote: 'เส้นทางสมัครร้านใหม่ (ไม่ใช่การยกระดับร้านกาแฟดอยสูง M-005) — ใช้บัญชีตัวอย่าง OP-013 แยกจากร้านใน Scenario 9–13 · คำขอที่ได้คือคำขอลงทะเบียน (Level 2 เมื่ออนุมัติ) ไม่ได้ Level 3–4 อัตโนมัติ',
     nextCta: 'กลับสู่ Demo',
@@ -654,7 +672,7 @@ export const v2Scenarios: ScenarioDef[] = [
         role: 'merchant',
         route: () => '/m/register-shop?from=import',
         title: 'ทบทวนข้อมูลที่นำเข้า (Auto-Fill)',
-        instruction: 'แบบฟอร์มถูกเติมอัตโนมัติ — ดูสรุป "นำเข้าสำเร็จ / ต้องกรอกเพิ่ม / ข้อมูลที่แก้ไข" และป้ายที่มาของแต่ละช่อง แล้วแก้ "รายละเอียดสินค้าและบริการ" หรือชื่อร้านอย่างน้อย 1 จุด',
+        instruction: 'แบบฟอร์มถูกเติมอัตโนมัติ — ดูสรุป "นำเข้าสำเร็จ / ต้องกรอกเพิ่ม / ข้อมูลที่แก้ไข" และป้ายที่มาของแต่ละช่อง แล้วแก้ "รายละเอียดสินค้าและบริการ" อย่างน้อย 1 จุด (ถ้าแก้ชื่อร้านให้ต่างจากร้านบน Marketplace ระบบจะส่งเจ้าหน้าที่ตรวจเฉพาะกรณี)',
         tip: 'ช่องที่แก้จะแสดงต้นฉบับให้เทียบ — ข้อมูลต้นฉบับด้านบนไม่เปลี่ยน',
         gate: { check: (g) => num(g, 'reg.edited') >= 1, hint: 'แก้ไขช่องที่นำเข้าอย่างน้อย 1 ช่อง' },
       },
@@ -672,7 +690,7 @@ export const v2Scenarios: ScenarioDef[] = [
         route: () => '/m/register-shop?from=import',
         title: 'ตรวจสอบและส่งคำขอด้วยตนเอง',
         instruction: 'ดูตารางเทียบต้นฉบับกับข้อมูลที่ส่ง ติ๊กยืนยัน แล้วกด "ส่งคำขอ" — ระบบไม่ส่งอัตโนมัติ',
-        tip: 'ได้คำขอลงทะเบียนตามขั้นตอนปกติ (Level 2 เมื่ออนุมัติ) ไม่มีการออก Badge อัตโนมัติ',
+        tip: 'ระบบตรวจคำขออัตโนมัติทันทีหลังส่ง — กรณีปกติไม่มีขั้นตอนเจ้าหน้าที่ · การลงทะเบียนไม่ใช่ใบรับรองหรือ Badge',
         gate: { check: (g) => !!newImport(g, NEW_SHOP_OPERATOR), hint: 'ติ๊กยืนยันแล้วกด "ส่งคำขอ"' },
         capture: (g) => {
           const r = newImport(g, NEW_SHOP_OPERATOR);
@@ -680,13 +698,30 @@ export const v2Scenarios: ScenarioDef[] = [
         },
       },
       {
-        id: 's9a-officer',
-        role: 'officer',
-        route: (c) => `/o/applications/${c.applicationId}`,
-        transition: 'ร้านส่งคำขอแล้ว เจ้าหน้าที่เปิดคำขอลงทะเบียนเดียวกัน',
-        title: 'เจ้าหน้าที่เห็นต้นฉบับเทียบกับข้อมูลที่แก้ไข',
-        instruction: (c) => `คำขอ ${c.applicationId}: แหล่งข้อมูล สถานะการเชื่อมต่อ ช่องที่ผู้สมัครแก้ ช่องที่ขาด ผลประเมิน และการยืนยันตัวตน — ตรวจ อนุมัติ หรือขอข้อมูลเพิ่มตาม Workflow เดิม`,
-        tip: 'ชื่อร้านที่ต่างจากต้นฉบับมีป้าย "รอการตรวจสอบ"',
+        id: 's9a-auto',
+        role: 'merchant',
+        route: () => '/m/shop',
+        title: 'ระบบตรวจสอบอัตโนมัติ → ผ่านการลงทะเบียน',
+        instruction: (c) => `คำขอ ${c.applicationId}: ${regLine(c)}`,
+        tip: 'เจ้าหน้าที่เข้ามาเฉพาะกรณีพบความผิดปกติ เช่น เจ้าของร้านบน Marketplace ไม่ตรงกับผู้ยืนยันตัวตน (ดู Scenario 15)',
+        gate: { check: (g) => application(g.ctx.applicationId)?.status === 'approved', hint: 'คำขอยังไม่ผ่านอัตโนมัติ — ดูสิ่งที่ระบบแจ้งบนหน้านี้' },
+      },
+      {
+        id: 's9a-assess',
+        role: 'merchant',
+        route: () => '/m/trust',
+        title: 'ประเมินความน่าเชื่อถืออัตโนมัติ',
+        instruction: 'ระบบประเมินจากข้อมูลที่เชื่อมต่อทันทีหลังลงทะเบียน — Assessment Badge แสดงเฉพาะเมื่อผ่านเงื่อนไขการแสดง (ข้อมูลเพียงพอ ยืนยันตัวตนแล้ว ข้อมูลเป็นปัจจุบัน)',
+        tip: 'แยกสถานะชัดเจน: ลงทะเบียนร้าน ≠ ผลประเมิน ≠ ใบรับรอง',
+        nextLabel: 'ดูในมุมผู้บริโภค',
+      },
+      {
+        id: 's9a-consumer',
+        role: 'consumer',
+        route: (c) => `/shop/${c.merchantId}`,
+        transition: 'ร้านลงทะเบียนและได้ผลประเมินอัตโนมัติแล้ว — ผู้บริโภคตรวจสอบร้านเดียวกัน',
+        title: 'ผู้บริโภคตรวจสอบ',
+        instruction: 'ผู้บริโภคเห็นผลตามสถานะจริง — Badge เมื่อผ่านเงื่อนไข หรือสถานะแทน Badge · ไม่เห็นคะแนนภายใน',
         nextLabel: 'จบเส้นทางสมัครร้านใหม่',
       },
     ],
@@ -697,7 +732,7 @@ export const v2Scenarios: ScenarioDef[] = [
         ? [
             `สมัครร้านใหม่ "${merchant(r.merchantId)?.shopName}" (${r.merchantId}) ด้วยข้อมูลจาก ${PLATFORMS[r.source.platform].label} — Shop ID จำลอง ${r.source.mockShopId}`,
             `นำเข้า ${r.summary.imported} · ผู้สมัครแก้ไข ${r.summary.edited} · กรอกเอง ${r.summary.manual}${r.summary.verification ? ` · รอตรวจสอบ ${r.summary.verification}` : ''} (${r.id})`,
-            `คำขอลงทะเบียน ${app.id} — ${REGISTRATION_STATUS[app.status].label} (Level 2 เมื่ออนุมัติ ไม่มี Badge อัตโนมัติ)`,
+            `คำขอลงทะเบียน ${app.id} — ${regLine(c)}`,
             `การเชื่อมต่อ ${r.connectionId} ใช้ข้อมูลต้นฉบับเดียวกับที่ผู้สมัครเห็นตอน Preview`,
             'ไม่มีการเรียก API จริง ไม่รับรหัสผ่านหรือ Token',
           ]
@@ -711,9 +746,9 @@ export const v2Scenarios: ScenarioDef[] = [
     track: 'v2',
     branch: true,
     title: 'ร้านที่ไม่มีบัญชี Marketplace — ลงทะเบียนด้วยตนเอง',
-    objective: 'ร้านที่ขายผ่านช่องทางอื่น (เช่น Facebook, LINE, หน้าร้าน) ลงทะเบียนเองได้ ได้ผล Insufficient Data ที่ไม่ใช่ผลลบ และขอให้เจ้าหน้าที่พิจารณาพร้อมหลักฐานเพิ่มเติม',
+    objective: 'ร้านที่ขายผ่านช่องทางอื่น (เช่น Facebook, LINE, หน้าร้าน) ลงทะเบียนเองได้และผ่านการตรวจสอบอัตโนมัติ — ได้ผล Insufficient Data ที่ไม่ใช่ผลลบ และระบบแจ้งร้านให้เพิ่มข้อมูลเองโดยไม่ต้องใช้เจ้าหน้าที่',
     keyMessage: 'SME Trust เปิดให้ผู้ประกอบการรายย่อยทุกช่องทางเข้าร่วมได้ — การไม่มีบัญชี Shopee/Lazada ไม่ทำให้เสียคะแนน',
-    audience: ['merchant', 'officer'],
+    audience: ['merchant', 'consumer'],
     duration: '≈ 6 นาที',
     caseNote: 'เส้นทางทางเลือกใช้บัญชีตัวอย่างที่ยังไม่มีร้าน (OP-012) แยกจากร้านใน Scenario 9–13 — ข้อมูลของ Journey Marketplace & Trust ยังอยู่ครบ',
     nextCta: 'กลับสู่ Demo',
@@ -728,7 +763,7 @@ export const v2Scenarios: ScenarioDef[] = [
     benefits: {
       sme: 'ร้านเล็กที่ไม่มีร้านบน Marketplace เริ่มต้นได้ทันที และรู้ว่าต้องเพิ่มหลักฐานอะไร',
       consumer: 'มีข้อมูลตัวตนที่ยืนยันแล้วของร้านจากช่องทางอื่น แทนที่จะไม่มีข้อมูลเลย',
-      ocpb: 'ครอบคลุมผู้ประกอบการกลุ่มที่แพลตฟอร์มไม่ได้ดูแล และขอหลักฐานเพิ่มผ่าน Workflow เดิม',
+      ocpb: 'ครอบคลุมผู้ประกอบการกลุ่มที่แพลตฟอร์มไม่ได้ดูแล — ระบบตรวจและแจ้งร้านเอง เจ้าหน้าที่ไม่ต้องเข้ามาในกรณีปกติ',
     },
     steps: [
       { id: 's9b-home', role: 'merchant', route: () => '/m', title: 'ผู้ประกอบการที่ไม่มีร้านบน Marketplace', instruction: (c) => `บัญชี "${operator(c.operatorId)?.name}" ยืนยันตัวตนแล้ว (Level 1) ขายผ่าน Facebook/LINE และไม่มีร้านบน Shopee/Lazada`, nextLabel: 'ไปที่ Marketplace Connection' },
@@ -756,35 +791,34 @@ export const v2Scenarios: ScenarioDef[] = [
         },
       },
       {
+        id: 's9b-auto',
+        role: 'merchant',
+        route: () => '/m/shop',
+        title: 'ระบบตรวจสอบอัตโนมัติ → ผ่านการลงทะเบียน',
+        instruction: (c) => `คำขอ ${c.applicationId}: ${regLine(c)}`,
+        tip: 'การไม่มีบัญชี Shopee/Lazada ไม่ใช่เหตุให้ต้องรอเจ้าหน้าที่',
+        gate: { check: (g) => application(g.ctx.applicationId)?.status === 'approved', hint: 'คำขอยังไม่ผ่านอัตโนมัติ — ดูสิ่งที่ระบบแจ้งบนหน้านี้' },
+      },
+      {
         id: 's9b-assess',
         role: 'merchant',
         route: () => '/m/trust',
-        title: 'Assessment → Insufficient Data',
-        instruction: 'ระบบประเมินอัตโนมัติแล้วหลังส่งคำขอ — กด "ประเมินใหม่" (หรือ "ประเมินความน่าเชื่อถือ") เพื่อดูผล: Insufficient Data ซึ่งไม่ใช่ผลลบ (ร้านที่ไม่มี Marketplace ไม่ถูกหักคะแนน)',
-        gate: { check: (g) => !!newAssessment(g), hint: 'กด "ประเมินความน่าเชื่อถือ"' },
-        capture: (g) => ({ assessmentId: newAssessment(g)?.id }),
+        title: 'ประเมินอัตโนมัติ → Insufficient Data',
+        instruction: 'ระบบประเมินทันทีหลังลงทะเบียน: ข้อมูลยังไม่เพียงพอ (ไม่ใช่ผลลบ) จึงยังไม่แสดง Badge — ระบบแจ้งร้านว่าควรเพิ่มข้อมูลอะไร (AUTO_REQUEST_INFO) โดยไม่ต้องส่งเจ้าหน้าที่',
+        tip: 'Missing Data ≠ 0 — ระบบไม่หักคะแนนร้านที่ไม่มีข้อมูลจาก Marketplace',
+        gate: { check: (g) => !!assessedSince(g), hint: 'รอระบบประเมิน หรือกด "ประเมินความน่าเชื่อถือ"' },
+        capture: (g) => ({ assessmentId: assessedSince(g)?.id }),
+        nextLabel: 'ดูในมุมผู้บริโภค',
       },
       {
-        id: 's9b-evidence',
-        role: 'merchant',
-        route: () => '/m/trust',
-        title: 'Request Additional Evidence',
-        instruction: 'ดู "ข้อมูลที่ควรเพิ่มเติม" แล้วกด "ส่งให้เจ้าหน้าที่พิจารณา" — ผูกกับคำขอลงทะเบียนเดิม',
-        gate: { check: (g) => !!g.ctx.assessmentId && assessment(g.ctx.assessmentId)?.status !== 'draft', hint: 'กด "ส่งให้เจ้าหน้าที่พิจารณา"' },
-        nextLabel: 'ดูในมุมเจ้าหน้าที่',
+        id: 's9b-consumer',
+        role: 'consumer',
+        route: (c) => `/shop/${c.merchantId}`,
+        transition: 'ผู้บริโภคเปิดหน้าร้านเดียวกัน — เส้นทางนี้ไม่มีขั้นตอนเจ้าหน้าที่',
+        title: 'ผู้บริโภคเห็นสถานะแทน Badge',
+        instruction: 'แสดง "ข้อมูลยังไม่เพียงพอ" แทน Badge — ไม่ได้หมายความว่าร้านมีปัญหา',
+        nextLabel: 'จบเส้นทางลงทะเบียนด้วยตนเอง',
       },
-      { id: 's9b-officer', role: 'officer', route: (c) => `/o/applications/${c.applicationId}`, transition: 'ร้านส่งคำขอและผลประเมินแล้ว เจ้าหน้าที่เปิดคำขอลงทะเบียนเดียวกัน', title: 'Officer Review', instruction: (c) => `คำขอ ${c.applicationId} — ตัวตนผ่าน e-KYC และผลประเมินเป็น Insufficient Data (ไม่ใช่ผลลบ) เจ้าหน้าที่ตรวจตามเกณฑ์การรับรอง ได้ตามปกติ` },
-      {
-        id: 's9b-decide',
-        role: 'officer',
-        route: (c) => `/o/assessments/${c.assessmentId}`,
-        title: 'ขอหลักฐานเพิ่มเติม',
-        instruction: 'เลือก "ขอข้อมูลเพิ่มเติม" ระบุหลักฐานที่ต้องการ (เช่น ภาพหน้าร้าน ใบเสร็จ ประวัติการขาย) แล้วกด "บันทึกผลการพิจารณา"',
-        tip: 'คำขอลงทะเบียนเดิมเปลี่ยนเป็น "ขอข้อมูลเพิ่ม" และร้านได้รับแจ้งทันที',
-        gate: { check: (g) => assessment(g.ctx.assessmentId)?.status === 'decided' || ['approved', 'need_info'].includes(application(g.ctx.applicationId)?.status ?? ''), hint: 'บันทึกผลการพิจารณา' },
-        nextLabel: 'ดูผลในมุมผู้ประกอบการ',
-      },
-      { id: 's9b-result', role: 'merchant', route: () => '/m/notifications', transition: 'เจ้าหน้าที่บันทึกผลแล้ว กลับไปดูการแจ้งเตือนในมุมผู้ประกอบการ', title: 'ร้านได้รับแจ้ง', instruction: 'ร้านเห็นรายการหลักฐานที่ต้องส่งเพิ่ม และส่งได้จากหน้า "ร้านของฉัน"', nextLabel: 'จบเส้นทางทางเลือก' },
     ],
     summary: (c) => {
       const m = merchant(c.merchantId);
@@ -794,7 +828,6 @@ export const v2Scenarios: ScenarioDef[] = [
         ? [`ร้าน "${m.shopName}" (${m.id}) ลงทะเบียนด้วยตนเอง — ไม่มีบัญชี Marketplace`, a ? `ผลประเมิน ${a.id}: ${BAND_LABEL[a.result.band].label} (ไม่ใช่ผลลบ)` : '', app ? `คำขอ ${app.id}: ${REGISTRATION_STATUS[app.status].label}` : '', a?.decision ? `เจ้าหน้าที่: ${DECISION_LABEL[a.decision.kind].label} — ${a.decision.reason}` : ''].filter(Boolean)
         : ['ยังไม่ได้ลงทะเบียนร้านในเส้นทางนี้'];
     },
-    outcome: decisionOutcome,
   },
 
 ];

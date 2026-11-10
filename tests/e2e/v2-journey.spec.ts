@@ -202,25 +202,23 @@ test('ทางเลือก 9B: ไม่มี Marketplace → ลงทะ�
   await next(page);
   await main(page).getByRole('checkbox').last().check();
   await main(page).getByRole('button', { name: 'ส่งคำขอ', exact: true }).click();
+  // Automation First: ระบบตรวจคำขออัตโนมัติ → ผ่านการลงทะเบียน (ไม่มีขั้นตอนเจ้าหน้าที่ในกรณีปกติ)
+  await expect(main(page).getByTestId('registration-decision')).toContainText('ผ่านการตรวจสอบอัตโนมัติ');
+  await next(page);
+  await expect(page).toHaveURL(/\/m\/shop$/);
+  await expect(main(page).getByTestId('registration-auto-pass')).toBeVisible();
+  const { current } = await demoState(page);
+  const regApp = (await store<App & { autoDecision?: { route: string } }>(page, 'applications')).find((a) => a.id === current.applicationId)!;
+  expect(regApp.status).toBe('approved');
+  expect(regApp.autoDecision?.route).toBe('AUTO_PASS');
   await next(page);
   await expect(page).toHaveURL(/\/m\/trust$/);
-  await expectBlocked(page); // ผลที่ระบบประเมินอัตโนมัติหลังส่งคำขอไม่ผ่าน Gate — ร้านต้องกดประเมินเอง
-  await main(page).getByRole('button', { name: /^(ประเมินความน่าเชื่อถือ|ประเมินใหม่)$/ }).first().click();
   await expect(main(page).getByText('Insufficient Data — ข้อมูลยังไม่เพียงพอ').first()).toBeVisible();
-  await next(page);
-  await main(page).getByRole('button', { name: 'ส่งให้เจ้าหน้าที่พิจารณา' }).click();
-  const { current } = await demoState(page);
-  const tas = (await store<Tas>(page, 'trust-assessments')).find((a) => a.merchantId === current.merchantId)!;
-  expect(tas.applicationId).toBe(current.applicationId); // ผูกกับคำขอลงทะเบียนเดิม
+  // ระบบประเมินอัตโนมัติแล้ว → ไม่แสดง Badge และไม่ส่งงานให้เจ้าหน้าที่
+  expect((await store<{ merchantId: string; status: string }>(page, 'assessment-badges')).find((x) => x.merchantId === current.merchantId)?.status).toBe('insufficient');
+  expect((await store<{ merchantId: string }>(page, 'officer-tasks')).some((t) => t.merchantId === current.merchantId)).toBe(false);
   await next(page, { expectTransition: true });
-  await expect(page).toHaveURL(new RegExp(`/o/applications/${current.applicationId}$`));
-  await next(page);
-  await main(page).getByRole('radio', { name: 'ขอข้อมูลเพิ่มเติม' }).click();
-  await main(page).getByPlaceholder('อธิบายเหตุผลของการพิจารณา').fill('กรุณาส่งภาพหน้าร้านและหลักฐานการขายย้อนหลัง 3 เดือน');
-  await main(page).getByRole('button', { name: 'บันทึกผลการพิจารณา' }).click();
-  await expect(main(page).getByText('ขอข้อมูลเพิ่มเติม').first()).toBeVisible();
-  expect((await store<App>(page, 'applications')).find((a) => a.id === current.applicationId)!.status).toBe('need_info');
-  await next(page, { expectTransition: true });
-  await expect(main(page).getByText('เจ้าหน้าที่ขอข้อมูลเพิ่มเติม').first()).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/shop/${current.merchantId}$`));
+  await expect(main(page).getByText('ข้อมูลยังไม่เพียงพอ').first()).toBeVisible();
   await finishScenario(page, 's9b');
 });

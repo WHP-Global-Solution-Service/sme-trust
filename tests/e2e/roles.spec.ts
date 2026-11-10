@@ -10,28 +10,30 @@ test('Role Switcher: สลับบทบาทแล้วเห็นข้�
   await fresh(page);
   await switchRole(page, 'เจ้าหน้าที่');
   await expect(page).toHaveURL(/\/o$/);
-  // เจ้าหน้าที่อนุมัติคำขอของ "ครัวแม่มาลี" ผ่าน UI
+  // เจ้าหน้าที่อนุมัติคำขอลงทะเบียน (ข้อมูลตัวอย่างก่อนใช้การตรวจอัตโนมัติ) ของ "ครัวแม่มาลี" ผ่าน UI — การลงทะเบียนไม่ออกใบรับรอง
   await open(page, '/o/applications/APP-2569-0002');
   await page.getByRole('button', { name: 'เริ่มตรวจสอบ' }).click();
   for (const b of await page.getByRole('button', { name: 'ผ่าน', exact: true }).all()) await b.click();
   await page.getByRole('button', { name: 'อนุมัติ', exact: true }).click();
   await confirm(page, undefined, 'อนุมัติ');
-  const cert = (await store<{ id: string; merchantId: string; status: string }>(page, 'certifications')).find((c) => c.merchantId === 'M-002' && c.status === 'active')!;
-  expect(cert).toBeTruthy();
-  // ผู้บริโภคเห็นสถานะเดียวกัน
+  await expect(page.getByText('ลงทะเบียนร้านค้าแล้ว — เจ้าหน้าที่อนุมัติ (กรณียกเว้น)')).toBeVisible();
+  expect((await store<{ id: string; registrationStatus: string }>(page, 'merchants')).find((m) => m.id === 'M-002')!.registrationStatus).toBe('approved');
+  expect((await store<{ merchantId: string }>(page, 'certifications')).some((c) => c.merchantId === 'M-002')).toBe(false);
+  // ผู้บริโภคเห็นสถานะเดียวกัน (ลงทะเบียนแล้ว ยังไม่ใช่การรับรอง)
   await switchRole(page, 'ผู้บริโภค');
-  await open(page, `/verify/${cert.id}`);
-  await expect(page.getByText('ผ่านเกณฑ์ธุรกิจ').first()).toBeVisible();
+  await open(page, '/shop/M-002');
+  await expect(page.getByText('ยืนยันตัวตนแล้ว').first()).toBeVisible();
   // ผู้บริโภคเปิดหน้าเจ้าหน้าที่ → Permission Denied
   await open(page, '/o/applications');
   await expect(page.getByText('ไม่มีสิทธิ์เข้าถึงหน้านี้ (Permission Denied)')).toBeVisible();
-  // ผู้ดูแลระบบ: Dashboard คำนวณจาก Mock State (มีใบรับรองเพิ่ม 1 ใบ)
+  // ผู้ดูแลระบบ: Dashboard คำนวณจาก Mock State
   await switchRole(page, 'ผู้ดูแลระบบ');
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByText(/ข้อมูลสาธิต/).first()).toBeVisible();
   // Reload แล้วข้อมูลยังอยู่
   await page.reload();
-  expect((await store<{ id: string }>(page, 'certifications')).some((c) => c.id === cert.id)).toBe(true);
+  expect((await store<{ id: string; registrationStatus: string }>(page, 'merchants')).find((m) => m.id === 'M-002')!.registrationStatus).toBe('approved');
+  expect((await store<{ merchantId: string }>(page, 'certifications')).some((c) => c.merchantId === 'M-002')).toBe(false);
 });
 
 test('Reset Demo Data: กลับเป็นข้อมูลตัวอย่างทุก Store และ Reload แล้วยังเป็นข้อมูลเริ่มต้น', async ({ page, baseURL }) => {

@@ -14,7 +14,7 @@ import { BADGE_STATUS, ROUTE_LABEL, TASK_CATEGORY_LABEL } from '@/features/autom
 import { BAND_LABEL } from '@/features/trust-assessment/labels';
 import { nextRef, nowISO, uid } from '@/utils/id';
 import { useAssessmentBadgeStore, useAssessmentStore, useAutomationRunStore, useComplaintStore, useMarketplaceStore, useMerchantStore, useOfficerTaskStore, useOperatorStore } from '.';
-import { audit, currentActor, notify, notifyMerchant, openRiskCase, type WorkflowResult } from './workflows';
+import { audit, currentActor, notify, notifyMerchant, openRiskCase, reevaluatePendingRegistration, type WorkflowResult } from './workflows';
 import { currentInputs, dataBundle, latestAssessment, runAssessment } from './workflowsV2';
 import { onMerchantChanged, withoutEvents } from './events';
 
@@ -210,6 +210,8 @@ export function resolveTask(taskId: string, action: TaskAction, note: string): W
         : `เปิดเรื่องพิจารณาความเสี่ยง ${riskCaseId} — ร้านชี้แจงได้ (ใบรับรองไม่เปลี่ยนจนกว่าเจ้าหน้าที่จะตัดสิน)`;
   notifyMerchant(t.merchantId, action === 'approve' ? 'ผลการตรวจสอบ: อนุมัติ' : 'ผลการตรวจสอบ: ไม่อนุมัติ', `${TASK_CATEGORY_LABEL[t.category]} · ${consequence} · เหตุผล: ${text}`, '/m/trust', action === 'approve' ? 'success' : 'warning');
   if (m) processMerchant(t.merchantId, 'officer_decision');
+  // เจ้าหน้าที่ยืนยันเจ้าของร้านบน Marketplace แล้ว → คำขอลงทะเบียนที่รอเพราะประเด็นนี้ถูกตรวจอัตโนมัติอีกครั้ง
+  if (m && t.category === 'identity_mismatch') reevaluatePendingRegistration(t.merchantId);
   return { ok: true };
 }
 

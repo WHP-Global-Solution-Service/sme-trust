@@ -72,11 +72,11 @@ export const MAIN_JOURNEY_ID = 's14';
  * inMainStep: ระบบที่ไม่มี Scenario แยก และสาธิตเป็นขั้นหนึ่งของเส้นทางหลัก — ปุ่มบอกชัดว่าเริ่มเส้นทางหลักทั้งเส้น ไม่ใช่ Demo เฉพาะระบบนั้น
  */
 export const MVP_FEATURES: { no: number; icon: LucideIcon; title: string; desc: string; note?: string; inMainStep?: string; actions: { label: string; id: string }[] }[] = [
-  { no: 1, icon: Store, title: 'ลงทะเบียนร้านค้า', desc: 'เชื่อมร้านค้าออนไลน์ หรือสมัครด้วยตนเอง', actions: [{ label: 'เชื่อมร้านค้าออนไลน์', id: 's9a' }, { label: 'สมัครด้วยตนเอง', id: 's9b' }] },
+  { no: 1, icon: Store, title: 'ลงทะเบียนร้านค้า', desc: 'เชื่อมร้านค้าออนไลน์ หรือสมัครด้วยตนเอง', note: 'ตรวจสอบอัตโนมัติ — ไม่ต้องรอเจ้าหน้าที่ในกรณีปกติ', actions: [{ label: 'เชื่อมร้านค้าออนไลน์', id: 's9a' }, { label: 'สมัครด้วยตนเอง', id: 's9b' }] },
   { no: 2, icon: BarChart3, title: 'ประเมินความน่าเชื่อถือ', desc: 'ระบบประเมินข้อมูลร้านค้าอัตโนมัติ', note: 'Trust Band · Coverage · Confidence', actions: [{ label: 'เริ่ม Demo', id: 's11' }] },
   { no: 3, icon: BadgeCheck, title: 'แสดงผล Assessment Badge', desc: 'แสดงผลประเมินเมื่อข้อมูลผ่านเงื่อนไข', note: 'ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.', inMainStep: 's14-badge', actions: [{ label: 'เริ่มเส้นทางหลัก', id: MAIN_JOURNEY_ID }] },
   { no: 4, icon: SearchCheck, title: 'ตรวจสอบร้านค้า', desc: 'ผู้บริโภคค้นหาและตรวจสอบผลประเมิน', actions: [{ label: 'เริ่ม Demo', id: 's13' }] },
-  { no: 5, icon: UserCheck, title: 'ตรวจสอบเฉพาะกรณีจำเป็น', desc: 'เจ้าหน้าที่พิจารณาเฉพาะข้อมูลที่ต้องตรวจเพิ่ม', actions: [{ label: 'เริ่ม Demo', id: 's15' }] },
+  { no: 5, icon: UserCheck, title: 'ตรวจสอบเฉพาะกรณีจำเป็น', desc: 'เจ้าหน้าที่พิจารณาเฉพาะข้อมูลที่ต้องตรวจเพิ่ม', note: 'เฉพาะกรณีผิดปกติ — ไม่ใช่การอนุมัติทุกร้าน', actions: [{ label: 'เริ่ม Demo', id: 's15' }] },
 ];
 
 /** ลำดับเส้นทางแนะนำ → ขั้นของ Scenario 14 ในตัวควบคุมการสาธิต */

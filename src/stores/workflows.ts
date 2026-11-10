@@ -32,6 +32,9 @@ import { standardChecks } from '@/mock/data/applications';
 import { nextRef, nowISO, uid, mockIdentityId } from '@/utils/id';
 import { screenComplaint } from '@/utils/screening';
 import { currentCert } from '@/utils/trust';
+import { decideRegistration, REGISTRATION_ROUTE_LABEL } from '@/features/automation/registration';
+import { ownerMismatchOf } from '@/features/marketplace/services/owner';
+import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { COMPLAINT_CATEGORY, TRUST_LEVELS } from '@/constants/labels';
 import type { AiHistoryEntry } from '@/features/ai-assistant/types/ai.types';
 import { useAiWorkspaceStore } from './aiWorkspace';
@@ -43,6 +46,8 @@ import {
   useAuditStore,
   useCertificationStore,
   useComplaintStore,
+  useImportRecordStore,
+  useMarketplaceStore,
   useMerchantStore,
   useNotificationStore,
   useOperatorStore,
@@ -174,7 +179,7 @@ export interface ShopForm {
   documents: MockDocument[];
 }
 
-export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { draftId?: string } = {}): { merchant: Merchant; app: VerificationApplication; duplicate?: boolean } {
+export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { draftId?: string; deferDecision?: boolean } = {}): { merchant: Merchant; app: VerificationApplication; duplicate?: boolean } {
   authorize('shop.register');
   requireOwnAccount('shop.register', operatorId);
   // ส่งซ้ำจากฉบับร่างเดิม (กดซ้ำ / Refresh / Back) → คืนคำขอเดิม ไม่สร้างร้านหรือคำขอซ้ำ
@@ -230,11 +235,7 @@ export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { 
     ...(opts.draftId ? { sourceDraftId: opts.draftId } : {}),
     timeline: [
       ev('ส่งคำขอลงทะเบียนร้านค้า', `${f.businessType === 'juristic' ? 'นิติบุคคล' : 'บุคคลธรรมดา'} · เอกสาร ${f.documents.length} รายการ`, 'merchant'),
-      ev(
-        flag ? 'ระบบพบ Mock Identity ID ตรงกับร้านค้าที่ถูกระงับ/เพิกถอน' : 'ระบบตรวจสอบความครบถ้วนเบื้องต้นแล้ว',
-        flag ? 'ส่งให้เจ้าหน้าที่พิจารณาเป็นพิเศษ — ไม่ใช่การปฏิเสธอัตโนมัติ' : f.documents.length ? 'เข้าคิวรอเจ้าหน้าที่' : 'ยังไม่มีเอกสารประกอบ เจ้าหน้าที่อาจขอเพิ่มเติม',
-        'system',
-      ),
+      ...(flag ? [ev('ระบบพบ Mock Identity ID ตรงกับร้านค้าที่ถูกระงับ/เพิกถอน', 'ข้อสังเกตเพื่อพิจารณา — ไม่ใช่การปฏิเสธอัตโนมัติ', 'system')] : []),
     ],
   };
   useVerificationStore.getState().add(app);
@@ -253,12 +254,91 @@ export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { 
     });
   }
   audit('ส่งคำขอลงทะเบียนร้านค้า', app.id, `${merchant.shopName} (${merchant.id})`);
-  notify('officer', undefined, 'คำขอลงทะเบียนใหม่', `${app.id} ${merchant.shopName}${flag ? ' — พบตัวตนซ้ำ' : ''}`, `/o/applications/${app.id}`, flag ? 'error' : 'info');
-  notify('merchant', operatorId, 'ส่งคำขอลงทะเบียนแล้ว', `${app.id} อยู่ระหว่างรอตรวจสอบ`, '/m/shop', 'success');
   useSessionStore.getState().set({ activeMerchantId: id });
-  // Automation First: ประเมินและจัดเส้นทางทันทีหลังส่งคำขอ (ไม่อนุมัติคำขอ — คำขอยังรอเจ้าหน้าที่ตามนโยบาย)
+  // Automation First: ตรวจคำขออัตโนมัติ (AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW) แล้วประเมินความน่าเชื่อถือทันที
+  // การลงทะเบียนไม่ออกใบรับรองหรือ Badge — Badge เป็นไปตามผลประเมินและเงื่อนไขการแสดงเดิม
+  if (!opts.deferDecision) applyRegistrationDecision(app.id);
   emitMerchantChanged(id, 'registration');
-  return { merchant, app };
+  // คืนข้อมูลล่าสุด (หลังระบบตรวจอัตโนมัติ)
+  return { merchant: merchantOf(id) ?? merchant, app: useVerificationStore.getState().items.find((a) => a.id === app.id) ?? app };
+}
+
+/** ข้อมูลเจ้าของร้านบน Marketplace (จำลอง) ที่ยังไม่ได้รับการยืนยันจากเจ้าหน้าที่ — ใช้เป็นความผิดปกติของคำขอลงทะเบียน */
+function ownershipIssuesOf(merchantId: string): string[] {
+  return useMarketplaceStore
+    .getState()
+    .items.filter((c) => c.merchantId === merchantId && c.status !== 'disconnected' && c.identityReview?.status !== 'verified')
+    .flatMap((c) => [
+      ...(c.ownershipConflict ? [`ร้าน ${c.mockShopName} บน ${PLATFORMS[c.platform].label} (จำลอง) เชื่อมกับร้าน ${c.ownershipConflict.merchantId} อยู่แล้ว`] : []),
+      ...(ownerMismatchOf(c) ? [`ชื่อเจ้าของร้าน ${c.mockShopName} บน ${PLATFORMS[c.platform].label} (จำลอง) ไม่ตรงกับผู้ยืนยันตัวตน`] : []),
+    ]);
+}
+
+/** ข้อมูลที่ผู้สมัครแก้จากร้านบน Marketplace (จำลอง) แล้วตรวจกับแหล่งอ้างอิงไม่ได้ (เช่น ชื่อร้านต่างจากต้นฉบับ) */
+function importIssuesOf(merchantId: string): string[] {
+  return useImportRecordStore
+    .getState()
+    .items.filter((r) => r.merchantId === merchantId && r.mode === 'new_registration' && r.pending.length)
+    .map((r) => `${r.pending.includes('shopName') ? 'ชื่อร้านที่กรอกต่างจากร้านบน' : 'ข้อมูลที่แก้ต่างจากร้านบน'} ${PLATFORMS[r.source.platform].label} (จำลอง) — ตรวจกับแหล่งอ้างอิงไม่ได้`);
+}
+
+/**
+ * Automation First — ตรวจคำขอลงทะเบียนอัตโนมัติและบันทึกผล (ระบบเป็นผู้ดำเนินการ)
+ * AUTO_PASS: ลงทะเบียนร้านแล้วโดยไม่ต้องให้เจ้าหน้าที่กดอนุมัติ — ไม่ออกใบรับรอง (Level 2 ยังต้องยื่นขอและเจ้าหน้าที่อนุมัติ)
+ * AUTO_REQUEST_INFO: ส่งกลับให้ร้านค้าแก้ไข ไม่เข้าคิวเจ้าหน้าที่ · MANUAL_REVIEW: เข้าคิวเจ้าหน้าที่เฉพาะกรณี (Exception Queue)
+ */
+export function applyRegistrationDecision(appId: string) {
+  const app = useVerificationStore.getState().items.find((a) => a.id === appId);
+  if (!app || app.type !== 'registration' || ['approved', 'rejected'].includes(app.status)) return undefined;
+  const m = merchantOf(app.merchantId);
+  if (!m) return undefined;
+  const decision = decideRegistration({
+    kycVerified: operatorOf(m.operatorId)?.kycStatus === 'verified',
+    documents: m.documents.length,
+    // ร้านบน Marketplace (จำลอง) ที่เชื่อมต่อแล้วนับเป็นช่องทางขายด้วย
+    channels: m.channels.length + useMarketplaceStore.getState().items.filter((c) => c.merchantId === m.id && c.status !== 'disconnected').length,
+    identityFlag: m.identityFlag,
+    ownershipIssues: [...ownershipIssuesOf(m.id), ...importIssuesOf(m.id)],
+  });
+  const at = nowISO();
+  const autoDecision = { route: decision.route, reasons: decision.reasons, at };
+  const label = `ระบบตรวจสอบอัตโนมัติ: ${REGISTRATION_ROUTE_LABEL[decision.route]} (${decision.route})`;
+  const sys = (title: string, note: string) => ({ ...ev(title, note, 'system'), actorName: 'ระบบอัตโนมัติ' });
+  if (decision.route === 'AUTO_PASS') {
+    useVerificationStore.getState().update(appId, (a) => ({
+      status: 'approved',
+      updatedAt: at,
+      autoDecision,
+      infoRequest: undefined,
+      checks: a.checks.map((c) => ({ ...c, result: c.result === 'fail' ? 'fail' : 'pass' })),
+      timeline: [...a.timeline, sys(label, 'ลงทะเบียนร้านค้าแล้วโดยไม่ต้องรอเจ้าหน้าที่ — ยังไม่ใช่ใบรับรองหรือ Assessment Badge (Badge แสดงตามผลประเมินและเงื่อนไขการแสดง)')],
+    }));
+    ms().update(m.id, { registrationStatus: 'approved', approvedAt: at });
+    audit('ระบบตรวจคำขอลงทะเบียนอัตโนมัติ: ผ่าน (AUTO_PASS)', appId, `${m.shopName} (${m.id}) · ไม่ออกใบรับรอง`, true);
+    notifyMerchant(m.id, 'ลงทะเบียนร้านค้าสำเร็จ (ตรวจสอบอัตโนมัติ)', `${appId} — ร้านได้รับการลงทะเบียนแล้ว · การลงทะเบียนไม่ใช่ใบรับรองหรือ Badge · ยื่นขอใบรับรองได้ที่หน้าใบรับรอง`, '/m/shop', 'success');
+  } else if (decision.route === 'AUTO_REQUEST_INFO') {
+    const msg = `กรุณาเพิ่มข้อมูล: ${decision.reasons.join(' · ')}`;
+    useVerificationStore.getState().update(appId, (a) => ({ status: 'need_info', updatedAt: at, autoDecision, infoRequest: msg, timeline: [...a.timeline, sys(label, msg)] }));
+    ms().update(m.id, { registrationStatus: 'need_info' });
+    audit('ระบบตรวจคำขอลงทะเบียนอัตโนมัติ: ส่งกลับให้ร้านค้าเพิ่มข้อมูล (AUTO_REQUEST_INFO)', appId, decision.reasons.join(' · '), true);
+    notifyMerchant(m.id, 'คำขอลงทะเบียนต้องเพิ่มข้อมูล', `${appId} — ${msg} (ร้านแก้ไขเองได้ ไม่ต้องรอเจ้าหน้าที่)`, '/m/shop', 'warning');
+  } else {
+    const note = `${decision.reasons.join(' · ')} — ส่งเจ้าหน้าที่ตรวจสอบเฉพาะกรณี ไม่ใช่การปฏิเสธอัตโนมัติ`;
+    useVerificationStore.getState().update(appId, (a) => ({ status: 'pending_review', updatedAt: at, autoDecision, timeline: [...a.timeline, sys(label, note)] }));
+    ms().update(m.id, { registrationStatus: 'pending_review' });
+    audit('ระบบส่งคำขอลงทะเบียนให้เจ้าหน้าที่ตรวจสอบ (MANUAL_REVIEW)', appId, decision.reasons.join(' · '), true);
+    notify('officer', undefined, 'คำขอลงทะเบียนที่ต้องตรวจสอบ (กรณียกเว้น)', `${appId} ${m.shopName} — ${decision.reasons.join(' · ')}`, `/o/applications/${appId}`, 'warning');
+    notifyMerchant(m.id, 'คำขอลงทะเบียนอยู่ระหว่างการตรวจสอบเพิ่มเติม', `${appId} — ระบบพบข้อมูลที่ต้องให้เจ้าหน้าที่ตรวจสอบ (ไม่ได้หมายความว่าร้านกระทำผิด)`, '/m/shop', 'info');
+  }
+  return decision;
+}
+
+/** ข้อมูลที่ทำให้ต้องตรวจเปลี่ยนแล้ว (เช่น เจ้าหน้าที่ยืนยันเจ้าของร้านบน Marketplace) → ตรวจคำขอลงทะเบียนที่รออยู่อีกครั้ง */
+export function reevaluatePendingRegistration(merchantId: string) {
+  useVerificationStore
+    .getState()
+    .items.filter((a) => a.merchantId === merchantId && a.type === 'registration' && a.status === 'pending_review' && a.autoDecision?.route === 'MANUAL_REVIEW')
+    .forEach((a) => applyRegistrationDecision(a.id));
 }
 
 export function resubmitApplication(appId: string, note: string, docs: MockDocument[]) {
@@ -274,9 +354,11 @@ export function resubmitApplication(appId: string, note: string, docs: MockDocum
     timeline: [...a.timeline, ev(a.status === 'rejected' ? 'ยื่นคำขอใหม่' : 'ส่งข้อมูลเพิ่มเติม', note || `แนบเอกสาร ${docs.length} รายการ`, 'merchant')],
   }));
   ms().update(app.merchantId, (m) => ({ documents: [...m.documents, ...docs], registrationStatus: app.type === 'registration' ? 'submitted' : m.registrationStatus }));
-  emitMerchantChanged(app.merchantId, 'measure_change');
   audit('ส่งข้อมูลเพิ่มเติม/ยื่นใหม่', appId);
-  notify('officer', undefined, 'ร้านค้าส่งข้อมูลเพิ่มเติม', `${appId} พร้อมตรวจสอบอีกครั้ง`, `/o/applications/${appId}`);
+  // คำขอลงทะเบียน: ระบบตรวจใหม่อัตโนมัติ (เข้าคิวเจ้าหน้าที่เฉพาะเมื่อพบความผิดปกติ) · คำขอรับรอง: เจ้าหน้าที่ตามเดิม
+  if (app.type === 'registration') applyRegistrationDecision(appId);
+  else notify('officer', undefined, 'ร้านค้าส่งข้อมูลเพิ่มเติม', `${appId} พร้อมตรวจสอบอีกครั้ง`, `/o/applications/${appId}`);
+  emitMerchantChanged(app.merchantId, 'measure_change');
 }
 
 export function addChannel(merchantId: string, type: SalesChannel['type'], handle: string) {
@@ -353,18 +435,17 @@ export function approveApplication(appId: string, note?: string): WorkflowResult
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'approved', checks: app.checks.map((c) => ({ ...c, result: c.result === 'fail' ? 'fail' : 'pass' })) }, 'อนุมัติคำขอ', note);
   if (app.type === 'registration') {
+    // การลงทะเบียนไม่ใช่การรับรอง — ไม่ออกใบรับรอง (Level 2 ต้องยื่นขอรับรองและเจ้าหน้าที่อนุมัติตาม Certification Policy)
     ms().update(app.merchantId, { registrationStatus: 'approved', approvedAt: nowISO() });
+    emitMerchantChanged(app.merchantId, 'measure_change');
+    audit('อนุมัติคำขอลงทะเบียน (กรณียกเว้น)', appId, 'ลงทะเบียนร้านค้าแล้ว — ไม่ออกใบรับรอง');
+    notifyMerchant(app.merchantId, 'คำขอลงทะเบียนได้รับอนุมัติ', `${appId} — ร้านได้รับการลงทะเบียนแล้ว · การลงทะเบียนไม่ใช่ใบรับรองหรือ Badge · ยื่นขอใบรับรองได้ที่หน้าใบรับรอง`, '/m/shop', 'success');
+    return { ok: true };
   }
   emitMerchantChanged(app.merchantId, 'measure_change');
-  const cert = issueCertificate(app.merchantId, app.type === 'registration' ? 2 : app.requestedLevel);
+  const cert = issueCertificate(app.merchantId, app.requestedLevel);
   audit('อนุมัติคำขอ', appId, `ออกใบรับรอง ${cert.id}`);
-  notifyMerchant(
-    app.merchantId,
-    app.type === 'registration' ? 'คำขอลงทะเบียนได้รับอนุมัติ' : 'คำขอรับรองได้รับอนุมัติ',
-    `ใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name}`,
-    '/m/certification',
-    'success',
-  );
+  notifyMerchant(app.merchantId, 'คำขอรับรองได้รับอนุมัติ', `ใบรับรอง ${cert.id} ระดับ ${TRUST_LEVELS[cert.level].name}`, '/m/certification', 'success');
   return { ok: true };
 }
 
@@ -414,12 +495,16 @@ export function fileCertificationApplication(merchantId: string, level: TrustLev
     status: 'submitted',
     submittedAt: nowISO(),
     updatedAt: nowISO(),
-    checks: [
-      { id: 'chk-biz-verified', label: 'ผ่านเกณฑ์ธุรกิจ (Level 2)', result: 'pass' },
-      { id: 'chk-training', label: 'ผ่านการอบรมตามเกณฑ์', result: 'pending' },
-      { id: 'chk-no-warning', label: 'ไม่มีคำเตือนหรือข้อพิจารณาความเสี่ยงค้าง', result: 'pending' },
-      { id: 'chk-policy', label: 'มีนโยบายคืน/เปลี่ยนสินค้าที่ชัดเจน', result: 'pending' },
-    ],
+    // Level 2 (Business Verified): ตรวจข้อมูลธุรกิจตาม Checklist เดิมของการลงทะเบียน · Level 3–4: เกณฑ์การรับรอง
+    checks:
+      level === 2
+        ? standardChecks(operatorOf(merchantOf(merchantId)?.operatorId ?? '')?.kycStatus === 'verified' ? 'partial' : false)
+        : [
+            { id: 'chk-biz-verified', label: 'ผ่านเกณฑ์ธุรกิจ (Level 2)', result: 'pass' },
+            { id: 'chk-training', label: 'ผ่านการอบรมตามเกณฑ์', result: 'pending' },
+            { id: 'chk-no-warning', label: 'ไม่มีคำเตือนหรือข้อพิจารณาความเสี่ยงค้าง', result: 'pending' },
+            { id: 'chk-policy', label: 'มีนโยบายคืน/เปลี่ยนสินค้าที่ชัดเจน', result: 'pending' },
+          ],
     timeline: [ev(renewal ? 'ยื่นขอต่ออายุใบรับรอง' : `ยื่นขอรับรอง ${TRUST_LEVELS[level].name}`, undefined, 'merchant')],
   };
   useVerificationStore.getState().add(app);

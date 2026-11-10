@@ -210,6 +210,8 @@ export const UNGUARDED_BY_DESIGN: Record<string, string> = {
   attachImportedMarketplaces: 'ภายใน Workflow: เรียกจาก submitMarketplaceRegistration และ Fixture ของ Demo',
   // ระบบอัตโนมัติ (actor = system)
   processMerchant: 'ระบบอัตโนมัติ: ประเมินใหม่และจัดเส้นทางเมื่อข้อมูลเปลี่ยน',
+  applyRegistrationDecision: 'ระบบอัตโนมัติ: ตรวจคำขอลงทะเบียน (AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW) — เรียกจาก submitShopRegistration / submitMarketplaceRegistration / resubmitApplication ที่ตรวจสิทธิ์และ Ownership แล้ว · ไม่ออกใบรับรอง',
+  reevaluatePendingRegistration: 'ระบบอัตโนมัติ: ตรวจคำขอลงทะเบียนที่รออยู่อีกครั้ง — เรียกจาก resolveTask (ตรวจสิทธิ์ exception.resolve แล้ว)',
   // ก่อนเข้าสู่ระบบ (Self-service) — ยังไม่มีบทบาทที่ยืนยันแล้ว
   registerOperator: 'สมัครบัญชีผู้ประกอบการก่อนเข้าสู่ระบบ',
   resetPin: 'ลืม PIN ก่อนเข้าสู่ระบบ (จำลอง OTP)',

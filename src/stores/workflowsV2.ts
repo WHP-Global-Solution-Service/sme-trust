@@ -38,7 +38,7 @@ import {
 import { currentModel } from './assessmentConfig';
 import { processMerchant } from './automation';
 import { withoutEvents } from './events';
-import { approveApplication, audit, currentActor, fileCertificationApplication, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, submitShopRegistration, type ShopForm, type WorkflowResult } from './workflows';
+import { applyRegistrationDecision, approveApplication, audit, currentActor, fileCertificationApplication, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, submitShopRegistration, type ShopForm, type WorkflowResult } from './workflows';
 
 const mk = () => useMarketplaceStore.getState();
 const conn = (id: string) => mk().items.find((c) => c.id === id);
@@ -263,7 +263,7 @@ export function submitMarketplaceRegistration(operatorId: string, form: ShopForm
   requireOwnAccount('shop.register', operatorId);
   const before = imp().items.find((r) => r.draftId === draft.draftId);
   // ประมวลผลหลังเชื่อมต่อ Marketplace ด้านล่าง (ไม่ประมวลผลร้านที่ยังไม่มีข้อมูลก่อน — กันแจ้งเตือนผลชั่วคราว)
-  const { merchant, app, duplicate } = withoutEvents(() => submitShopRegistration(operatorId, form, { draftId: draft.draftId }));
+  const { merchant, app, duplicate } = withoutEvents(() => submitShopRegistration(operatorId, form, { draftId: draft.draftId, deferDecision: true }));
   if (duplicate && before) return { merchant, app, record: before, connection: conn(before.connectionId ?? ''), duplicate: true };
   const src = draft.source;
   const [connection] = attachImportedMarketplaces(merchant.id, [
@@ -304,6 +304,8 @@ export function submitMarketplaceRegistration(operatorId: string, form: ShopForm
     ],
   }));
   audit('ลงทะเบียนร้านด้วยข้อมูลที่นำเข้าจาก Marketplace (จำลอง)', record.id, `${PLATFORMS[src.platform].label} · ${merchant.id}`);
+  // Automation First: ตรวจคำขออัตโนมัติหลังเชื่อมร้านแล้ว (รวมการตรวจเจ้าของร้านบน Marketplace จำลอง)
+  applyRegistrationDecision(app.id);
   return { merchant, app: useVerificationStore.getState().items.find((a) => a.id === app.id)!, record, connection, duplicate: false };
 }
 

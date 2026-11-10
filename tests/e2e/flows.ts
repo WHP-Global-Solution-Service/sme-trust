@@ -117,9 +117,23 @@ export async function playS2(page: Page) {
   await expect(main(page).getByText(/APP-\d{4}-\d{4}/).first()).toBeVisible();
   await next(page);
   await expect(page).toHaveURL(/\/m\/shop$/);
-  const { current } = await demoState(page);
-  await expect(main(page).getByText('Pending Approval').first()).toBeVisible();
+  // Automation First: ระบบตรวจคำขออัตโนมัติ — ลงทะเบียนแล้วโดยไม่ต้องรอเจ้าหน้าที่ (ยังไม่ใช่ใบรับรอง)
+  await expect(main(page).getByTestId('registration-auto-pass')).toBeVisible();
+  await expect(main(page).getByText('Pending Approval')).toHaveCount(0);
+  const reg = (await demoState(page)).current;
+  const regApp = (await store<{ id: string; status: string; autoDecision?: { route: string } }>(page, 'applications')).find((a) => a.id === reg.applicationId)!;
+  expect(regApp.status).toBe('approved');
+  expect(regApp.autoDecision?.route).toBe('AUTO_PASS');
+  expect((await store<{ merchantId: string }>(page, 'certifications')).some((c) => c.merchantId === reg.merchantId)).toBe(false);
+  // ยื่นขอใบรับรอง Business Verified (แยกจากการลงทะเบียน — เจ้าหน้าที่พิจารณาตามนโยบาย)
+  await next(page);
+  await expect(page).toHaveURL(/\/m\/certification$/);
+  await expectBlocked(page);
+  await mainBtn(page, 'ยื่นขอ Business Verified').click();
+  await confirm(page, undefined, 'ยื่นคำขอ');
   await next(page, { expectTransition: true });
+  const { current } = await demoState(page);
+  expect(current.applicationId).not.toBe(reg.applicationId);
   await expect(page).toHaveURL(new RegExp(`/o/applications/${current.applicationId}$`));
   await expectBlocked(page);
   await mainBtn(page, 'เริ่มตรวจสอบ').click();

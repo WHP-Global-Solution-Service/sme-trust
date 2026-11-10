@@ -21,11 +21,12 @@ check(kpi0.registered === S.useMerchantStore.getState().items.filter((m) => m.re
 check(kpi0.complaints === 20 && kpi0.resolvedByMerchant === 4, `KPI ข้อร้องเรียน ${kpi0.complaints} / แก้ไขสำเร็จ ${kpi0.resolvedByMerchant}`);
 
 // ---------------------------------------------------------------- 1
-describe('1. Merchant ลงทะเบียนร้านค้า → Officer ได้รับคำขอ');
+describe('1. Merchant ลงทะเบียนร้านค้า → ระบบตรวจสอบอัตโนมัติ (AUTO_PASS) โดยไม่ต้องรอเจ้าหน้าที่');
 as('merchant');
 const op = W.registerOperator({ name: 'ทดสอบ ข้ามบทบาท', phone: '0897770000', email: 'flow@demo.local', province: 'ชลบุรี', pin: '246810' });
 asOwner(op.id, () => W.setKycResult(op.id, true));
 as('merchant', { operatorId: op.id });
+const officerNotesBefore = notesFor('officer').length;
 const { merchant: shop, app } = asOwner(op.id, () => W.submitShopRegistration(op.id, {
   businessType: 'individual', ownerName: op.name, shopName: 'ร้านทดสอบข้ามบทบาท', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง',
   phone: op.phone, email: op.email, description: 'ร้านสำหรับทดสอบ Flow ข้ามบทบาททั้งหมด', channels: [{ type: 'facebook', handle: 'flowtest.demo' }],
@@ -34,32 +35,41 @@ const { merchant: shop, app } = asOwner(op.id, () => W.submitShopRegistration(op
 const M = { role: 'merchant' as const, operatorId: op.id, activeMerchantId: shop.id };
 const O = { role: 'officer' as const, officerId: 'OF-001' };
 const C = { role: 'consumer' as const, consumerId: 'CS-004' };
-check(shop.registrationStatus === 'submitted' && app.status === 'submitted' && app.merchantId === shop.id, `สร้างร้าน ${shop.id} และคำขอ ${app.id} สถานะ submitted`);
-check(notesFor('officer').some((n) => n.link === `/o/applications/${app.id}`), 'เจ้าหน้าที่ได้รับการแจ้งเตือนพร้อมลิงก์ไปที่คำขอ');
-let page = view('/o/applications', O);
-check(page.includes(app.id) && page.includes(shop.shopName), 'หน้า Merchant Applications (Officer) แสดงคำขอใหม่');
-check(view('/o', O).includes(app.id), 'Work Queue ของ Officer Dashboard มีคำขอใหม่');
-check(view('/m/shop', M).includes('Pending Approval'), 'ร้านค้าเห็นสถานะ Pending Approval');
-check(verdict(shop.id).key === 'pending', 'ผู้บริโภคเห็นสถานะ "อยู่ระหว่างยื่นคำขอ" (ยังไม่ใช่การรับรอง)');
+check(shop.registrationStatus === 'approved' && !!shop.approvedAt && app.status === 'approved' && app.autoDecision?.route === 'AUTO_PASS' && app.merchantId === shop.id, `ร้าน ${shop.id} ลงทะเบียนแล้วอัตโนมัติ — คำขอ ${app.id} AUTO_PASS (ไม่ต้องให้เจ้าหน้าที่กดอนุมัติ)`);
+check(app.checks.every((c) => c.result === 'pass') && app.timeline.some((t) => t.actor === 'system' && t.title.includes('AUTO_PASS')), 'รายการตรวจผ่านทั้งหมด และ Timeline บันทึกว่าระบบเป็นผู้ตรวจ');
+check(!cert(shop.id), 'การลงทะเบียนไม่ออกใบรับรอง (ลงทะเบียน ≠ การรับรอง)');
+check(notesFor('officer').length === officerNotesBefore, 'ไม่ส่งงานหรือแจ้งเตือนเจ้าหน้าที่ในกรณีปกติ');
+check(!view('/o/exceptions', O).includes(app.id), 'Exception Queue ไม่มีคำขอนี้');
+check(notesFor('merchant', op.id).some((n) => n.title.includes('ลงทะเบียนร้านค้าสำเร็จ') && n.body.includes('ไม่ใช่ใบรับรอง')), 'ร้านค้าได้รับแจ้งผล พร้อมระบุว่าการลงทะเบียนไม่ใช่ใบรับรองหรือ Badge');
+check(view('/m/shop', M).includes('ผ่านการตรวจสอบอัตโนมัติ') && !view('/m/shop', M).includes('Pending Approval'), 'ร้านค้าเห็นว่าผ่านการตรวจสอบอัตโนมัติ (ไม่แสดงรออนุมัติ)');
+check(verdict(shop.id).key === 'identity' && !verdict(shop.id).usable, 'ผู้บริโภคเห็น "ยืนยันตัวตนแล้ว" — ยังไม่ใช่ผ่านเกณฑ์ธุรกิจหรือการรับรอง');
+check(S.useAuditStore.getState().items.some((a) => a.target === app.id && a.action.includes('AUTO_PASS')), 'Audit Log บันทึกการตรวจอัตโนมัติ');
 integrity(' Flow 1');
 
 // ---------------------------------------------------------------- 2
-describe('2. Officer อนุมัติ → Merchant เห็นสถานะรับรอง');
+describe('2. Merchant ยื่นขอใบรับรอง Business Verified → Officer อนุมัติ → Merchant เห็นสถานะรับรอง');
+const certApp = asOwner(shop.id, () => W.applyCertification(shop.id, 2));
+check(certApp.type === 'certification' && certApp.requestedLevel === 2 && certApp.status === 'submitted', `ยื่นคำขอรับรอง ${certApp.id} ระดับ Business Verified (Level 2)`);
+check(certApp.checks.some((c) => c.id === 'chk-business') && !certApp.checks.some((c) => c.id === 'chk-training'), 'Checklist ของ Level 2 ตรวจข้อมูลธุรกิจ (ไม่ใช่เกณฑ์อบรมของ Level 3)');
+check(notesFor('officer').some((n) => n.link === `/o/applications/${certApp.id}`), 'เจ้าหน้าที่ได้รับการแจ้งเตือนพร้อมลิงก์ไปที่คำขอรับรอง');
+let page = view('/o/applications', O);
+check(page.includes(certApp.id) && page.includes(shop.shopName), 'หน้า Merchant Applications (Officer) แสดงคำขอรับรอง');
+check(view('/o', O).includes(certApp.id), 'Work Queue ของ Officer Dashboard มีคำขอรับรอง');
 as('officer', { officerId: 'OF-001' });
-actAs(['officer', 'admin'], () => W.startReview(app.id));
-check(merchant(shop.id).registrationStatus === 'under_verification', 'เริ่มตรวจ → ร้านค้าเป็น under_verification');
-const approved = actAs(['officer', 'admin'], () => W.approveApplication(app.id));
+actAs(['officer', 'admin'], () => W.startReview(certApp.id));
+check(S.useVerificationStore.getState().items.find((a) => a.id === certApp.id)!.status === 'under_verification' && merchant(shop.id).registrationStatus === 'approved', 'เริ่มตรวจ → คำขอรับรองเป็น under_verification (สถานะลงทะเบียนไม่เปลี่ยน)');
+const approved = actAs(['officer', 'admin'], () => W.approveApplication(certApp.id));
 check(approved.ok, 'อนุมัติสำเร็จ');
 const c1 = cert(shop.id)!;
-check(merchant(shop.id).registrationStatus === 'approved' && !!merchant(shop.id).approvedAt, 'สถานะร้าน approved พร้อมวันที่อนุมัติ');
-check(c1?.status === 'active' && c1.level === 2, `ออกใบรับรอง ${c1?.id} Level 2 active`);
-check(S.useVerificationStore.getState().items.find((a) => a.id === app.id)!.checks.every((c) => c.result === 'pass'), 'รายการตรวจทั้งหมดเป็น "ผ่าน"');
+check(merchant(shop.id).registrationStatus === 'approved' && !!merchant(shop.id).approvedAt, 'สถานะร้าน approved พร้อมวันที่ลงทะเบียน');
+check(c1?.status === 'active' && c1.level === 2, `ออกใบรับรอง ${c1?.id} Level 2 active (โดยเจ้าหน้าที่)`);
+check(S.useVerificationStore.getState().items.find((a) => a.id === certApp.id)!.checks.every((c) => c.result === 'pass'), 'รายการตรวจทั้งหมดเป็น "ผ่าน"');
 check(notesFor('merchant', op.id).some((n) => n.title.includes('อนุมัติ') && n.body.includes(c1.id)), 'ร้านค้าได้รับแจ้งเตือนการอนุมัติพร้อมเลขใบรับรอง');
-check(S.useAuditStore.getState().items.some((a) => a.target === app.id && a.action === 'อนุมัติคำขอ' && a.actorName === 'ปรียา ตรวจละเอียด'), 'Audit Log บันทึกผู้อนุมัติ');
+check(S.useAuditStore.getState().items.some((a) => a.target === certApp.id && a.action === 'อนุมัติคำขอ' && a.actorName === 'ปรียา ตรวจละเอียด'), 'Audit Log บันทึกผู้อนุมัติ');
 page = view('/m/certification', M);
 check(page.includes(c1.id) && page.includes('ใช้งานได้'), 'หน้าขอรับรอง (Merchant) แสดงใบรับรองที่ใช้งานได้');
 check(view('/m', M).includes('อนุมัติแล้ว'), 'Merchant Home แสดง "อนุมัติแล้ว"');
-check(actAs(['officer', 'admin'], () => W.approveApplication(app.id)).ok === false, 'อนุมัติซ้ำไม่ได้ (ไม่ออกใบรับรองซ้ำ)');
+check(actAs(['officer', 'admin'], () => W.approveApplication(certApp.id)).ok === false, 'อนุมัติซ้ำไม่ได้ (ไม่ออกใบรับรองซ้ำ)');
 integrity(' Flow 2');
 
 // ---------------------------------------------------------------- 3
@@ -192,7 +202,7 @@ const unverified = asOwner('OP-011', () => W.submitShopRegistration('OP-011', {
 as('officer', { officerId: 'OF-001' });
 const blocked = actAs(['officer', 'admin'], () => W.approveApplication(unverified.app.id));
 check(!blocked.ok && cert(unverified.merchant.id) === undefined, 'อนุมัติร้านของผู้ที่ยังไม่ผ่าน e-KYC ไม่ได้ และไม่มีการออกใบรับรอง');
-check(view(`/o/applications/${unverified.app.id}`, O).includes('ยังอนุมัติไม่ได้'), 'หน้าคำขอแสดงเหตุผลที่อนุมัติไม่ได้');
+check(unverified.app.status === 'need_info' && unverified.app.autoDecision?.route === 'AUTO_REQUEST_INFO' && view(`/o/applications/${unverified.app.id}`, O).includes('ยังไม่ได้ยืนยันตัวตนเจ้าของร้าน'), 'ผู้ที่ยังไม่ผ่าน e-KYC: ระบบส่งกลับให้ร้านค้า (AUTO_REQUEST_INFO) และหน้าคำขอแสดงเหตุผล');
 const m4cert = cert('M-004')!;
 check(!actAs(['officer', 'admin'], () => W.setCertStatus(m4cert.id, 'active', 'คืนสถานะตรงจากหน้าใบรับรอง')).ok && cert('M-004')!.status === 'suspended', 'คืนสถานะใบรับรองที่มี Risk Review เปิดอยู่จากหน้าใบรับรองไม่ได้');
 const esc = complaint('CMP-2569-0007');

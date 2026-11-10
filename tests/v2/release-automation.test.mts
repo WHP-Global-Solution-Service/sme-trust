@@ -110,7 +110,7 @@ asOfficer();
   asMerchant('OP-013');
   asOwner(r.app.id, () => W.resubmitApplication(r.app.id, 'แก้ไขเอกสารแล้ว', []));
   check(badge(mid)!.status === 'active' && S.useOfficerTaskStore.getState().items.filter((x) => x.merchantId === mid).length === 0, 'ยื่นคำขอใหม่ → Badge กลับมาตามผลประเมิน (ไม่สร้างงานกรณียกเว้น — คำขอยังรอเจ้าหน้าที่ตามเดิม)');
-  check(S.useVerificationStore.getState().items.find((x) => x.id === r.app.id)!.status === 'submitted', 'คำขอลงทะเบียนยังรอเจ้าหน้าที่ (ไม่อนุมัติอัตโนมัติ)');
+  { const ra = S.useVerificationStore.getState().items.find((x) => x.id === r.app.id)!; check(ra.status === 'need_info' && ra.autoDecision?.route === 'AUTO_REQUEST_INFO' && ra.autoDecision.reasons.some((x) => x.includes('เอกสาร')) && !ra.autoDecision.reasons.some((x) => x.includes('ช่องทางขาย')) && !S.useCertificationStore.getState().items.some((c) => c.merchantId === mid) && !view('/o/exceptions', { role: 'officer', officerId: 'OF-001' }).includes(r.app.id), 'ยื่นใหม่ (ยังไม่มีเอกสาร) → ระบบส่งกลับให้ร้านค้าเพิ่มเอกสารอัตโนมัติ — ไม่เข้าคิวเจ้าหน้าที่ · ร้าน Marketplace นับเป็นช่องทางขาย · ไม่ออกใบรับรอง'); }
 }
 
 describe('3) ครบทุกเส้นทางของ Decision Router (ผ่าน Workflow จริง)');
