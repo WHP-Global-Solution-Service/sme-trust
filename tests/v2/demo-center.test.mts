@@ -56,6 +56,8 @@ const act = P.exampleShop('active', badgesNow(), merchantsNow());
 const info = P.exampleShop('request_info', badgesNow(), merchantsNow());
 check(act?.id === 'M-001' && badgesNow().find((x) => x.merchantId === 'M-001')?.status === 'active', 'ร้านตัวอย่าง Badge = M-001 ซึ่งมี Badge active จากกฎเดิม (Seed)');
 check(info?.id === 'M-002' && badgesNow().find((x) => x.merchantId === 'M-002')?.route === 'AUTO_REQUEST_INFO', 'ร้านตัวอย่าง AUTO_REQUEST_INFO = M-002 (ข้อมูลยังไม่เพียงพอจากกฎเดิม)');
+// M-002 เป็นตัวอย่างผลประเมิน "ข้อมูลยังไม่เพียงพอ" (Assessment Router) — คำขอลงทะเบียนของร้านนี้ไม่ได้ถูกตัดสินเป็น AUTO_REQUEST_INFO จึงต้องระบุชัดบนหน้า
+check(S.useVerificationStore.getState().items.filter((a) => a.merchantId === 'M-002' && a.type === 'registration').every((a) => a.autoDecision?.route !== 'AUTO_REQUEST_INFO') && visible.includes('ไม่ใช่ผลการตรวจคำขอลงทะเบียน') && visible.includes('ดูร้านที่ข้อมูลยังไม่เพียงพอ'), 'หน้า Demo ระบุว่าร้านตัวอย่างแสดงผลประเมิน ไม่ใช่ผลการตรวจคำขอลงทะเบียน (ไม่อ้างเกินข้อมูล)');
 check(JSON.stringify([badgesNow().length, S.useAssessmentStore.getState().items.length]) === countsBefore, 'การเลือกร้านตัวอย่างไม่สร้าง Badge หรือผลประเมินใหม่');
 const noActive = badgesNow().map((x) => ({ ...x, status: x.status === 'active' ? ('withheld' as const) : x.status }));
 check(P.exampleShop('active', noActive, merchantsNow()) === undefined, 'ไม่มีร้านที่ Badge active → ไม่มีร้านตัวอย่าง (ปุ่มถูกปิด ไม่สร้างข้อมูลแทน)');

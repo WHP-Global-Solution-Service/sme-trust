@@ -31,6 +31,7 @@ test('หน้า Demo: CTA หลักปุ่มเดียว · เส�
   await expect(cases(page)).toContainText('AUTO_REQUEST_INFO');
   await expect(cases(page)).toContainText('MANUAL_REVIEW');
   await expect(cases(page)).toContainText('เจ้าหน้าที่เข้ามาเฉพาะกรณีผิดปกติ');
+  await expect(cases(page).getByTestId('view-note')).toHaveText('ร้านตัวอย่างจากข้อมูลตั้งต้น — แสดงผลประเมิน "ข้อมูลยังไม่เพียงพอ" ไม่ใช่ผลการตรวจคำขอลงทะเบียน');
   // ผลลัพธ์โดยตรงพับไว้ → เปิดแล้วเห็น 3 รายการ
   await expect(results(page)).not.toHaveAttribute('open', '');
   await expect(results(page).getByTestId('result-view').first()).toBeHidden();
@@ -212,7 +213,7 @@ test('ผลลัพธ์โดยตรง: Badge · Trust Assessment · Cons
   expect(await sessionRole(page)).toBe('merchant');
   // AUTO_REQUEST_INFO → ร้านตัวอย่าง M-002 แสดงสถานะแทน Badge
   await open(page, '/demo');
-  await cases(page).getByRole('button', { name: 'ดูร้านตัวอย่าง: ข้อมูลยังไม่พอ — ร้านเพิ่มข้อมูลเอง' }).click();
+  await cases(page).getByRole('button', { name: 'ดูร้านที่ข้อมูลยังไม่เพียงพอ: ข้อมูลยังไม่พอ — ร้านเพิ่มข้อมูลเอง' }).click();
   await expect(page).toHaveURL(/\/shop\/M-002$/);
   await expect(page.locator('main').getByTestId('public-badge')).toHaveAttribute('data-status', 'insufficient');
   // MANUAL_REVIEW → Exception Queue ในมุมเจ้าหน้าที่

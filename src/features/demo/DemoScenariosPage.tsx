@@ -94,7 +94,7 @@ export const MAIN_HIGHLIGHTS: { icon: LucideIcon; title: string; desc: string; f
 export type DirectView = 'assessment' | 'badge' | 'consumer' | 'request_info' | 'exceptions';
 
 /** B. Demo เฉพาะกรณี — ใช้ Scenario เดิม + มุมมองโดยตรง */
-export const SPECIAL_CASES: { key: string; icon: LucideIcon; route: string; title: string; desc: string; example: string; scenario: string; view: DirectView; viewLabel: string }[] = [
+export const SPECIAL_CASES: { key: string; icon: LucideIcon; route: string; title: string; desc: string; example: string; scenario: string; view: DirectView; viewLabel: string; viewNote?: string }[] = [
   {
     key: 'request-info',
     icon: FileWarning,
@@ -104,7 +104,8 @@ export const SPECIAL_CASES: { key: string; icon: LucideIcon; route: string; titl
     example: 'ตัวอย่างจาก Scenario 9B: ร้านที่ไม่มี Marketplace ลงทะเบียนด้วยตนเอง ผ่านการลงทะเบียน แต่ข้อมูลการขายยังไม่พอแสดง Badge',
     scenario: 's9b',
     view: 'request_info',
-    viewLabel: 'ดูร้านตัวอย่าง',
+    viewLabel: 'ดูร้านที่ข้อมูลยังไม่เพียงพอ',
+    viewNote: 'ร้านตัวอย่างจากข้อมูลตั้งต้น — แสดงผลประเมิน "ข้อมูลยังไม่เพียงพอ" ไม่ใช่ผลการตรวจคำขอลงทะเบียน',
   },
   {
     key: 'manual-review',
@@ -299,6 +300,7 @@ export default function DemoScenariosPage() {
                       {c.viewLabel}
                     </Button>
                   </div>
+                  {target && c.viewNote && <p className="mt-2 text-xs text-ink-soft" data-testid="view-note">{c.viewNote}</p>}
                   {!target && <p className="mt-2 text-xs text-ink-soft">ไม่พบร้านตัวอย่างในข้อมูลปัจจุบัน — Reset Demo Data ได้ในส่วน "ดู Scenario ทั้งหมด"</p>}
                 </article>
               );
