@@ -121,8 +121,17 @@ export function fixtureV2Connected(): DemoCtx {
 /** ร้านส่งผลประเมินให้เจ้าหน้าที่พิจารณาแล้ว (Scenario 12 แบบเดี่ยว) */
 export function fixtureV2Submitted(): DemoCtx {
   const ctx = fixtureV2Connected();
-  const a = runAssessment(V2_MERCHANT)!;
-  submitAssessment(a.id);
+  // ร้านเป็นผู้ประเมินและส่งผล — สลับเป็นบทบาทผู้ประกอบการชั่วคราว (Action ตรวจสิทธิ์ด้วย authorize)
+  const session = useSessionStore.getState();
+  const keep = { role: session.role, operatorId: session.operatorId };
+  session.set({ role: 'merchant', operatorId: V2_OPERATOR });
+  let a: ReturnType<typeof runAssessment>;
+  try {
+    a = runAssessment(V2_MERCHANT)!;
+    submitAssessment(a.id);
+  } finally {
+    session.set(keep);
+  }
   return { ...ctx, assessmentId: a.id, applicationId: assessment(a.id)?.applicationId };
 }
 
@@ -134,9 +143,12 @@ export function fixtureV2Decided(): DemoCtx {
   const session = useSessionStore.getState();
   const keep = { role: session.role, officerId: session.officerId };
   session.set({ role: 'officer', officerId: 'OF-001' });
-  if (rec.kind === 'consider_l3' || rec.kind === 'consider_l4') decideAssessment(a.id, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ (ข้อมูลตัวอย่างสำหรับการสาธิต)', rec.level);
-  else decideAssessment(a.id, 'need_info', 'ขอข้อมูลเพิ่มเติมก่อนพิจารณา (ข้อมูลตัวอย่างสำหรับการสาธิต)');
-  session.set(keep);
+  try {
+    if (rec.kind === 'consider_l3' || rec.kind === 'consider_l4') decideAssessment(a.id, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ (ข้อมูลตัวอย่างสำหรับการสาธิต)', rec.level);
+    else decideAssessment(a.id, 'need_info', 'ขอข้อมูลเพิ่มเติมก่อนพิจารณา (ข้อมูลตัวอย่างสำหรับการสาธิต)');
+  } finally {
+    session.set(keep);
+  }
   return { ...ctx, certId: certOf(V2_MERCHANT)?.id };
 }
 

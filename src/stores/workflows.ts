@@ -2,6 +2,7 @@
  * Workflow ข้าม Domain — ทุก Action ที่เปลี่ยนสถานะหลายส่วนพร้อมกันอยู่ที่นี่
  * เพื่อให้ Merchant / Consumer / Officer / Admin เห็นข้อมูลชุดเดียวกันเสมอ
  */
+import { authorize, requireOwnAccount, requireOwnShop } from '@/auth/authorize';
 import { emitMerchantChanged } from './events';
 import type {
   AppNotification,
@@ -116,7 +117,8 @@ export function clearAiHistory() {
 }
 
 // ---------- Onboarding ----------
-export function registerOperator(input: { name: string; phone: string; email: string; province: string; pin: string }): Operator {
+/** สมัครบัญชีผู้ประกอบการ — kycOk: ผล e-KYC จำลองที่ทำระหว่างสมัคร (บันทึกพร้อมการสร้างบัญชี ไม่ต้องเรียก setKycResult แยก) */
+export function registerOperator(input: { name: string; phone: string; email: string; province: string; pin: string; kycOk?: boolean }): Operator {
   const op: Operator = {
     id: nextRef('OP', useOperatorStore.getState().items.map((o) => o.id), 3).replace(/-\d{4}-/, '-'),
     mockIdentityId: mockIdentityId(),
@@ -131,10 +133,18 @@ export function registerOperator(input: { name: string; phone: string; email: st
   useOperatorStore.getState().add(op);
   audit('ลงทะเบียนผู้ใช้ใหม่', op.id, op.name, true);
   notify('merchant', op.id, 'ยินดีต้อนรับสู่ SME Trust', 'เริ่มต้นลงทะเบียนร้านค้าเพื่อรับสถานะตรวจสอบได้ทุกเมื่อ', '/m/register-shop', 'success');
+  if (input.kycOk) applyKycResult(op.id, true);
   return op;
 }
 
 export function setKycResult(operatorId: string, ok: boolean) {
+  // ผู้ประกอบการที่เข้าสู่ระบบแล้วยืนยันตัวตนได้เฉพาะบัญชีตนเอง (การสมัครก่อนเข้าสู่ระบบไม่มีบัญชีให้ตรวจ — KI-V2-34)
+  requireOwnAccount('merchant.kyc', operatorId);
+  applyKycResult(operatorId, ok);
+}
+
+/** ภายใน Workflow: บันทึกผล e-KYC (เรียกจาก setKycResult และ registerOperator) */
+function applyKycResult(operatorId: string, ok: boolean) {
   useOperatorStore.getState().update(operatorId, { kycStatus: ok ? 'verified' : 'failed', kycVerifiedAt: ok ? nowISO() : undefined });
   audit(ok ? 'ยืนยันตัวตนจำลองสำเร็จ' : 'ยืนยันตัวตนจำลองไม่สำเร็จ', operatorId, undefined, true);
   if (ok) notify('merchant', operatorId, 'ยืนยันตัวตนสำเร็จ', 'คุณได้รับสถานะ Level 1 — Identity Verified (ไม่ใช่การรับรองคุณภาพสินค้า)', '/m', 'success');
@@ -165,11 +175,16 @@ export interface ShopForm {
 }
 
 export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { draftId?: string } = {}): { merchant: Merchant; app: VerificationApplication; duplicate?: boolean } {
+  authorize('shop.register');
+  requireOwnAccount('shop.register', operatorId);
   // ส่งซ้ำจากฉบับร่างเดิม (กดซ้ำ / Refresh / Back) → คืนคำขอเดิม ไม่สร้างร้านหรือคำขอซ้ำ
   if (opts.draftId) {
     const prev = useVerificationStore.getState().items.find((a) => a.sourceDraftId === opts.draftId);
     const prevMerchant = prev && ms().items.find((m) => m.id === prev.merchantId);
-    if (prev && prevMerchant) return { merchant: prevMerchant, app: prev, duplicate: true };
+    if (prev && prevMerchant) {
+      requireOwnShop('shop.register', prevMerchant.id); // ฉบับร่างของบัญชีอื่น → ไม่คืนข้อมูลของร้านอื่น
+      return { merchant: prevMerchant, app: prev, duplicate: true };
+    }
   }
   const merchants = ms().items;
   const id = `M-${String(Math.max(...merchants.map((m) => Number(m.id.slice(2)))) + 1).padStart(3, '0')}`;
@@ -247,7 +262,9 @@ export function submitShopRegistration(operatorId: string, f: ShopForm, opts: { 
 }
 
 export function resubmitApplication(appId: string, note: string, docs: MockDocument[]) {
+  authorize('merchant.home');
   const app = useVerificationStore.getState().items.find((a) => a.id === appId);
+  requireOwnShop('merchant.home', app?.merchantId);
   if (!app) return;
   useVerificationStore.getState().update(appId, (a) => ({
     status: 'submitted',
@@ -263,12 +280,15 @@ export function resubmitApplication(appId: string, note: string, docs: MockDocum
 }
 
 export function addChannel(merchantId: string, type: SalesChannel['type'], handle: string) {
+  authorize('merchant.home');
+  requireOwnShop('merchant.home', merchantId);
   ms().update(merchantId, (m) => ({ channels: [...m.channels, { id: uid('CH'), type, handle, status: 'pending' }] }));
   audit('เพิ่มช่องทางขาย', merchantId, handle);
   notify('officer', undefined, 'ช่องทางขายรอตรวจสอบ', `${merchantOf(merchantId)?.shopName}: ${handle}`, '/o/verification');
 }
 
 export function setChannelStatus(merchantId: string, channelId: string, status: ChannelStatus, note?: string) {
+  authorize('channel.verify');
   ms().update(merchantId, (m) => ({
     channels: m.channels.map((c) => (c.id === channelId ? { ...c, status, note, verifiedAt: status === 'verified' ? nowISO() : c.verifiedAt } : c)),
   }));
@@ -288,6 +308,7 @@ function setApp(appId: string, patch: Partial<VerificationApplication>, title: s
 }
 
 export function startReview(appId: string) {
+  authorize('application.review');
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'under_verification' }, 'เริ่มตรวจสอบข้อมูล');
   if (app.type === 'registration') ms().update(app.merchantId, { registrationStatus: 'under_verification' });
@@ -296,10 +317,12 @@ export function startReview(appId: string) {
 }
 
 export function setCheck(appId: string, checkId: string, result: 'pass' | 'fail' | 'pending') {
+  authorize('application.review');
   useVerificationStore.getState().update(appId, (a) => ({ checks: a.checks.map((c) => (c.id === checkId ? { ...c, result } : c)) }));
 }
 
 export function requestInfo(appId: string, message: string) {
+  authorize('application.review');
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'need_info', infoRequest: message }, 'ขอข้อมูล/เอกสารเพิ่มเติม', message);
   if (app.type === 'registration') ms().update(app.merchantId, { registrationStatus: 'need_info' });
@@ -324,6 +347,7 @@ export function approvalBlocker(appId: string): string | undefined {
 }
 
 export function approveApplication(appId: string, note?: string): WorkflowResult {
+  authorize('application.review');
   const blocker = approvalBlocker(appId);
   if (blocker) return { ok: false, error: blocker };
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
@@ -345,6 +369,7 @@ export function approveApplication(appId: string, note?: string): WorkflowResult
 }
 
 export function rejectApplication(appId: string, reason: string) {
+  authorize('application.review');
   const app = useVerificationStore.getState().items.find((a) => a.id === appId)!;
   setApp(appId, { status: 'rejected', rejectReason: reason }, 'ไม่อนุมัติคำขอ', reason);
   if (app.type === 'registration') ms().update(app.merchantId, { registrationStatus: 'rejected' });
@@ -369,7 +394,18 @@ function issueCertificate(merchantId: string, level: TrustLevel) {
   return cert;
 }
 
+/** ร้านยื่นขอรับรอง/ต่ออายุเอง — ต้องเป็นผู้ประกอบการ */
 export function applyCertification(merchantId: string, level: TrustLevel, renewal = false) {
+  authorize('certification.own');
+  requireOwnShop('certification.own', merchantId);
+  return fileCertificationApplication(merchantId, level, renewal);
+}
+
+/**
+ * สร้างคำขอรับรองภายใน Workflow (ไม่ตรวจสิทธิ์ซ้ำ) — เรียกจากฟังก์ชันที่ตรวจสิทธิ์แล้วเท่านั้น
+ * เช่น submitAssessment (ร้าน) และ decideAssessment (เจ้าหน้าที่) — ห้ามเรียกจากหน้าจอโดยตรง
+ */
+export function fileCertificationApplication(merchantId: string, level: TrustLevel, renewal = false) {
   const app: VerificationApplication = {
     id: nextRef('APP', useVerificationStore.getState().items.map((a) => a.id)),
     merchantId,
@@ -407,6 +443,7 @@ export function certStatusBlocker(certId: string, status: CertStatus): string | 
 }
 
 export function setCertStatus(certId: string, status: CertStatus, reason: string): WorkflowResult {
+  authorize('certification.manage');
   const blocker = certStatusBlocker(certId, status);
   if (blocker) return { ok: false, error: blocker };
   const cert = useCertificationStore.getState().items.find((c) => c.id === certId)!;
@@ -421,6 +458,7 @@ export function setCertStatus(certId: string, status: CertStatus, reason: string
 }
 
 export function renewCertificate(certId: string) {
+  authorize('certification.manage');
   const exp = new Date();
   exp.setFullYear(exp.getFullYear() + 1);
   const cert = useCertificationStore.getState().items.find((c) => c.id === certId)!;
@@ -431,6 +469,7 @@ export function renewCertificate(certId: string) {
 }
 
 export function expireCertificate(certId: string) {
+  authorize('certification.manage');
   const cert = useCertificationStore.getState().items.find((c) => c.id === certId)!;
   useCertificationStore.getState().update(certId, (c) => ({ status: 'expired', expiresAt: nowISO(), history: [...c.history, ev('จำลองใบรับรองหมดอายุ', undefined, 'system')] }));
   audit('จำลองใบรับรองหมดอายุ', certId);
@@ -454,6 +493,7 @@ export interface ComplaintForm {
 }
 
 export function submitComplaint(f: ComplaintForm): Complaint {
+  authorize('complaint.submit');
   const store = useComplaintStore.getState();
   const screening = screenComplaint({ ...f, evidenceCount: f.evidence.length }, store.items);
   const id = nextRef('CMP', store.items.map((c) => c.id));
@@ -521,7 +561,9 @@ export function negotiationStatus(x: Complaint): ComplaintStatus {
 }
 
 export function merchantRespond(caseId: string, offer: { type: ResolutionOffer['type']; amount?: number; note: string; attachment?: MockDocument }) {
+  authorize('complaint.merchant');
   const c = useComplaintStore.getState().items.find((x) => x.id === caseId)!;
+  requireOwnShop('complaint.merchant', c?.merchantId);
   if (c.status === 'resolved' || c.status === 'closed') return;
   const isOffer = ['refund', 'replace', 'reship'].includes(offer.type);
   const newOffer: ResolutionOffer = { id: uid('offer'), type: offer.type, amount: offer.amount, note: offer.note, status: 'pending', createdAt: nowISO() };
@@ -545,6 +587,7 @@ export function merchantRespond(caseId: string, offer: { type: ResolutionOffer['
 }
 
 export function consumerMessage(caseId: string, text: string) {
+  authorize('complaint.consumer.act');
   const c = useComplaintStore.getState().items.find((x) => x.id === caseId)!;
   updComplaint(caseId, (x) => ({
     status: x.status === 'merchant_responded' && !x.offers.some((o) => o.status === 'pending' || o.status === 'accepted') ? 'awaiting_merchant' : x.status,
@@ -555,6 +598,7 @@ export function consumerMessage(caseId: string, text: string) {
 }
 
 export function consumerReplyOffer(caseId: string, offerId: string, reply: Exclude<OfferStatus, 'pending'>, note: string) {
+  authorize('complaint.consumer.act');
   const c = useComplaintStore.getState().items.find((x) => x.id === caseId)!;
   const titles = { accepted: 'ผู้บริโภคยอมรับข้อเสนอ', rejected: 'ผู้บริโภคปฏิเสธข้อเสนอ', negotiate: 'ผู้บริโภคขอเจรจาเพิ่มเติม' };
   if (!c.offers.some((o) => o.id === offerId && o.status === 'pending')) return;
@@ -577,6 +621,7 @@ export function canConfirmResolved(c: Complaint): boolean {
 }
 
 export function consumerConfirmResolved(caseId: string) {
+  authorize('complaint.consumer.act');
   const c = useComplaintStore.getState().items.find((x) => x.id === caseId)!;
   if (!canConfirmResolved(c)) return;
   updComplaint(caseId, (x) => ({
@@ -589,6 +634,8 @@ export function consumerConfirmResolved(caseId: string) {
 }
 
 export function escalateComplaint(caseId: string, reason: string, by: 'consumer' | 'system' | 'officer' = 'consumer') {
+  if (by === 'consumer') authorize('complaint.consumer.act');
+  else if (by === 'officer') authorize('complaint.manage');
   const c = useComplaintStore.getState().items.find((x) => x.id === caseId)!;
   updComplaint(caseId, (x) => ({
     status: 'escalated',
@@ -602,6 +649,7 @@ export function escalateComplaint(caseId: string, reason: string, by: 'consumer'
 }
 
 export function officerClassify(caseId: string, category: ComplaintCategory, priority: Priority, note: string) {
+  authorize('complaint.manage');
   updComplaint(caseId, (x) => ({
     officerCategory: category,
     officerPriority: priority,
@@ -612,6 +660,7 @@ export function officerClassify(caseId: string, category: ComplaintCategory, pri
 }
 
 export function officerRemand(caseId: string, note: string) {
+  authorize('complaint.manage');
   const c = useComplaintStore.getState().items.find((x) => x.id === caseId)!;
   updComplaint(caseId, (x) => ({ status: 'awaiting_merchant', timeline: [...x.timeline, ev('เจ้าหน้าที่ส่งกลับให้ร้านค้าแก้ไขเบื้องต้น', note)] }));
   notifyMerchant(c.merchantId, 'เจ้าหน้าที่ขอให้ร้านค้าดำเนินการ', `${caseId}: ${note}`, `/m/complaints/${caseId}`, 'warning');
@@ -619,6 +668,7 @@ export function officerRemand(caseId: string, note: string) {
 }
 
 export function officerClose(caseId: string, note: string) {
+  authorize('complaint.manage');
   const c = useComplaintStore.getState().items.find((x) => x.id === caseId)!;
   updComplaint(caseId, (x) => ({ status: 'closed', resolvedAt: nowISO(), officerNote: note, timeline: [...x.timeline, ev('เจ้าหน้าที่ปิดเรื่อง', note)] }));
   notify('consumer', c.consumerId, 'เจ้าหน้าที่ปิดเรื่องแล้ว', `${caseId}: ${note}`, `/consumer/cases/${caseId}`);
@@ -640,6 +690,7 @@ function recomputeRisk(merchantId: string) {
 }
 
 export function issueWarning(input: { merchantId: string; kind: WarningKind; title: string; issue: string; guidance: string; items: string[]; courseIds: string[]; dueDate: string; relatedComplaintIds: string[] }) {
+  authorize('warning.issue');
   const store = useWarningStore.getState();
   const w: WarningRecord = {
     id: nextRef('WRN', store.items.map((x) => x.id)),
@@ -671,7 +722,11 @@ function updWarning(id: string, patch: (w: WarningRecord) => Partial<WarningReco
   useWarningStore.getState().update(id, (w) => ({ updatedAt: nowISO(), ...patch(w) }));
 }
 
+const warningShop = (id: string) => useWarningStore.getState().items.find((w) => w.id === id)?.merchantId;
+
 export function acknowledgeWarning(id: string) {
+  authorize('warning.merchant');
+  requireOwnShop('warning.merchant', warningShop(id));
   updWarning(id, (w) => ({
     status: w.items.length ? 'correction_required' : 'acknowledged',
     timeline: [...w.timeline, ev('ร้านค้ารับทราบ', undefined, 'merchant'), ...(w.items.length ? [ev('กำหนดรายการที่ต้องแก้ไข', `${w.items.length} รายการ`, 'system')] : [])],
@@ -681,10 +736,14 @@ export function acknowledgeWarning(id: string) {
 }
 
 export function toggleWarningItem(id: string, itemId: string) {
+  authorize('warning.merchant');
+  requireOwnShop('warning.merchant', warningShop(id));
   updWarning(id, (w) => ({ items: w.items.map((i) => (i.id === itemId ? { ...i, done: !i.done } : i)) }));
 }
 
 export function submitCorrection(id: string, note: string, docs: MockDocument[]) {
+  authorize('warning.merchant');
+  requireOwnShop('warning.merchant', warningShop(id));
   updWarning(id, (w) => ({
     status: 'correction_submitted',
     merchantNote: note,
@@ -696,6 +755,7 @@ export function submitCorrection(id: string, note: string, docs: MockDocument[])
 }
 
 export function reviewCorrection(id: string, action: 'start' | 'approve' | 'return' | 'close', note = '') {
+  authorize('warning.issue');
   const w = useWarningStore.getState().items.find((x) => x.id === id)!;
   const map = {
     start: { status: 'under_review' as const, title: 'เริ่มตรวจผลการแก้ไข' },
@@ -711,6 +771,7 @@ export function reviewCorrection(id: string, action: 'start' | 'approve' | 'retu
 
 // ---------- Risk, suspension & appeal ----------
 export function openRiskCase(merchantId: string, reason: string, complaintIds: string[]) {
+  authorize('risk.manage');
   const store = useRiskStore.getState();
   const r: RiskCase = {
     id: nextRef('RSK', store.items.map((x) => x.id)),
@@ -731,6 +792,7 @@ export function openRiskCase(merchantId: string, reason: string, complaintIds: s
 }
 
 export function riskAction(caseId: string, status: RiskCaseStatus, note: string) {
+  authorize('risk.manage');
   const r = useRiskStore.getState().items.find((x) => x.id === caseId)!;
   const titles: Record<RiskCaseStatus, string> = {
     allegation: 'บันทึกข้อกล่าวหา',
@@ -757,13 +819,19 @@ export function riskAction(caseId: string, status: RiskCaseStatus, note: string)
   emitMerchantChanged(r.merchantId, 'measure_change');
 }
 
+const riskShop = (id: string) => useRiskStore.getState().items.find((r) => r.id === id)?.merchantId;
+
 export function merchantStatement(caseId: string, text: string) {
+  authorize('risk.merchant');
+  requireOwnShop('risk.merchant', riskShop(caseId));
   useRiskStore.getState().update(caseId, (x) => ({ merchantStatement: text, updatedAt: nowISO(), timeline: [...x.timeline, ev('ร้านค้าส่งคำชี้แจง', text, 'merchant')] }));
   audit('ร้านค้าส่งคำชี้แจง', caseId);
   notify('officer', undefined, 'ร้านค้าส่งคำชี้แจง', caseId, `/o/risk/${caseId}`);
 }
 
 export function submitAppeal(caseId: string, text: string) {
+  authorize('risk.merchant');
+  requireOwnShop('risk.merchant', riskShop(caseId));
   const r = useRiskStore.getState().items.find((x) => x.id === caseId)!;
   useRiskStore.getState().update(caseId, (x) => ({
     status: 'appeal_submitted',
@@ -777,6 +845,7 @@ export function submitAppeal(caseId: string, text: string) {
 }
 
 export function reviewAppeal(caseId: string, result: 'upheld' | 'overturned', note: string) {
+  authorize('risk.manage');
   const r = useRiskStore.getState().items.find((x) => x.id === caseId)!;
   useRiskStore.getState().update(caseId, (x) => ({
     status: 'appeal_reviewed',
@@ -796,18 +865,24 @@ export function reviewAppeal(caseId: string, result: 'upheld' | 'overturned', no
 
 // ---------- Training ----------
 export function startCourse(operatorId: string, courseId: string) {
+  authorize('merchant.tools');
+  requireOwnAccount('merchant.tools', operatorId);
   const store = useTrainingStore.getState();
   if (store.items.some((e) => e.operatorId === operatorId && e.courseId === courseId)) return;
   store.add({ id: uid('ENR'), operatorId, courseId, completedLessonIds: [], attempts: 0, passed: false, startedAt: nowISO() });
 }
 
 export function completeLesson(operatorId: string, courseId: string, lessonId: string) {
+  authorize('merchant.tools');
+  requireOwnAccount('merchant.tools', operatorId);
   const e = useTrainingStore.getState().items.find((x) => x.operatorId === operatorId && x.courseId === courseId);
   if (!e || e.completedLessonIds.includes(lessonId)) return;
   useTrainingStore.getState().update(e.id, { completedLessonIds: [...e.completedLessonIds, lessonId] });
 }
 
 export function submitQuiz(operatorId: string, courseId: string, answers: number[]) {
+  authorize('merchant.tools');
+  requireOwnAccount('merchant.tools', operatorId);
   const course = courses.find((c) => c.id === courseId)!;
   const correct = course.quiz.filter((q, i) => answers[i] === q.answer).length;
   const score = Math.round((correct / course.quiz.length) * 100);

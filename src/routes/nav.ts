@@ -1,4 +1,4 @@
-import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal, FilePen, Bot, Smartphone } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal, FilePen, Bot, Smartphone, KeyRound } from 'lucide-react';
 import type { Role } from '@/types';
 
 export interface NavItem {
@@ -70,6 +70,7 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
       { to: '/admin/audit', label: 'Audit Log', icon: ScrollText, mobile: true },
       { to: '/admin/data', label: 'ข้อมูลสาธิต', icon: Database },
       { to: '/admin/assessment-model', label: 'โมเดลการประเมิน', icon: SlidersHorizontal },
+      { to: '/admin/permissions', label: 'Role & Permission', icon: KeyRound },
     ],
     extra: {
       title: 'งานเจ้าหน้าที่',

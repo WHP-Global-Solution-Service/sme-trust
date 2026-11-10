@@ -2,7 +2,7 @@
  * Demo v2 (P6) — ขับ Demo Controller จริงทีละขั้นแบบเดียวกับ UI: Full Journey v2 (Scenario 9–13), เส้นทางทางเลือก 9B,
  * Scenario แบบเดี่ยว และการแจ้งเมื่อข้อมูลจากขั้นก่อนหน้าไม่ครบ — Business Action ทำผ่าน Workflow เดิมเท่านั้น
  */
-import { S, W, view, describe, check, finish } from '../harness.mts';
+import { S, W, view, describe, check, finish, actAs, asOwner } from '../harness.mts';
 import { integrityProblems } from '../integrity.mts';
 
 const { scenarios, v2Scenarios, journeyScenarios, findScenario, scenarioCode } = await import('@/mock/scenarios');
@@ -77,7 +77,7 @@ assertStep();
 go();
 assertStep('เลือกแพลตฟอร์ม');
 assertBlocked();
-const conn = V.connectMarketplace('M-005', 'lazada');
+const conn = asOwner('M-005', () => V.connectMarketplace('M-005', 'lazada'));
 check(conn.status === 'pending_consent' && !conn.consentAt, '  กดเชื่อมต่อ → สร้างคำขอความยินยอม ยังไม่ดึงข้อมูล');
 go();
 assertStep('ยินยอม');
@@ -91,13 +91,13 @@ go();
 assertStep('Preview');
 assertBlocked();
 check(S.useMarketplaceStore.getState().items.find((c) => c.id === conn.id)!.status === 'pending_consent', '  Preview และปุ่มถัดไปไม่เปลี่ยนสถานะการเชื่อมต่อแทนผู้ใช้');
-V.grantConsent(conn.id, 'established_good');
+asOwner(conn.id, () => V.grantConsent(conn.id, 'established_good'));
 go();
 assertStep('รอซิงก์');
 assertBlocked();
 V.completeSync(conn.id, false);
 assertBlocked();
-V.resyncMarketplace(conn.id);
+asOwner(conn.id, () => V.resyncMarketplace(conn.id));
 V.completeSync(conn.id, true);
 go();
 check(demo().current.connectionId === conn.id, `  บันทึก Connection ID ${conn.id}`);
@@ -119,13 +119,13 @@ go();
 assertStep('ยืนยัน');
 assertBlocked();
 const before9 = { merchants: S.useMerchantStore.getState().items.length, apps: S.useVerificationStore.getState().items.length, certs: JSON.stringify(S.useCertificationStore.getState().items.filter((c) => c.merchantId === 'M-005')) };
-const up = V.confirmProfileUpdate(conn.id, edited9, 'DRF-TEST-S9');
+const up = asOwner(conn.id, () => V.confirmProfileUpdate(conn.id, edited9, 'DRF-TEST-S9'));
 check(up.ok && up.record?.mode === 'profile_update' && up.record.applied.join() === 'description' && up.record.pending.length === 0, '  ยืนยันอัปเดต: บันทึกเฉพาะคำอธิบายที่แก้ (ชื่อร้าน/หมวดตรงกับต้นฉบับ)');
 check(
   S.useMerchantStore.getState().items.length === before9.merchants && S.useVerificationStore.getState().items.length === before9.apps && JSON.stringify(S.useCertificationStore.getState().items.filter((c) => c.merchantId === 'M-005')) === before9.certs,
   '  ไม่สร้างร้านหรือคำขอใหม่ และใบรับรอง Level 3 เดิมไม่เปลี่ยน',
 );
-check(V.confirmProfileUpdate(conn.id, edited9, 'DRF-TEST-S9').duplicate === true && S.useImportRecordStore.getState().items.filter((r) => r.merchantId === 'M-005').length === 1, '  กดยืนยันซ้ำ → บันทึกเดิม ไม่สร้างซ้ำ');
+check(asOwner(conn.id, () => V.confirmProfileUpdate(conn.id, edited9, 'DRF-TEST-S9')).duplicate === true && S.useImportRecordStore.getState().items.filter((r) => r.merchantId === 'M-005').length === 1, '  กดยืนยันซ้ำ → บันทึกเดิม ไม่สร้างซ้ำ');
 const rawOf = (x: ReturnType<typeof V.sourceOfConnection>) => JSON.stringify({ ...x, importedAt: '' });
 const src9After = V.sourceOfConnection(S.useMarketplaceStore.getState().items.find((c) => c.id === conn.id)!, S.useMerchantStore.getState().items.find((m) => m.id === 'M-005')!);
 check(rawOf(src9After) === rawOf(src9) && src9After.rating === src9.rating && src9After.reviewCount === src9.reviewCount && src9After.salesVolume === src9.salesVolume, '  ข้อมูลต้นฉบับจาก Marketplace (คะแนน รีวิว ยอดขาย ราคา) ไม่เปลี่ยนหลังแก้โปรไฟล์');
@@ -165,7 +165,7 @@ describe('Full Journey v2 — Scenario 11: ประเมินความน�
 C.continueToNext('s10', nav);
 assertStep();
 assertBlocked();
-const tas = V.runAssessment('M-005')!;
+const tas = asOwner('M-005', () => V.runAssessment('M-005'))!;
 go();
 check(demo().current.assessmentId === tas.id, `  บันทึก Assessment ID ${tas.id}`);
 page = assertStep('5 มิติ');
@@ -175,7 +175,7 @@ for (let k = 0; k < 4; k++) go();
 check(assertStep('ข้อมูลที่ควรเพิ่มเติม').includes('ข้อมูลที่ควรเพิ่มเติม'), '  มีรายการข้อมูลที่ควรเพิ่มเติม');
 go();
 assertBlocked();
-check(V.submitAssessment(tas.id).ok, '  ร้านกดส่งให้เจ้าหน้าที่พิจารณา');
+check(asOwner(tas.id, () => V.submitAssessment(tas.id)).ok, '  ร้านกดส่งให้เจ้าหน้าที่พิจารณา');
 const linkedApp = S.useAssessmentStore.getState().items.find((a) => a.id === tas.id)!.applicationId!;
 const appRec = S.useVerificationStore.getState().items.find((a) => a.id === linkedApp)!;
 check(!!appRec && appRec.type === 'certification' && appRec.merchantId === 'M-005' && appRec.status === 'submitted', `  ผูกกับคำขอรับรอง ${linkedApp} ผ่าน กระบวนการรับรอง (ยังไม่อนุมัติ)`);
@@ -204,8 +204,8 @@ check(page.includes('เกณฑ์การรับรอง ของ Level 
 go();
 assertBlocked();
 asOfficer();
-check(!V.decideAssessment(tas.id, 'approved', 'ok', 4).ok, '  ต้องระบุเหตุผล (≥ 5 ตัวอักษร)');
-check(V.decideAssessment(tas.id, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ', 4).ok, '  เจ้าหน้าที่อนุมัติ Level 4');
+check(!actAs(['officer', 'admin'], () => V.decideAssessment(tas.id, 'approved', 'ok', 4)).ok, '  ต้องระบุเหตุผล (≥ 5 ตัวอักษร)');
+check(actAs(['officer', 'admin'], () => V.decideAssessment(tas.id, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ', 4)).ok, '  เจ้าหน้าที่อนุมัติ Level 4');
 const approved = S.useVerificationStore.getState().items.find((a) => a.id === linkedApp)!;
 const newCert = S.useCertificationStore.getState().items.find((c) => c.merchantId === 'M-005' && c.status === 'active')!;
 check(approved.status === 'approved' && newCert.level === 4, `  คำขอเดิม ${linkedApp} อนุมัติ → ใบรับรอง ${newCert.id} Level 4 (Certification กระบวนการรับรอง)`);
@@ -265,30 +265,30 @@ reportDemo('shop.step', 5);
 go();
 assertBlocked();
 const op12 = S.useOperatorStore.getState().items.find((o) => o.id === 'OP-012')!;
-const { merchant: selfShop, app: selfApp } = W.submitShopRegistration('OP-012', {
+const { merchant: selfShop, app: selfApp } = asOwner('OP-012', () => W.submitShopRegistration('OP-012', {
   businessType: 'individual', ownerName: op12.name, shopName: 'ร้านผ้าทอริมทาง', category: 'แฟชั่นและเครื่องแต่งกาย', province: 'น่าน', district: 'เมือง', phone: op12.phone, email: op12.email,
   description: 'ขายผ่าน Facebook และหน้าร้านในตลาดชุมชน ไม่มีร้านบน Marketplace', channels: [{ type: 'facebook', handle: 'pha.tor.demo' }],
   documents: [{ id: 'd-b', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 1, addedAt: new Date().toISOString() }],
-});
+}));
 go();
 check(demo().current.merchantId === selfShop.id && demo().current.applicationId === selfApp.id, `  บันทึก Merchant ${selfShop.id} และคำขอ ${selfApp.id}`);
 assertStep('Assessment');
 assertBlocked();
-const selfTas = V.runAssessment(selfShop.id)!;
+const selfTas = asOwner(selfShop.id, () => V.runAssessment(selfShop.id))!;
 const r = selfTas.result;
 check(r.band === 'insufficient' && r.recommendation.kind === 'need_more_data', '  ผลประเมิน = Insufficient Data → ควรขอข้อมูลเพิ่ม');
 check(r.components.filter((c) => ['C2', 'C3', 'C4'].includes(c.id)).every((c) => !c.available && c.contribution === 0) && r.components.find((c) => c.id === 'C1')!.available, '  มิติ Marketplace ไม่ถูกนับ (ไม่ใช่ศูนย์) — ไม่เสียคะแนนเพราะไม่มีบัญชี');
 go();
 check(assertStep('Evidence').includes('Insufficient Data'), '  ร้านเห็น Insufficient Data');
 assertBlocked();
-check(V.submitAssessment(selfTas.id).ok, '  ร้านส่งให้เจ้าหน้าที่พิจารณาได้ (ขอหลักฐานเพิ่มเติม)');
+check(asOwner(selfTas.id, () => V.submitAssessment(selfTas.id)).ok, '  ร้านส่งให้เจ้าหน้าที่พิจารณาได้ (ขอหลักฐานเพิ่มเติม)');
 check(S.useAssessmentStore.getState().items.find((a) => a.id === selfTas.id)!.applicationId === selfApp.id, '  ผูกกับคำขอลงทะเบียนเดิม (ไม่สร้างคำขอใหม่)');
 check(go() === 'transition→moved' && session().role === 'officer', 'Role Transition → เจ้าหน้าที่');
 check(assertStep('Officer').includes('Insufficient Data'), '  เจ้าหน้าที่เห็นผล Insufficient Data ในคำขอลงทะเบียน');
 go();
 assertBlocked();
 asOfficer();
-check(V.decideAssessment(selfTas.id, 'need_info', 'กรุณาส่งภาพหน้าร้านและหลักฐานการขายย้อนหลัง 3 เดือน').ok, '  เจ้าหน้าที่ขอหลักฐานเพิ่มเติม');
+check(actAs(['officer', 'admin'], () => V.decideAssessment(selfTas.id, 'need_info', 'กรุณาส่งภาพหน้าร้านและหลักฐานการขายย้อนหลัง 3 เดือน')).ok, '  เจ้าหน้าที่ขอหลักฐานเพิ่มเติม');
 check(S.useVerificationStore.getState().items.find((a) => a.id === selfApp.id)!.status === 'need_info' && S.useMerchantStore.getState().items.find((m) => m.id === selfShop.id)!.registrationStatus === 'need_info', '  คำขอลงทะเบียนเดิมเปลี่ยนเป็น "ขอข้อมูลเพิ่ม" ผ่าน กระบวนการรับรอง');
 check(go() === 'transition→moved' && assertStep('Merchant').includes('ขอข้อมูลเพิ่มเติม'), 'ร้านค้าได้รับแจ้งให้ส่งหลักฐานเพิ่ม');
 check(go() === 'completed' && view(cur).includes('ดูสรุปผลกระทบ'), 'จบเส้นทางทางเลือก → CTA สรุป v2');
@@ -334,7 +334,7 @@ check(session().role === 'merchant', '  Fixture คืนบทบาทเด�
 
 // ================================================================ engine rule
 describe('ข้อเสนอของระบบสอดคล้องกับ Level (D3)');
-const pending = V.runAssessment('M-002')!;
+const pending = asOwner('M-002', () => V.runAssessment('M-002'))!;
 check(pending.result.recommendation.kind !== 'consider_l3' && pending.result.recommendation.kind !== 'consider_l4', 'ร้านที่ยังไม่ผ่านการลงทะเบียน (Level < 2) ไม่ได้รับข้อเสนอ "ประกอบการพิจารณา Level 3"');
 
 finish();

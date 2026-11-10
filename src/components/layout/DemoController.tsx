@@ -8,7 +8,7 @@ import { useAiWorkspaceStore } from '@/stores/aiWorkspace';
 import { useDemoStore } from '@/stores/demo';
 import { journeyScenarios, scenarioCode, stepInstruction, trackOf } from '@/mock/scenarios';
 import { ROLE_LABEL } from '@/constants/labels';
-import { activeScenario, back, gateState, next, pauseDemo, restartJourney, restartScenario, returnToStep, scenarioStatus, stepRoute } from '@/demo/controller';
+import { activeScenario, back, gateState, livePath, next, pauseDemo, restartJourney, restartScenario, returnToStep, scenarioStatus, stepRoute } from '@/demo/controller';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/ui';
 import { cn } from '@/utils/cn';
@@ -43,6 +43,11 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
   const step = sc.steps[i];
   const gate = gateState(step);
   const here = loc.pathname + loc.search;
+  // KI-V2-38: Router เปิด v7_startTransition — ระหว่างโหลดหน้าถัดไป React ยังแสดงหน้าเดิม (ยังไม่ Commit) ขณะที่ URL เปลี่ยนแล้ว
+  // ถ้ากดย้อนกลับ/ถัดไปตอนนี้ Router จะกลับไปหน้าเดิมโดยไม่เคยออกจากหน้า (แบบฟอร์มค้างสถานะ "ส่งแล้ว" ไม่เปิดใหม่)
+  // จึงรอให้หน้าปลายทาง Render เสร็จก่อน (URL จริง = ตำแหน่งที่ React แสดง) — ไม่ใช้ Timer
+  const routing = livePath(here) !== here;
+  const routeReady = () => livePath(here) === here; // ตรวจตอนกด (กดซ้ำเร็วก่อนหน้าจอ Render ใหม่)
   const onRoute = role === step.role && here === stepRoute(step);
   const isLast = i === sc.steps.length - 1;
   const pct = Math.round(((i + 1) / sc.steps.length) * 100);
@@ -65,6 +70,7 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
     : [];
 
   const doNext = (confirmed = false) => {
+    if (!routeReady()) return;
     const r = next(nav, here, confirmed);
     if (r === 'transition') {
       const to = sc.steps[i + 1];
@@ -75,6 +81,7 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
     }
   };
   const doBack = (confirmed = false) => {
+    if (!routeReady()) return;
     const r = back(nav, here, confirmed);
     if (r === 'transition') {
       const to = sc.steps[i - 1];
@@ -226,15 +233,16 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
   const footer = (
     <div className="border-t border-line p-3">
       <div className="flex gap-2">
-        <button data-demo="back" onClick={() => doBack()} disabled={i === 0} className="flex h-11 items-center gap-1 rounded-xl border border-line px-3 text-sm font-medium text-ink hover:bg-bg disabled:opacity-40" aria-label="ย้อนกลับ">
+        <button data-demo="back" onClick={() => doBack()} disabled={i === 0 || routing} aria-busy={routing} className="flex h-11 items-center gap-1 rounded-xl border border-line px-3 text-sm font-medium text-ink hover:bg-bg disabled:opacity-40" aria-label="ย้อนกลับ">
           <ChevronLeft className="h-4 w-4" />
           ย้อนกลับ
         </button>
         <button
           data-demo="next"
           onClick={() => doNext()}
-          disabled={!gate.ok}
-          title={gate.hint}
+          disabled={!gate.ok || routing}
+          aria-busy={routing}
+          title={routing ? 'กำลังเปิดหน้า…' : gate.hint}
           className={cn('flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl px-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50', isLast ? 'bg-success hover:bg-success/90' : 'bg-primary hover:bg-primary-dark')}
         >
           <span className="truncate">{nextLabel}</span>
@@ -280,7 +288,7 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
       {/* Mobile/Tablet: แถบล่างแบบย่อ + แผ่นรายละเอียด */}
       <div data-demo="bar" className={cn('fixed inset-x-0 z-30 border-t border-line bg-white shadow-pop lg:hidden', aboveBottomNav ? 'bottom-16' : 'bottom-0')}>
         <div className="flex items-center gap-2 px-3 py-2">
-          <button data-demo="back" onClick={() => doBack()} disabled={i === 0} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line disabled:opacity-40" aria-label="ย้อนกลับ">
+          <button data-demo="back" onClick={() => doBack()} disabled={i === 0 || routing} aria-busy={routing} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line disabled:opacity-40" aria-label="ย้อนกลับ">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button onClick={() => setSheet(true)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left" aria-label="ดูรายละเอียดขั้นตอน">
@@ -296,7 +304,8 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
           <button
             data-demo="next"
             onClick={() => doNext()}
-            disabled={!gate.ok}
+            disabled={!gate.ok || routing}
+            aria-busy={routing}
             className={cn('flex h-10 shrink-0 items-center gap-1 rounded-xl px-3 text-sm font-medium text-white disabled:opacity-50', isLast ? 'bg-success' : 'bg-primary')}
             aria-label={nextLabel}
           >

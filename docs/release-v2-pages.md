@@ -336,7 +336,7 @@ Live smoke ครอบคลุม: เชื่อม Marketplace + Auto-Fill 
 
 Not Tested (รอบที่ 4): Safari / อุปกรณ์มือถือจริง · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
 
-## 15. Release 5 Candidate — Unified Onboarding + Final Release Validation (ยังไม่เผยแพร่)
+## 15. Release 5 — Unified Onboarding + Final Release Validation (เผยแพร่แล้ว — ผลจริงดูข้อ 16)
 
 ### 15.1 ฐาน (ตรวจจริงเมื่อ 9 พ.ย. 2569)
 
@@ -393,4 +393,24 @@ git switch sme-trustv.2
 | ปัญหาเล็ก (P3) | ไม่ Rollback — แก้ในรอบถัดไป |
 
 ข้อมูลในเบราว์เซอร์ผู้ใช้: Release นี้เพิ่มเฉพาะฟิลด์ทางเลือก (`identityDocType`, `ownershipConflict`) — Rollback แล้ว Release 4 อ่านข้อมูลเดิมได้ (ฟิลด์ที่ไม่รู้จักถูกละไว้)
+
+## 16. Release 5 — บันทึกการเผยแพร่จริง (9 พ.ย. 2569)
+
+| รายการ | ค่า |
+|---|---|
+| ฐานก่อนเผยแพร่ | `origin/main` = `06a36e3` (ตรวจแล้วไม่เปลี่ยน) · Working tree สะอาด · Commit ที่ยังไม่ Push ครบ: `65da187`, `0123a25`, `51f425e` |
+| Rollback Tag | `sme-trust-v2.3-before-onboarding` (annotated) → `06a36e3` · Push แล้ว |
+| Source | `sme-trustv.2` `30316b4..51f425e` · Push แล้ว |
+| Merge Commit | **`2e2be8e`** (`--no-ff`, Parents `06a36e3` + `51f425e`, ไม่ Force Push / ไม่ Rewrite History) · `git diff 51f425e 2e2be8e` ว่าง |
+| ตรวจหลัง Merge | `npm ci` ✅ · TypeScript ✅ · `npm test` 18 ชุด ✅ · Build `/sme-trust/` + ตรวจของ Workflow ✅ (`index-oqoY-Ekx.js` = Bundle ของ RC) · E2E Chromium ที่ `/sme-trust/` 80/80 ✅ · GitHub Pages จำลอง 9/9 ✅ |
+| GitHub Actions | Run #7 `42567743504` · build ✅ 05:30:53–05:32:48 · deploy ✅ 05:32:52–05:33:01 (UTC) |
+| เว็บจริง | Bundle `index-oqoY-Ekx.js` (ตรงกับ Build ในเครื่อง) · Asset 127 ไฟล์ตอบ 200 · Deep link ตอบ 404 พร้อม `404.html` ที่ใช้ Bundle เดียวกัน (KI-03) |
+| Live smoke | Chromium ครบทุกชุด + Live R4/R5 = **90/90** ✅ (รอบแรก 88/90 — ดูหมายเหตุ) · Firefox 10 ชุด **37/37** ✅ · WebKit 5 ชุด **23/23** ✅ |
+| Rollback | **ไม่ Rollback** — ไม่พบปัญหา P0/P1 |
+
+Live smoke ครอบคลุม: หน้าแรก 8 Section + CTA ทั้งหมด · Mobile Login 320/375/390px (ไม่ล้นจอ, เข้าสู่ระบบแล้วกลับไปขั้นตอนลงทะเบียน) · สมัครด้วย Marketplace + Auto-Fill · สมัครเอง · บุคคลธรรมดา / นิติบุคคล (Mock DBD + หนังสือมอบอำนาจ) · Mock KYC + Dynamic Documents · เพิ่ม Shopee ภายหลัง (ร้านเดิม, Badge อัปเดต, QR/ลิงก์) · กันเลือกร้านซ้ำ · ประเมินอัตโนมัติ + Assessment Badge · AUTO_PASS (Scenario 14) / AUTO_REQUEST_INFO (ร้านเปิดใหม่) / MANUAL_REVIEW (Scenario 15) · Exception Queue · Consumer Verification · Demo Controller Back/Next/Restart · Full Journey ทั้งสองชุดและ Scenario 1–15, 9A, 9B · Badge ระงับ/เพิกถอน/คำขอไม่ผ่านไม่แสดง · Direct link + Refresh · Static Assets · ไม่มี Console error (ยกเว้น 404 ของคำขอแรกของ Direct link ตาม KI-03) · ไม่มี Request ไปโดเมนอื่น (ไม่มีการเชื่อมต่อ Shopee, Lazada, DBD หรือ สคบ. จริง)
+
+หมายเหตุ Chromium รอบแรก: 2 Test ของ `v2-autofill` ไม่ผ่านที่ตัวตรวจ "ไม่มี Request ไปโดเมนอื่น" ของ Spec ซึ่งถือว่าทุกโฮสต์ที่ไม่ใช่ `localhost` เป็นภายนอก — รายการที่ถูกจับเป็นไฟล์ของเว็บเองใต้ `whp-global-solution-service.github.io/sme-trust/` ทั้งหมด (ไม่มีโดเมนอื่น) · เป็นข้อจำกัดของชุด Test เมื่อรันกับเว็บจริง ไม่ใช่ปัญหาของแอป · ปรับเฉพาะสำเนาสำหรับ Live ให้ถือต้นทาง `/sme-trust/` เป็นภายใน (โดเมนอื่นยังนับเป็น External) → รันซ้ำ 2/2 ✅
+
+Not Tested (รอบที่ 5): Safari จริง (macOS/iOS) · อุปกรณ์มือถือจริง (ทดสอบด้วยการจำลองขนาดจอ) · ชุด v1 Lifecycle/Journey บน Firefox/WebKit ของเว็บจริง
 

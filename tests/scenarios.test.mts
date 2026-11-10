@@ -2,7 +2,7 @@
  * Demo Flow Validation — ขับ Demo Controller จริงทีละขั้นแบบเดียวกับ UI
  * (กด "ถัดไป" → ยืนยัน Role Transition → ทำ Business Action ผ่าน Workflow เดิม) และตรวจทุกเงื่อนไขของการสาธิต
  */
-import { S, W, MOCK, storage, view, describe, check, finish, merchant, operator, cert, verdict, complaint, stats } from './harness.mts';
+import { S, W, MOCK, storage, view, describe, check, finish, merchant, operator, cert, verdict, complaint, stats, actAs, asOwner } from './harness.mts';
 import { integrityProblems } from './integrity.mts';
 
 const { scenarios, findScenario } = await import('@/mock/scenarios');
@@ -93,7 +93,7 @@ assertStep('success');
 assertBlocked();
 // สิ่งที่หน้าลงทะเบียนทำเมื่อผู้ใช้ตั้ง PIN และกด "เข้าสู่หน้าหลัก"
 const newOp = W.registerOperator({ name: 'สาธิต ต่อเนื่อง', phone: '0897771111', email: 'journey@demo.local', province: 'ชลบุรี', pin: '246810' });
-W.setKycResult(newOp.id, true);
+asOwner(newOp.id, () => W.setKycResult(newOp.id, true));
 S.useSessionStore.getState().set({ operatorId: newOp.id, merchantLoggedIn: true });
 go();
 check(assertStep('').includes('ยืนยันตัวตนแล้ว (Level 1)'), '  Merchant Home แสดง Identity Verified');
@@ -117,22 +117,22 @@ for (const n of [1, 3, 4, 5]) {
 }
 assertStep('submit');
 assertBlocked();
-const { merchant: shop, app } = W.submitShopRegistration(newOp.id, {
+const { merchant: shop, app } = asOwner(newOp.id, () => W.submitShopRegistration(newOp.id, {
   businessType: 'individual', ownerName: newOp.name, shopName: 'ร้านสาธิตต่อเนื่อง', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง', phone: newOp.phone, email: newOp.email,
   description: 'ร้านสำหรับทดสอบการสาธิตแบบต่อเนื่องทั้ง 8 เรื่อง', channels: [{ type: 'facebook', handle: 'journey.demo' }],
   documents: [{ id: 'd-j', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 1, addedAt: new Date().toISOString() }],
-});
+}));
 go();
 check(demo().current.applicationId === app.id && demo().current.merchantId === shop.id, `  บันทึก currentApplicationId ${app.id} และ currentMerchantId ${shop.id}`);
 check(assertStep('').includes('Pending Approval'), '  ร้านค้าเห็นสถานะ Pending Approval');
 check(go() === 'transition→moved' && S.useSessionStore.getState().role === 'officer', 'CTA "ดูการตรวจสอบในมุมเจ้าหน้าที่" → Role Transition → เจ้าหน้าที่');
 check(assertStep('').includes(app.id), '  เจ้าหน้าที่เปิดคำขอเดิม (Application ID เดียวกัน)');
 assertBlocked();
-W.startReview(app.id);
+actAs(['officer', 'admin'], () => W.startReview(app.id));
 go();
 assertBlocked();
 check(merchant(shop.id).registrationStatus !== 'approved', '  กดถัดไปไม่อนุมัติร้านค้าแทนเจ้าหน้าที่');
-W.approveApplication(app.id);
+actAs(['officer', 'admin'], () => W.approveApplication(app.id));
 check(go() === 'transition→moved' && S.useSessionStore.getState().operatorId === newOp.id && S.useSessionStore.getState().activeMerchantId === shop.id, 'CTA "ดูผลในมุมผู้ประกอบการ" → กลับเป็นร้านเดิม (Operator/Merchant ID เดิม)');
 check(assertStep('').includes('ได้รับอนุมัติ'), '  ร้านค้าเห็นการแจ้งเตือนผลอนุมัติ');
 go();
@@ -177,7 +177,7 @@ const complaintForm = {
   incidentDate: '2026-10-19', orderRef: 'JRN-001', orderAmount: 1200, channel: 'facebook' as const, evidence: [],
 };
 const cmpBefore = S.useComplaintStore.getState().items.length;
-W.submitComplaint(complaintForm);
+actAs('consumer', () => W.submitComplaint(complaintForm));
 // Restart Scenario กลางทาง: คืนข้อมูลเป็นจุดเริ่มต้นของเรื่อง ไม่สร้างข้อมูลซ้ำ และไม่กระทบผลของ Scenario ก่อนหน้า
 C.restartScenario(nav);
 check(S.useComplaintStore.getState().items.length === cmpBefore && demo().stepIndex === 0, 'Restart Scenario: เรื่องที่สร้างระหว่างทางถูกถอยกลับ (ไม่ซ้ำ) และกลับขั้นแรก');
@@ -185,7 +185,7 @@ check(merchant(shop.id)?.registrationStatus === 'approved' && demo().current.mer
 go();
 reportDemo('report.step', 5);
 go();
-const cmp = W.submitComplaint(complaintForm);
+const cmp = actAs('consumer', () => W.submitComplaint(complaintForm));
 go();
 check(demo().current.complaintId === cmp.id && S.useComplaintStore.getState().items.length === cmpBefore + 1, `บันทึก currentComplaintId ${cmp.id} (มีเพียง 1 เรื่อง)`);
 check(assertStep('').includes(cmp.id), '  หน้าติดตามสถานะแสดงเรื่องที่เพิ่งสร้าง');
@@ -193,14 +193,14 @@ check(go() === 'transition→moved' && S.useSessionStore.getState().operatorId =
 check(assertStep('').includes(cmp.id), '  ร้านค้าเปิด Complaint ID เดิม');
 assertBlocked();
 S.useSessionStore.getState().set({ role: 'merchant' });
-W.merchantRespond(cmp.id, { type: 'refund', amount: 1200, note: 'ร้านขออภัย ยินดีคืนเงินเต็มจำนวน' });
+asOwner(cmp.id, () => W.merchantRespond(cmp.id, { type: 'refund', amount: 1200, note: 'ร้านขออภัย ยินดีคืนเงินเต็มจำนวน' }));
 check(go() === 'transition→moved' && S.useSessionStore.getState().consumerId === 'CS-003', 'สลับเป็นผู้บริโภคคนเดิมเมื่อร้านส่งคำตอบแล้ว');
 check(assertStep('').includes('ยินดีคืนเงินเต็มจำนวน'), '  ผู้บริโภคเห็นข้อเสนอที่ร้านส่ง');
 assertBlocked();
-W.consumerReplyOffer(cmp.id, complaint(cmp.id).offers[0].id, 'accepted', '');
+actAs('consumer', () => W.consumerReplyOffer(cmp.id, complaint(cmp.id).offers[0].id, 'accepted', ''));
 go();
 assertBlocked();
-W.consumerConfirmResolved(cmp.id);
+actAs('consumer', () => W.consumerConfirmResolved(cmp.id));
 go();
 check(assertStep('').includes('แก้ไขสำเร็จ'), '  Case Resolved พร้อม Timeline');
 go();
@@ -218,28 +218,28 @@ go();
 assertStep('');
 assertBlocked();
 S.useSessionStore.getState().set({ role: 'officer', officerId: 'OF-001' });
-const w = W.issueWarning({ merchantId: 'M-003', kind: 'warning', title: 'ข้อความโฆษณาที่อาจทำให้เข้าใจผิด', issue: 'พบข้อความเห็นผลทันที 100% โดยไม่มีข้อมูลรองรับ', guidance: 'แก้ไขข้อความให้ตรงกับข้อมูลผลิตภัณฑ์', items: ['แก้ไขโพสต์', 'เข้าอบรมหลักสูตรการโฆษณา'], courseIds: ['CRS-02'], dueDate: '2026-11-30', relatedComplaintIds: ['CMP-2569-0004'] });
+const w = actAs(['officer', 'admin'], () => W.issueWarning({ merchantId: 'M-003', kind: 'warning', title: 'ข้อความโฆษณาที่อาจทำให้เข้าใจผิด', issue: 'พบข้อความเห็นผลทันที 100% โดยไม่มีข้อมูลรองรับ', guidance: 'แก้ไขข้อความให้ตรงกับข้อมูลผลิตภัณฑ์', items: ['แก้ไขโพสต์', 'เข้าอบรมหลักสูตรการโฆษณา'], courseIds: ['CRS-02'], dueDate: '2026-11-30', relatedComplaintIds: ['CMP-2569-0004'] }));
 check(go() === 'transition→moved' && demo().current.warningId === w.id && S.useSessionStore.getState().operatorId === 'OP-003', `คำเตือนสร้างโดยเจ้าหน้าที่ (${w.id}) → สลับเป็นร้านเดียวกัน`);
 check(assertStep('').includes(w.id), '  ร้านค้าเปิด Warning ID เดิม');
 assertBlocked();
-W.acknowledgeWarning(w.id);
+asOwner(w.id, () => W.acknowledgeWarning(w.id));
 go();
 go();
 assertStep('course');
 assertBlocked();
-MOCK.courses.find((c) => c.id === 'CRS-02')!.lessons.forEach((l) => W.completeLesson('OP-003', 'CRS-02', l.id));
+MOCK.courses.find((c) => c.id === 'CRS-02')!.lessons.forEach((l) => asOwner('OP-003', () => W.completeLesson('OP-003', 'CRS-02', l.id)));
 go();
 assertBlocked();
-check(!W.submitQuiz('OP-003', 'CRS-02', [0, 0, 0, 0]).passed, '  แบบทดสอบตรวจคำตอบจริง (ตอบผิดไม่ผ่าน)');
+check(!asOwner('OP-003', () => W.submitQuiz('OP-003', 'CRS-02', [0, 0, 0, 0])).passed, '  แบบทดสอบตรวจคำตอบจริง (ตอบผิดไม่ผ่าน)');
 assertBlocked();
-W.submitQuiz('OP-003', 'CRS-02', [2, 1, 1, 1]);
+asOwner('OP-003', () => W.submitQuiz('OP-003', 'CRS-02', [2, 1, 1, 1]));
 go();
 assertBlocked();
-W.submitCorrection(w.id, 'แก้ไขโพสต์ทุกช่องทางแล้ว', [{ id: 'e', name: 'หลังแก้ไข.png', kind: 'หลักฐาน', sizeKb: 1, addedAt: new Date().toISOString() }]);
+asOwner(w.id, () => W.submitCorrection(w.id, 'แก้ไขโพสต์ทุกช่องทางแล้ว', [{ id: 'e', name: 'หลังแก้ไข.png', kind: 'หลักฐาน', sizeKb: 1, addedAt: new Date().toISOString() }]));
 check(go() === 'transition→moved', 'ส่งหลักฐานแล้ว → สลับเป็นเจ้าหน้าที่');
 assertBlocked();
-W.reviewCorrection(w.id, 'start');
-W.reviewCorrection(w.id, 'approve', 'ผ่าน');
+actAs(['officer', 'admin'], () => W.reviewCorrection(w.id, 'start'));
+actAs(['officer', 'admin'], () => W.reviewCorrection(w.id, 'approve', 'ผ่าน'));
 go();
 check(cur === '/demo/complete/s5' && S.useTrainingStore.getState().items.some((e) => e.operatorId === 'OP-003' && e.courseId === 'CRS-02' && e.passed), 'จบ Scenario 5 — Training Record อัปเดต');
 check(merchant('M-003').riskStatus === 'none' && merchant('M-003').riskStatus !== 'suspended', '  คำเตือน/การอบรมไม่ทำให้ร้านถูกระงับ');
@@ -253,16 +253,16 @@ go();
 go();
 assertBlocked();
 check(cert('M-004')!.status === 'active', '  ไม่ระงับจนกว่าเจ้าหน้าที่จะยืนยันเอง');
-W.riskAction('RSK-2569-0001', 'suspended', 'ข้อร้องเรียนไม่ได้รับสินค้าหลายเรื่องพร้อมหลักฐาน');
+actAs(['officer', 'admin'], () => W.riskAction('RSK-2569-0001', 'suspended', 'ข้อร้องเรียนไม่ได้รับสินค้าหลายเรื่องพร้อมหลักฐาน'));
 check(go() === 'transition→moved' && S.useSessionStore.getState().operatorId === 'OP-004', 'สลับเป็นร้านที่ถูกระงับ');
 check(assertStep('').includes('ยื่นอุทธรณ์'), '  ร้านค้าเห็นประกาศการระงับและช่องทางอุทธรณ์');
 go();
 assertBlocked();
-W.merchantStatement('RSK-2569-0001', 'ได้จัดส่งครบแล้ว');
-W.submitAppeal('RSK-2569-0001', 'ขอให้ทบทวน');
+asOwner('RSK-2569-0001', () => W.merchantStatement('RSK-2569-0001', 'ได้จัดส่งครบแล้ว'));
+asOwner('RSK-2569-0001', () => W.submitAppeal('RSK-2569-0001', 'ขอให้ทบทวน'));
 check(go() === 'transition→moved', 'ยื่นอุทธรณ์แล้ว → เจ้าหน้าที่พิจารณาอีกครั้ง');
 assertBlocked();
-W.reviewAppeal('RSK-2569-0001', 'upheld', 'หลักฐานยังไม่เพียงพอ');
+actAs(['officer', 'admin'], () => W.reviewAppeal('RSK-2569-0001', 'upheld', 'หลักฐานยังไม่เพียงพอ'));
 check(go() === 'transition→moved', 'สลับเป็นผู้บริโภค');
 assertStep('');
 check(verdict('M-004').key === 'suspended' && verdict(shop.id).key === 'business', '  ผลอุทธรณ์ "ยืนยันการระงับ" — ผู้บริโภคเห็น Suspended และไม่กระทบร้านอื่น');
@@ -328,7 +328,7 @@ page = assertStep('');
 check(page.includes('ยังไม่ได้ส่งถึงลูกค้า') && page.includes(friendly.slice(0, 20)), '  ร่างถูกนำไปใส่ช่องตอบกลับของเคสเดิม พร้อมแจ้งว่ายังไม่ได้ส่ง');
 check(complaint(cid).messages.length === msgsBefore && complaint(cid).status === 'awaiting_merchant', '  ไม่มีการส่งอัตโนมัติ — สถานะเคสยังไม่เปลี่ยน');
 assertBlocked();
-W.merchantRespond(cid, { type: 'request_info', note: friendly });
+asOwner(cid, () => W.merchantRespond(cid, { type: 'request_info', note: friendly }));
 check(go() === 'transition→moved' && S.useSessionStore.getState().consumerId === 'CS-007', 'ร้านค้ากดส่งเอง → สลับเป็นผู้บริโภคของเคสเดิม');
 check(assertStep('').includes(friendly.slice(0, 20)), '  ผู้บริโภคเห็นคำตอบที่ส่งแล้ว');
 go();
@@ -371,12 +371,12 @@ C.startScenario('s2', nav);
 check(demo().current.operatorId === 'OP-012', 'S2 แบบเดี่ยวใช้ผู้ประกอบการตัวอย่าง (ยืนยันตัวตนแล้ว ยังไม่มีร้าน)');
 C.startScenario('s6', nav);
 for (let k = 0; k < 2; k++) go();
-W.riskAction('RSK-2569-0001', 'suspended', 'ระงับ');
+actAs(['officer', 'admin'], () => W.riskAction('RSK-2569-0001', 'suspended', 'ระงับ'));
 go();
 go();
-W.submitAppeal('RSK-2569-0001', 'ขอทบทวน');
+asOwner('RSK-2569-0001', () => W.submitAppeal('RSK-2569-0001', 'ขอทบทวน'));
 go();
-W.reviewAppeal('RSK-2569-0001', 'overturned', 'พบหลักฐานจัดส่งครบ');
+actAs(['officer', 'admin'], () => W.reviewAppeal('RSK-2569-0001', 'overturned', 'พบหลักฐานจัดส่งครบ'));
 go();
 check(verdict('M-004').key === 'business', 'S6 ผลอุทธรณ์ "ยกเลิกการระงับ" — ผู้บริโภคเห็นสถานะคืน');
 C.resetScenarioData('s5');
@@ -389,17 +389,17 @@ for (const n of [1, 2, 3]) {
   reportDemo('register.step', n);
 }
 const cOp = W.registerOperator({ name: 'ทดสอบ ต่อเนื่อง', phone: '0897772222', email: 'cont@demo.local', province: 'ตาก', pin: '135790' });
-W.setKycResult(cOp.id, true);
+asOwner(cOp.id, () => W.setKycResult(cOp.id, true));
 useDemoStore.setState((st) => ({ current: { ...st.current, operatorId: cOp.id } }));
 // จบ S1 โดยตรง (ขั้นละเอียดทดสอบแล้วด้านบน)
 C.completeScenario(nav);
 check(demo().journey.operatorId === cOp.id && !C.continuityIssue('s2'), 'S1 จบ → บัญชีใช้ต่อใน S2 ได้ (ไม่มีปัญหาความต่อเนื่อง)');
 C.continueToNext('s1', nav);
-const { merchant: cShop, app: cApp } = W.submitShopRegistration(cOp.id, {
+const { merchant: cShop, app: cApp } = asOwner(cOp.id, () => W.submitShopRegistration(cOp.id, {
   businessType: 'individual', ownerName: cOp.name, shopName: 'ร้านยังไม่อนุมัติ', category: 'บริการ', province: 'ตาก', district: 'เมือง', phone: cOp.phone, email: cOp.email,
   description: 'ร้านทดสอบกรณีข้าม Scenario ก่อนได้รับอนุมัติ', channels: [{ type: 'facebook', handle: 'cont.demo' }],
   documents: [{ id: 'd-c', name: 'เอกสาร.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 1, addedAt: new Date().toISOString() }],
-});
+}));
 useDemoStore.setState((st) => ({ current: { ...st.current, merchantId: cShop.id, applicationId: cApp.id } }));
 const s2Step = demo().stepIndex;
 check(!demo().journey.merchantId, '  (S2 ยังไม่จบ — ร้านยังไม่ถูกส่งต่อใน journey)');
@@ -418,7 +418,7 @@ useDemoStore.setState({ current: {} });
 storage['smetrust:v2:demo'] = snapNotice;
 await (useDemoStore as unknown as { persist: { rehydrate: () => Promise<void> } }).persist.rehydrate();
 check(!!demo().current.notice, '  Refresh แล้วหมายเหตุยังอยู่');
-W.approveApplication(cApp.id);
+actAs(['officer', 'admin'], () => W.approveApplication(cApp.id));
 check(!C.continuityIssue('s3'), 'เมื่อร้านได้รับอนุมัติแล้ว → ใช้ร้านของ Journey ได้ ไม่มีหมายเหตุ');
 C.startScenario('s3', nav, { carry: true, journey: true });
 check(demo().current.merchantId === cShop.id && !demo().current.notice, '  Scenario 3 ใช้ร้านเดียวกับ Scenario 2');
@@ -432,7 +432,7 @@ go();
 reportDemo('report.step', 5);
 go();
 const cmpCount = S.useComplaintStore.getState().items.length;
-W.submitComplaint({ ...complaintForm, merchantId: 'M-001' });
+actAs('consumer', () => W.submitComplaint({ ...complaintForm, merchantId: 'M-001' }));
 go();
 C.back(nav, cur, true);
 C.back(nav, cur, true);
@@ -450,7 +450,7 @@ describe('Back / Next ไม่ทำให้เกิด Business Action ซ�
 C.startScenario('s6', nav);
 go();
 go();
-W.riskAction('RSK-2569-0001', 'suspended', 'ระงับเพื่อทดสอบ');
+actAs(['officer', 'admin'], () => W.riskAction('RSK-2569-0001', 'suspended', 'ระงับเพื่อทดสอบ'));
 const afterAction = JSON.stringify(S.domainStores.map((x) => x.getState().items));
 go();
 C.back(nav, cur, true);

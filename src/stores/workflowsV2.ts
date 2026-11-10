@@ -3,6 +3,7 @@
  * ทุกการเปลี่ยนแปลงบันทึก Audit และแจ้งเตือนผู้เกี่ยวข้องเหมือน Workflow v1
  * ไม่มีการออก Badge, ลดระดับ หรือระงับอัตโนมัติจากผลประเมิน (D3)
  */
+import { authorize, requireOwnAccount, requireOwnShop } from '@/auth/authorize';
 import type { MarketplaceConnection, Platform, Archetype, FailKind } from '@/features/marketplace/types';
 import type { Merchant } from '@/types';
 import { buildImportSource, fieldRows, FIELD_KEYS, newRegistrationRules, profileUpdateRules, summarize, type FieldValues, type ImportSource, type MarketplaceImportRecord } from '@/features/marketplace/autofill';
@@ -37,7 +38,7 @@ import {
 import { currentModel } from './assessmentConfig';
 import { processMerchant } from './automation';
 import { withoutEvents } from './events';
-import { applyCertification, approveApplication, audit, currentActor, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, submitShopRegistration, type ShopForm, type WorkflowResult } from './workflows';
+import { approveApplication, audit, currentActor, fileCertificationApplication, notify, notifyMerchant, openRiskCase, rejectApplication, requestInfo, submitShopRegistration, type ShopForm, type WorkflowResult } from './workflows';
 
 const mk = () => useMarketplaceStore.getState();
 const conn = (id: string) => mk().items.find((c) => c.id === id);
@@ -58,6 +59,13 @@ export interface PinnedSource {
 
 /** เริ่มเชื่อมต่อ — สร้างคำขอความยินยอม (ยังไม่ดึงข้อมูล) */
 export function connectMarketplace(merchantId: string, platform: Platform, archetype: Archetype = 'established_good', pinned?: PinnedSource): MarketplaceConnection {
+  authorize('marketplace.connect');
+  requireOwnShop('marketplace.connect', merchantId);
+  return createConnection(merchantId, platform, archetype, pinned);
+}
+
+/** ภายใน Workflow: สร้างการเชื่อมต่อ (ไม่ตรวจสิทธิ์ซ้ำ — เรียกจาก connectMarketplace / attachImportedMarketplaces) */
+function createConnection(merchantId: string, platform: Platform, archetype: Archetype, pinned?: PinnedSource): MarketplaceConnection {
   const existing = mk().items.find((c) => c.merchantId === merchantId && c.platform === platform && c.status !== 'disconnected');
   if (existing) return existing;
   const id = nextRef('MKC', mk().items.map((c) => c.id), 3);
@@ -80,6 +88,13 @@ export function connectMarketplace(merchantId: string, platform: Platform, arche
 
 /** ร้านให้ความยินยอม (จำลอง) → เริ่มซิงก์ */
 export function grantConsent(connectionId: string, archetype?: Archetype) {
+  authorize('marketplace.connect');
+  requireOwnShop('marketplace.connect', conn(connectionId)?.merchantId);
+  applyConsent(connectionId, archetype);
+}
+
+/** ภายใน Workflow: บันทึกความยินยอม (ไม่ตรวจสิทธิ์ซ้ำ) */
+function applyConsent(connectionId: string, archetype?: Archetype) {
   const c = conn(connectionId);
   if (!c) return;
   mk().update(connectionId, {
@@ -124,7 +139,9 @@ export function completeSync(connectionId: string, ok = true, failKind: FailKind
 }
 
 export function resyncMarketplace(connectionId: string) {
+  authorize('marketplace.connect');
   const c = conn(connectionId);
+  requireOwnShop('marketplace.connect', c?.merchantId);
   if (!c || c.status === 'disconnected' || c.status === 'pending_consent') return;
   mk().update(connectionId, { status: 'syncing', failReason: undefined });
 }
@@ -151,7 +168,9 @@ export function simulateDataAge(connectionId: string, preset: DataAgePreset) {
 
 /** ยกเลิกการเชื่อมต่อ — ข้อมูลจากแพลตฟอร์มนี้จะไม่ถูกใช้ประเมินอีก */
 export function disconnectMarketplace(connectionId: string) {
+  authorize('marketplace.connect');
   const c = conn(connectionId);
+  requireOwnShop('marketplace.connect', c?.merchantId);
   if (!c) return;
   mk().update(connectionId, { status: 'disconnected', disconnectedAt: nowISO() });
   // ฉบับร่างอัปเดตโปรไฟล์จากการเชื่อมต่อนี้ใช้ต่อไม่ได้ (ไม่มีสิทธิ์เข้าถึงข้อมูลต้นฉบับแล้ว) — ข้อมูลที่ยืนยันบันทึกไปแล้วยังอยู่
@@ -189,12 +208,12 @@ export function shopClaim(platform: Platform, mockShopId: string, exceptMerchant
 export function attachImportedMarketplaces(merchantId: string, imports: { platform: Platform; archetype: Archetype; pinned?: PinnedSource }[]) {
   return imports.map((im) => {
     const claimed = im.pinned ? shopClaim(im.platform, im.pinned.mockShopId, merchantId) : undefined;
-    const c = connectMarketplace(merchantId, im.platform, im.archetype, im.pinned);
+    const c = createConnection(merchantId, im.platform, im.archetype, im.pinned);
     if (claimed && !c.ownershipConflict) {
       mk().update(c.id, { ownershipConflict: { merchantId: claimed.merchantId, detectedAt: nowISO() } });
       audit('ตรวจพบร้านบน Marketplace ที่ถูกอ้างโดยร้านอื่น', c.id, `${PLATFORMS[im.platform].label} ${im.pinned!.mockShopId} · เชื่อมกับ ${claimed.merchantId} อยู่แล้ว — ส่งเจ้าหน้าที่ตรวจ`, true);
     }
-    grantConsent(c.id);
+    applyConsent(c.id);
     completeSync(c.id, true);
     return conn(c.id)!;
   });
@@ -240,6 +259,8 @@ export const importRecordsOf = (merchantId: string) =>
  * - ส่งซ้ำจากฉบับร่างเดิมได้คำขอ/การเชื่อมต่อ/บันทึกเดิม
  */
 export function submitMarketplaceRegistration(operatorId: string, form: ShopForm, draft: { draftId: string; source: ImportSource; juristic?: boolean }) {
+  authorize('shop.register');
+  requireOwnAccount('shop.register', operatorId);
   const before = imp().items.find((r) => r.draftId === draft.draftId);
   // ประมวลผลหลังเชื่อมต่อ Marketplace ด้านล่าง (ไม่ประมวลผลร้านที่ยังไม่มีข้อมูลก่อน — กันแจ้งเตือนผลชั่วคราว)
   const { merchant, app, duplicate } = withoutEvents(() => submitShopRegistration(operatorId, form, { draftId: draft.draftId }));
@@ -293,9 +314,11 @@ export function submitMarketplaceRegistration(operatorId: string, form: ShopForm
  * - ไม่เปลี่ยนข้อมูลต้นฉบับจาก Marketplace (คะแนน รีวิว ยอดขาย) และไม่เปลี่ยนผลประเมิน
  */
 export function confirmProfileUpdate(connectionId: string, values: FieldValues, draftId: string): WorkflowResult & { record?: MarketplaceImportRecord; duplicate?: boolean } {
+  authorize('profile_change.submit');
   const done = imp().items.find((r) => r.draftId === draftId);
-  if (done) return { ok: true, record: done, duplicate: true };
   const c = conn(connectionId);
+  requireOwnShop('profile_change.submit', c?.merchantId ?? done?.merchantId);
+  if (done) return { ok: true, record: done, duplicate: true };
   const m = c && merchantOf(c.merchantId);
   if (!c || !m) return { ok: false, error: 'ไม่พบการเชื่อมต่อหรือร้านค้า' };
   if (c.status !== 'connected') return { ok: false, error: 'การเชื่อมต่อยังไม่พร้อม (ต้องซิงก์สำเร็จก่อน)' };
@@ -407,6 +430,7 @@ const pendingReq = (id: string): { req?: ProfileChangeRequest; error?: string } 
 
 /** เจ้าหน้าที่อนุมัติ — เปลี่ยนเฉพาะช่องในคำขอ ไม่เปลี่ยนระดับ/สถานะใบรับรอง */
 export function approveProfileChange(id: string, note?: string): WorkflowResult {
+  authorize('profile_change.review');
   const { req, error } = pendingReq(id);
   if (error || !req) return { ok: false, error: error ?? 'ไม่พบคำขอเปลี่ยนข้อมูล' };
   const m = merchantOf(req.merchantId);
@@ -425,6 +449,7 @@ export function approveProfileChange(id: string, note?: string): WorkflowResult 
 
 /** เจ้าหน้าที่ไม่อนุมัติ (ต้องมีเหตุผล) — ข้อมูลเดิมไม่เปลี่ยน */
 export function rejectProfileChange(id: string, reason: string): WorkflowResult {
+  authorize('profile_change.review');
   if (!reason.trim()) return { ok: false, error: 'กรุณาระบุเหตุผลการไม่อนุมัติ' };
   const { req, error } = pendingReq(id);
   if (error || !req) return { ok: false, error: error ?? 'ไม่พบคำขอเปลี่ยนข้อมูล' };
@@ -438,6 +463,7 @@ export function rejectProfileChange(id: string, reason: string): WorkflowResult 
 
 /** เจ้าหน้าที่ขอข้อมูลเพิ่ม (ต้องระบุสิ่งที่ต้องการ) — ร้านแก้ไขและส่งใหม่ได้ */
 export function requestProfileChangeInfo(id: string, message: string): WorkflowResult {
+  authorize('profile_change.review');
   if (!message.trim()) return { ok: false, error: 'กรุณาระบุข้อมูลที่ต้องการเพิ่มเติม' };
   const { req, error } = pendingReq(id);
   if (error || !req) return { ok: false, error: error ?? 'ไม่พบคำขอเปลี่ยนข้อมูล' };
@@ -452,7 +478,9 @@ export function requestProfileChangeInfo(id: string, message: string): WorkflowR
  * ส่งซ้ำ/Refresh หลังส่งแล้ว (ฉบับเปลี่ยนแล้ว) คืนผลเดิมโดยไม่บันทึกซ้ำ
  */
 export function resubmitProfileChange(id: string, values: Partial<Record<ProfileChangeField, string>>, note: string, revision: number): WorkflowResult & { duplicate?: boolean } {
+  authorize('profile_change.submit');
   const req = pcs().items.find((r) => r.id === id);
+  requireOwnShop('profile_change.submit', req?.merchantId);
   if (!req) return { ok: false, error: 'ไม่พบคำขอเปลี่ยนข้อมูล' };
   if (req.revision !== revision) return { ok: true, duplicate: true };
   if (req.status !== 'info_requested') return { ok: false, error: 'คำขอนี้ไม่ได้รอข้อมูลเพิ่มเติม' };
@@ -496,6 +524,10 @@ export const latestAssessment = (merchantId: string, items = useAssessmentStore.
  * origin: automation = ระบบประเมินเองเมื่อข้อมูลเปลี่ยน · merchant = ร้านกดประเมินเอง (แล้วระบบจัดเส้นทางและอัปเดต Badge ต่อ)
  */
 export function runAssessment(merchantId: string, origin: 'merchant' | 'automation' = 'merchant'): TrustAssessment | undefined {
+  if (origin === 'merchant') {
+    authorize('assessment.own.view');
+    requireOwnShop('assessment.own.view', merchantId);
+  }
   const cur = currentInputs(merchantId);
   if (!cur) return undefined;
   const result = assessTrust(cur.input, currentModel());
@@ -518,7 +550,9 @@ export function runAssessment(merchantId: string, origin: 'merchant' | 'automati
 
 /** ร้านส่งผลประเมินให้เจ้าหน้าที่พิจารณา (ประกอบการพิจารณา Level 3–4) */
 export function submitAssessment(assessmentId: string): WorkflowResult {
+  authorize('assessment.own.view');
   const a = useAssessmentStore.getState().items.find((x) => x.id === assessmentId);
+  requireOwnShop('assessment.own.view', a?.merchantId);
   if (!a) return { ok: false, error: 'ไม่พบผลประเมิน' };
   if (a.status !== 'draft') return { ok: false, error: 'ผลประเมินนี้ส่งพิจารณาแล้ว' };
   const cur = currentInputs(a.merchantId);
@@ -547,7 +581,7 @@ function linkApplication(a: TrustAssessment): string | undefined {
     .sort((x, y) => y.submittedAt.localeCompare(x.submittedAt))[0];
   if (open) return open.id;
   const rec = a.result.recommendation;
-  if (rec.kind === 'consider_l3' || rec.kind === 'consider_l4') return applyCertification(a.merchantId, rec.level).id;
+  if (rec.kind === 'consider_l3' || rec.kind === 'consider_l4') return fileCertificationApplication(a.merchantId, rec.level).id;
   return undefined;
 }
 
@@ -574,6 +608,7 @@ const EXPECTED: Record<OfficerDecisionKind, string[]> = {
 
 /** เจ้าหน้าที่ตัดสิน — การยกระดับออกใบรับรองผ่าน Workflow v1 เดิม และต้องผ่านเกณฑ์ v1 ด้วย */
 export function decideAssessment(assessmentId: string, kind: OfficerDecisionKind, reason: string, level?: 3 | 4): WorkflowResult {
+  authorize('assessment.decide');
   const a = useAssessmentStore.getState().items.find((x) => x.id === assessmentId);
   if (!a) return { ok: false, error: 'ไม่พบผลประเมิน' };
   if (a.status !== 'pending_review') return { ok: false, error: 'ผลประเมินนี้ไม่ได้อยู่ในสถานะรอพิจารณา' };
@@ -597,7 +632,7 @@ export function decideAssessment(assessmentId: string, kind: OfficerDecisionKind
     if (useLinked && linked.requestedLevel !== level) {
       useVerificationStore.getState().update(linked.id, (x) => ({ requestedLevel: level, timeline: [...x.timeline, { id: `tl-${Date.now()}`, at: nowISO(), actor: 'officer', actorName: actor.name, title: `ปรับระดับที่พิจารณาเป็น Level ${level}`, note: assessmentId }] }));
     }
-    const app = useLinked ? linked : applyCertification(a.merchantId, level);
+    const app = useLinked ? linked : fileCertificationApplication(a.merchantId, level);
     const r = approveApplication(app.id, `อนุมัติจากการพิจารณาผลประเมิน ${assessmentId}`);
     if (!r.ok) return r;
     applicationId = app.id;

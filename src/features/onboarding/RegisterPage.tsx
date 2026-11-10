@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { CheckCircle2, KeyRound, MessageSquareText, PartyPopper, Smartphone } from 'lucide-react';
 import { useOperatorStore, useSessionStore, toast } from '@/stores';
 import { reportDemo } from '@/stores/demo';
-import { registerOperator, setKycResult } from '@/stores/workflows';
+import { registerOperator } from '@/stores/workflows';
 import { PROVINCES } from '@/constants/labels';
 import { demoOtp } from '@/utils/id';
 import { fmtPhone } from '@/utils/format';
@@ -96,8 +96,7 @@ export default function RegisterPage() {
         setPin2('');
         return;
       }
-      const op = registerOperator({ name: `${profile!.firstName} ${profile!.lastName}`, phone, email: profile!.email, province: profile!.province, pin });
-      if (kycOk) setKycResult(op.id, true);
+      const op = registerOperator({ name: `${profile!.firstName} ${profile!.lastName}`, phone, email: profile!.email, province: profile!.province, pin, kycOk });
       setNewOpId(op.id);
       setStep(5);
     }

@@ -2,7 +2,7 @@
  * Unified Merchant Onboarding — KYC & Business Verification, Dynamic Documents, Multi-Platform, Ownership,
  * Automation/Assessment Integration และความสอดคล้องของ Badge ในทุกมุมมอง
  */
-import { S, W, view, describe, check, finish } from '../harness.mts';
+import { S, W, view, describe, check, finish, actAs, asOwner } from '../harness.mts';
 
 const V = await import('@/stores/workflowsV2');
 const AU = await import('@/stores/automation');
@@ -61,7 +61,7 @@ describe('Verification Summary — บุคคลธรรมดา / นิต
 // ------------------------------------------------------------------ Path B: Self-Registration → Assessment (ไม่ถูกหักเพราะไม่มี Marketplace)
 describe('Path B — Self-Registration ใช้ Merchant/Assessment Workflow กลาง');
 asMerchant('OP-012');
-const self = W.submitShopRegistration('OP-012', baseForm(), { draftId: 'DRF-SELF-1' });
+const self = asOwner('OP-012', () => W.submitShopRegistration('OP-012', baseForm(), { draftId: 'DRF-SELF-1' }));
 const SID = self.merchant.id;
 {
   const b = badge(SID)!;
@@ -73,7 +73,7 @@ const SID = self.merchant.id;
   const page = view('/m/trust', { role: 'merchant', operatorId: 'OP-012', activeMerchantId: SID });
   check(page.includes('ไม่ถูกหักคะแนน') && page.includes('Insufficient Data'), 'ร้านเห็นคำแนะนำ: ไม่มี Marketplace ไม่ถูกหักคะแนน');
   const nM = merchants().length, nA = S.useVerificationStore.getState().items.length, nRuns = S.useAutomationRunStore.getState().items.length;
-  const again = W.submitShopRegistration('OP-012', baseForm(), { draftId: 'DRF-SELF-1' });
+  const again = asOwner('OP-012', () => W.submitShopRegistration('OP-012', baseForm(), { draftId: 'DRF-SELF-1' }));
   check(again.duplicate && again.merchant.id === SID && merchants().length === nM && S.useVerificationStore.getState().items.length === nA && S.useAutomationRunStore.getState().items.length === nRuns, 'ส่งซ้ำ/Refresh จากฉบับร่างเดิม → ไม่สร้างร้าน คำขอ หรือการประมวลผลซ้ำ');
 }
 
@@ -82,18 +82,18 @@ describe('Multi-Platform 4.1 — ร้านที่สมัครเอง�
 {
   const nM = merchants().length;
   const before = badge(SID)!;
-  const c = V.connectMarketplace(SID, 'shopee', 'established_good');
-  V.grantConsent(c.id);
+  const c = asOwner(SID, () => V.connectMarketplace(SID, 'shopee', 'established_good'));
+  asOwner(c.id, () => V.grantConsent(c.id));
   V.completeSync(c.id, true);
   const after = badge(SID)!;
   check(merchants().length === nM && conns(SID).length === 1 && conns(SID)[0].merchantId === SID, 'เชื่อม Shopee เป็นช่องทางของร้านเดิม — ไม่สร้างร้านหรือบัญชีใหม่');
   check(after.coverage > before.coverage && after.route === 'AUTO_PASS' && after.status === 'active' && after.history[0].trigger === 'import', `Coverage เพิ่ม (${before.coverage}% → ${after.coverage}%) · ประเมินใหม่อัตโนมัติ · Badge อัปเดต`);
   check(VR.ownershipOf(conns(SID)[0]) === 'matched', 'ความเป็นเจ้าของร้าน: ชื่อเจ้าของตรงกับผู้ยืนยันตัวตน (จำลอง)');
   // 4.2 เพิ่ม Lazada ภายใต้ Merchant เดียว · เชื่อมแพลตฟอร์มเดิมซ้ำได้การเชื่อมต่อเดิม
-  const l = V.connectMarketplace(SID, 'lazada', 'growing_ok');
-  V.grantConsent(l.id);
+  const l = asOwner(SID, () => V.connectMarketplace(SID, 'lazada', 'growing_ok'));
+  asOwner(l.id, () => V.grantConsent(l.id));
   V.completeSync(l.id, true);
-  const dup = V.connectMarketplace(SID, 'shopee', 'established_good');
+  const dup = asOwner(SID, () => V.connectMarketplace(SID, 'shopee', 'established_good'));
   check(conns(SID).length === 2 && dup.id === c.id, 'Multi-Platform 4.2: Shopee + Lazada ภายใต้ร้านเดียว · เชื่อม Shopee ซ้ำได้การเชื่อมต่อเดิม (ไม่ซ้ำ)');
   check(conns(SID).every((x) => x.platform && x.mockShopId && x.status && x.lastSyncAt && x.sourceCategory && VR.ownershipOf(x)), 'ทุก Connection มี Platform · Shop ID · สถานะ · ซิงก์ล่าสุด · หมวดต้นฉบับ (Provenance) · สถานะความเป็นเจ้าของ');
   check(V.latestAssessment(SID)!.result.dataSources.slice().sort().join() === 'lazada,shopee', 'ผลประเมินใช้ข้อมูลทั้งสองแพลตฟอร์ม');
@@ -107,7 +107,7 @@ describe('Multi-Platform 4.3 — ป้องกัน Shop ID ซ้ำแล�
   // ผู้ประกอบการอีกรายสมัครร้านใหม่ด้วย Shop ID เดียวกัน → ไม่รวมร้าน แต่ส่งเจ้าหน้าที่ตรวจความเป็นเจ้าของ
   asMerchant('OP-013');
   const src = AF.buildImportSource({ key: 'CLAIM-1', platform: 'shopee', archetype: 'established_good', seed: 777, mockShopId: target.mockShopId, shopName: 'ร้านทดสอบสมัครเอง', category: 'หัตถกรรมและของที่ระลึก' });
-  const r = V.submitMarketplaceRegistration('OP-013', baseForm({ ownerName: 'ผู้อ้างสิทธิ์', email: 'claim@example.com' }), { draftId: 'DRF-CLAIM-1', source: src });
+  const r = asOwner('OP-013', () => V.submitMarketplaceRegistration('OP-013', baseForm({ ownerName: 'ผู้อ้างสิทธิ์', email: 'claim@example.com' }), { draftId: 'DRF-CLAIM-1', source: src }));
   const CID = r.merchant.id;
   const cc = conns(CID)[0];
   check(CID !== SID && cc.ownershipConflict?.merchantId === SID && VR.ownershipOf(cc) === 'claimed_elsewhere', 'ร้านที่อ้าง Shop ID ซ้ำ: สร้างเป็นร้านแยก (ไม่รวมเพราะชื่อเหมือน) และบันทึกความขัดแย้งของความเป็นเจ้าของ');
@@ -117,7 +117,7 @@ describe('Multi-Platform 4.3 — ป้องกัน Shop ID ซ้ำแล�
   AU.processAll('simulation');
   check(tasks(CID).length === 1, 'Run Simulation ซ้ำ → ไม่สร้างงานซ้ำ');
   asOfficer();
-  check(AU.resolveTask(t[0].id, 'reject', 'ร้านนี้เป็นของผู้ประกอบการที่เชื่อมอยู่ก่อน').ok && VR.ownershipOf(conns(CID)[0]) === 'rejected' && badge(CID)!.status !== 'active', 'เจ้าหน้าที่ไม่อนุมัติ → ข้อมูลร้านนั้นไม่ถูกใช้ประเมินร้านที่อ้าง');
+  check(actAs(['officer', 'admin'], () => AU.resolveTask(t[0].id, 'reject', 'ร้านนี้เป็นของผู้ประกอบการที่เชื่อมอยู่ก่อน')).ok && VR.ownershipOf(conns(CID)[0]) === 'rejected' && badge(CID)!.status !== 'active', 'เจ้าหน้าที่ไม่อนุมัติ → ข้อมูลร้านนั้นไม่ถูกใช้ประเมินร้านที่อ้าง');
   const page = view(`/o/applications/${r.app.id}`, { role: 'officer', officerId: 'OF-001' });
   check(page.includes('สรุปการตรวจสอบผู้ประกอบการ (จำลอง)') && page.includes('ความเป็นเจ้าของร้านบน Marketplace'), 'หน้าคำขอของเจ้าหน้าที่แสดงสรุปการตรวจสอบรวมความเป็นเจ้าของร้าน');
 }
@@ -129,7 +129,7 @@ describe('Data Provenance — Raw Marketplace Data อ่านอย่าง�
   const c = conns(SID).find((x) => x.platform === 'shopee')!;
   const snapBefore = JSON.stringify(V.latestAssessment(SID)!.result.analysis);
   const m = merchants().find((x) => x.id === SID)!;
-  V.confirmProfileUpdate(c.id, { ...V.registeredValues(m), description: 'คำอธิบายใหม่จากการแก้โปรไฟล์ร้านเพื่อทดสอบการแยกข้อมูล' }, 'DRF-RAW-1');
+  asOwner(c.id, () => V.confirmProfileUpdate(c.id, { ...V.registeredValues(m), description: 'คำอธิบายใหม่จากการแก้โปรไฟล์ร้านเพื่อทดสอบการแยกข้อมูล' }, 'DRF-RAW-1'));
   check(JSON.stringify(V.latestAssessment(SID)!.result.analysis) === snapBefore, 'แก้โปรไฟล์ร้าน → คะแนน รีวิว ยอดขาย ราคา (Snapshot) ไม่เปลี่ยน');
   check(JSON.stringify(MODEL.MODEL_V2.weights) === JSON.stringify(seed.assessments()[0].result.weights) && MODEL.MODEL_V2.version === 'v2.1-sim', 'Trust Assessment Engine v2.1 และน้ำหนักเดิม (ไม่เปลี่ยนสูตร)');
   check(['imported', 'user_edited', 'manual', 'missing', 'verification_required', 'source_verified'].every((k) => k in AF.FIELD_STATUS_LABEL), 'สถานะที่มาของข้อมูลครบ: นำเข้า / แก้ไข / กรอกเอง / ขาด / รอตรวจ / ตรวจอัตโนมัติ');
@@ -139,10 +139,10 @@ describe('Data Provenance — Raw Marketplace Data อ่านอย่าง�
 describe('KYC → Assessment → Badge (Identity Dimension)');
 {
   const kycFactor = () => V.latestAssessment(SID)!.result.components.find((c) => c.id === 'C1')!.factors.find((f) => f.id === 'c1.kyc')!;
-  W.setKycResult('OP-012', false);
+  asOwner('OP-012', () => W.setKycResult('OP-012', false));
   check(kycFactor().value === 'ยังไม่ยืนยัน' && kycFactor().impact === 0 && badge(SID)!.route === 'AUTO_REQUEST_INFO' && badge(SID)!.history[0].trigger === 'identity_change', 'ผลยืนยันตัวตนไม่ผ่าน → ประเมินใหม่ (C1 ไม่ได้คะแนน KYC) · ร้านยืนยันตัวตนเอง (AUTO_REQUEST_INFO)');
   check(tasks(SID).length === 0, 'ยังไม่ยืนยันตัวตนไม่ใช่เหตุส่งเจ้าหน้าที่');
-  W.setKycResult('OP-012', true);
+  asOwner('OP-012', () => W.setKycResult('OP-012', true));
   check(kycFactor().value === 'ยืนยันแล้ว' && kycFactor().impact > 0 && badge(SID)!.status === 'active' && badge(SID)!.history[0].trigger === 'identity_change', 'ยืนยันตัวตนสำเร็จ → C1 ใช้สถานะ KYC ล่าสุด · Badge กลับมาแสดง');
 }
 
@@ -168,7 +168,7 @@ describe('Release Validation — นิติบุคคลสมัครเ�
     juristic: { companyName: 'บริษัท ทดสอบนิติบุคคล จำกัด', registrationNo: 'DEMO-0105569000999', companyType: 'บริษัทจำกัด', authorizedPerson: 'คุณ ก กรรมการ', applicantName: 'คุณ ข ผู้แทน' },
     documents: [doc('หนังสือรับรองนิติบุคคล'), doc('หนังสือมอบอำนาจ')],
   } as never);
-  const j = W.submitShopRegistration('OP-013', jForm, { draftId: 'DRF-JUR-REL' });
+  const j = asOwner('OP-013', () => W.submitShopRegistration('OP-013', jForm, { draftId: 'DRF-JUR-REL' }));
   const jm = merchants().find((m) => m.id === j.merchant.id)!;
   const jop = S.useOperatorStore.getState().items.find((o) => o.id === jm.operatorId)!;
   const js = VR.verificationSummary(jm, jop, S.useMarketplaceStore.getState().items);

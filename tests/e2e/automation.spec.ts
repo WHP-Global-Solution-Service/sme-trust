@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { confirm, expect, finishScenario, fresh, next, open, panel, store, test } from './helpers';
+import { confirm, expect, expectStep, finishScenario, fresh, next, open, panel, store, test } from './helpers';
 
 /**
  * Automation First, Human by Exception — ผ่าน UI จริง
@@ -29,11 +29,13 @@ async function connectVia(page: Page, platform: 'shopee' | 'lazada', profile: st
   await expect(wiz(page).getByText('เชื่อมต่อสำเร็จ (Connection Success)')).toBeVisible();
 }
 
-test('Scenario 14: Marketplace App → SME Trust → Auto-Fill → ประเมินอัตโนมัติ → Badge → ผู้บริโภค โดยไม่มีขั้นตอนเจ้าหน้าที่', async ({ page }) => {
-  test.setTimeout(300_000);
-  await fresh(page);
-  await main(page).getByRole('button', { name: 'เริ่ม Scenario 14' }).click();
-  await expect(panel(page).getByText('Scenario 14:')).toBeVisible();
+const sessionRole = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v2:session') ?? '{"state":{}}').state.role as string);
+
+/**
+ * เล่น Scenario 14 ครบทุกขั้นหลังเริ่มแล้ว (ใช้ทั้งจากหน้าแรกและจาก CTA หลักของหน้า Demo)
+ * roleChecks: ตรวจบทบาททุกช่วง · ย้อนกลับข้ามบทบาท (ผู้บริโภค → ร้านค้า) · Refresh ที่ขั้นผู้บริโภค
+ */
+async function playS14(page: Page, roleChecks = false) {
   // เริ่ม Scenario = Reset + บันทึก State ลง localStorage แล้ว — ใช้เป็นจุดเทียบใบรับรอง
   const certsBefore = JSON.stringify((await store<Cert>(page, 'certifications')).filter((c) => c.merchantId === 'M-005'));
   expect(certsBefore).not.toBe('[]');
@@ -55,15 +57,57 @@ test('Scenario 14: Marketplace App → SME Trust → Auto-Fill → ประเ�
   await expect(main(page).getByTestId('automation-panel')).toContainText('AUTO_PASS');
   await expect(main(page).getByTestId('automation-panel').getByTestId('assessment-badge')).toHaveAttribute('data-status', 'active');
   await next(page);
+  if (roleChecks) {
+    await expectStep(page, 6);
+    expect(await sessionRole(page)).toBe('merchant');
+  }
   await next(page, { expectTransition: true });
   await expect(page).toHaveURL(/\/shop\/M-005$/);
   await expect(main(page).getByTestId('public-badge')).toHaveAttribute('data-status', 'active');
   await expect(main(page).getByTestId('public-badge')).toContainText('ไม่ใช่การรับรอง');
   await expect(main(page)).not.toContainText('AUTO_PASS');
+  if (roleChecks) {
+    await expectStep(page, 7);
+    expect(await sessionRole(page)).toBe('consumer');
+    // ย้อนกลับข้ามบทบาท → ยืนยัน Role Transition → ร้านค้า ขั้น 6 (Badge ยังเป็น active ไม่ประเมินซ้ำ)
+    await panel(page).locator('[data-demo="back"]').click();
+    await page.getByRole('dialog').getByRole('button', { name: /ดำเนินการต่อในมุม/ }).click();
+    await expectStep(page, 6);
+    await expect(page).toHaveURL(/\/m\/trust$/);
+    expect(await sessionRole(page)).toBe('merchant');
+    await expect(main(page).getByTestId('automation-panel').getByTestId('assessment-badge')).toHaveAttribute('data-status', 'active');
+    await next(page, { expectTransition: true });
+    await expectStep(page, 7);
+    // Refresh ที่ขั้นผู้บริโภค → ขั้นเดิม บทบาทเดิม Badge เดิม
+    await page.reload();
+    await expectStep(page, 7);
+    await expect(page).toHaveURL(/\/shop\/M-005$/);
+    expect(await sessionRole(page)).toBe('consumer');
+    await expect(main(page).getByTestId('public-badge')).toHaveAttribute('data-status', 'active');
+  }
   await finishScenario(page, 's14');
   await expect(page.getByText('ระบบออก Assessment Badge อัตโนมัติ — ไม่ต้องใช้เจ้าหน้าที่')).toBeVisible();
   expect((await store<Task>(page, 'officer-tasks')).filter((t) => t.merchantId === 'M-005')).toHaveLength(0);
   expect(JSON.stringify((await store<Cert>(page, 'certifications')).filter((c) => c.merchantId === 'M-005'))).toBe(certsBefore);
+}
+
+test('Scenario 14: Marketplace App → SME Trust → Auto-Fill → ประเมินอัตโนมัติ → Badge → ผู้บริโภค โดยไม่มีขั้นตอนเจ้าหน้าที่', async ({ page }) => {
+  test.setTimeout(300_000);
+  await fresh(page);
+  await main(page).getByRole('button', { name: 'เริ่ม Scenario 14' }).click();
+  await expect(panel(page).getByText('Scenario 14:')).toBeVisible();
+  await playS14(page);
+});
+
+test('หน้า Demo: "เริ่ม Demo เส้นทางหลัก" → Scenario 14 ครบทุกขั้น · บทบาท · ย้อนกลับข้ามบทบาท · Refresh', async ({ page }) => {
+  test.setTimeout(300_000);
+  await fresh(page);
+  await open(page, '/demo');
+  await page.getByTestId('main-cta').click();
+  await expect(panel(page).getByText('Scenario 14:')).toBeVisible();
+  await expectStep(page, 1);
+  expect(await sessionRole(page)).toBe('merchant');
+  await playS14(page, true);
 });
 
 test('Scenario 15: ข้อมูลตัวตนขัดแย้ง → Manual Review Queue → เจ้าหน้าที่อนุมัติ → ระบบออก Badge ต่อเอง', async ({ page }) => {

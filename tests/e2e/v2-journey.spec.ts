@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { demoState, expect, expectBlocked, finishScenario, fresh, next, open, panel, store, test } from './helpers';
+import { demoState, expect, expectBlocked, finishScenario, fresh, next, open, openAllScenarios, panel, store, test } from './helpers';
 
 /** P6 — Full Journey v2 (Scenario 9–13) และเส้นทางทางเลือก 9B ผ่าน UI จริง: Business Action ทุกอย่างกดในหน้าจอ */
 const main = (page: Page) => page.locator('main');
@@ -18,6 +18,7 @@ async function continueTo(page: Page, no: string) {
 test('Demo Selector: แยก v1 / v2, Full Journey 2 ชุด และแท็บ Scenario เดี่ยว', async ({ page }) => {
   await fresh(page);
   await open(page, '/demo');
+  await openAllScenarios(page);
   await expect(page.getByRole('region', { name: 'สาธิตระบบแบบต่อเนื่อง (Full Journey Demo)' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' }).getByText(/เชื่อมข้อมูลจากแพลตฟอร์มขายเดิม/)).toBeVisible();
@@ -33,6 +34,7 @@ test('Full Journey v2: เชื่อมต่อ → วิเคราะห�
   test.setTimeout(600_000);
   await fresh(page);
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('button', { name: 'เริ่ม Journey Marketplace & Trust', exact: true }).click();
   await expect(panel(page).getByText('Full Journey — Marketplace & Trust Assessment')).toBeVisible();
   await expect(panel(page).getByText('Scenario 9:')).toBeVisible();
@@ -186,6 +188,7 @@ test('ทางเลือก 9B: ไม่มี Marketplace → ลงทะ�
   test.setTimeout(300_000);
   await fresh(page);
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
   await page.getByRole('article').filter({ hasText: 'ร้านที่ไม่มีบัญชี Marketplace — ลงทะเบียนด้วยตนเอง' }).getByRole('button', { name: 'Start Demo' }).click();
   await expect(panel(page).getByText('Scenario 9B:')).toBeVisible();

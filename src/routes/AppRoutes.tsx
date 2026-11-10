@@ -79,6 +79,7 @@ const MerchantAssessmentPage = lazyPage(() => import('@/features/trust-assessmen
 const OfficerAssessmentList = lazyPage(() => import('@/features/trust-assessment/pages/OfficerAssessmentList'));
 const OfficerAssessmentDetail = lazyPage(() => import('@/features/trust-assessment/pages/OfficerAssessmentDetail'));
 const AdminAssessmentModel = lazyPage(() => import('@/features/trust-assessment/pages/AdminAssessmentModel'));
+const PermissionMatrixPage = lazyPage(() => import('@/features/admin/PermissionMatrixPage'));
 
 const gate = (allow: Role[], el: JSX.Element) => <RoleGate allow={allow}>{el}</RoleGate>;
 const M: Role[] = ['merchant'];
@@ -172,6 +173,7 @@ export function AppRoutes() {
         <Route path="/admin/audit" element={gate(A, <AuditPage />)} />
         <Route path="/admin/data" element={gate(A, <DemoDataPage />)} />
         <Route path="/admin/assessment-model" element={gate(A, <AdminAssessmentModel />)} />
+        <Route path="/admin/permissions" element={gate(A, <PermissionMatrixPage />)} />
 
         <Route path="/404" element={<NotFoundPage />} />
       </Route>

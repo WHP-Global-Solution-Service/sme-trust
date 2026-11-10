@@ -39,16 +39,64 @@ type Session = Record<string, unknown> & { role: 'merchant' | 'consumer' | 'offi
 
 /** Render เส้นทางในบทบาทที่กำหนด แล้วคืนข้อความที่ผู้ใช้เห็น (ตัดแท็ก HTML) */
 export function view(url: string, session?: Session): string {
+  return viewHtml(url, session).replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+}
+
+/** Render เส้นทางในบทบาทที่กำหนด แล้วคืน HTML เต็ม (ใช้ตรวจโครงสร้าง เช่น data-testid และสถานะพับ/เปิด) */
+export function viewHtml(url: string, session?: Session): string {
   const keep = S.useSessionStore.getState();
   if (session) S.useSessionStore.setState({ merchantLoggedIn: true, ...session });
   const silenced = console.error;
   console.error = () => {};
   try {
-    const html = renderToString(R.createElement(StaticRouter, { location: url }, R.createElement(AppRoutes)));
-    return html.replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+    return renderToString(R.createElement(StaticRouter, { location: url }, R.createElement(AppRoutes)));
   } finally {
     console.error = silenced;
     if (session) S.useSessionStore.setState({ role: keep.role, operatorId: keep.operatorId, consumerId: keep.consumerId, officerId: keep.officerId, merchantLoggedIn: keep.merchantLoggedIn });
+  }
+}
+
+/**
+ * ทำรายการในนามบทบาทที่ทำได้จริง — Store/Workflow ตรวจสิทธิ์ด้วย authorize() แล้ว (src/auth)
+ * บทบาทปัจจุบันมีสิทธิ์อยู่แล้ว → เรียกตรง · ไม่มีสิทธิ์ → สลับเป็นบทบาทแรกเฉพาะรายการนี้ แล้วคืนบทบาทเดิม
+ */
+export function actAs<T>(roles: Session['role'] | Session['role'][], fn: () => T): T {
+  const allowed = Array.isArray(roles) ? roles : [roles];
+  const prev = S.useSessionStore.getState().role;
+  if (allowed.includes(prev)) return fn();
+  S.useSessionStore.setState({ role: allowed[0] });
+  try {
+    return fn();
+  } finally {
+    S.useSessionStore.setState({ role: prev });
+  }
+}
+
+/**
+ * เจ้าของร้านจริงของรายการที่อ้างถึง → operatorId
+ * ref = รหัสบัญชี ร้าน การเชื่อมต่อ คำขอ ผลประเมิน งานกรณียกเว้น คำขอเปลี่ยนข้อมูล คำเตือน ข้อร้องเรียน หรือเรื่องพิจารณาความเสี่ยง
+ */
+export function ownerOf(ref: string): string | undefined {
+  if (S.useOperatorStore.getState().items.some((o) => o.id === ref)) return ref;
+  const find = (st: { getState: () => { items: { id: string; merchantId?: string }[] } }) => st.getState().items.find((x) => x.id === ref)?.merchantId;
+  const mid =
+    S.useMerchantStore.getState().items.find((m) => m.id === ref)?.id ??
+    [S.useMarketplaceStore, S.useVerificationStore, S.useAssessmentStore, S.useOfficerTaskStore, S.useProfileChangeStore, S.useWarningStore, S.useComplaintStore, S.useRiskStore].map((st) => find(st as never)).find(Boolean);
+  return S.useMerchantStore.getState().items.find((m) => m.id === mid)?.operatorId;
+}
+
+/**
+ * ทำรายการในนามเจ้าของร้านของรายการ ref (บทบาทผู้ประกอบการ + บัญชีที่เป็นเจ้าของ) — Store ตรวจทั้ง Role และ Ownership
+ * แล้วคืน Session เดิม · ไม่พบเจ้าของ → ใช้บัญชีปัจจุบัน (Store จะปฏิเสธตามจริง)
+ */
+export function asOwner<T>(ref: string, fn: () => T): T {
+  const keep = S.useSessionStore.getState();
+  const prev = { role: keep.role, operatorId: keep.operatorId, merchantLoggedIn: keep.merchantLoggedIn, activeMerchantId: keep.activeMerchantId };
+  S.useSessionStore.setState({ role: 'merchant', operatorId: ownerOf(ref) ?? keep.operatorId, merchantLoggedIn: true });
+  try {
+    return fn();
+  } finally {
+    S.useSessionStore.setState(prev);
   }
 }
 

@@ -7,7 +7,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { S, W, view, describe, check, finish } from '../harness.mts';
+import { S, W, view, describe, check, finish, actAs, asOwner } from '../harness.mts';
 
 const V = await import('@/stores/workflowsV2');
 const AU = await import('@/stores/automation');
@@ -33,8 +33,8 @@ const conn = (id: string) => S.useMarketplaceStore.getState().items.find((c) => 
 
 /** ร้าน M-005 เริ่มจากยังไม่เชื่อมต่อ แล้วเชื่อม + ยินยอม + ซิงก์ (เหมือนผู้ใช้กดยืนยันนำเข้า) */
 function connect(archetype: Parameters<typeof V.connectMarketplace>[2], platform: 'shopee' | 'lazada' = 'shopee') {
-  const c = V.connectMarketplace(MID, platform, archetype);
-  V.grantConsent(c.id);
+  const c = asOwner(MID, () => V.connectMarketplace(MID, platform, archetype));
+  asOwner(c.id, () => V.grantConsent(c.id));
   V.completeSync(c.id, true);
   return conn(c.id);
 }
@@ -89,14 +89,14 @@ describe('No duplicate · Assessment Recalculation · Badge State Update');
   check(V.latestAssessment(MID)!.result.computedAt >= runs()[1].at && badge()!.status === 'needs_update' && badge()!.route === 'AUTO_REQUEST_INFO', 'ข้อมูลหมดอายุ (180 วัน) → ประเมินใหม่ → AUTO_REQUEST_INFO · Badge รอร้านอัปเดตข้อมูล');
   check(badge()!.history.length === hist + 1 && badge()!.history[0].trigger === 'data_age', 'Badge บันทึกประวัติเมื่อสถานะเปลี่ยน (เหตุการณ์ = อายุข้อมูล)');
   check(notes('ต้องอัปเดตข้อมูลก่อนแสดง Assessment Badge').length === 1 && tasks().length === 0, 'แจ้งร้านให้ซิงก์เอง — ไม่สร้างงานเจ้าหน้าที่');
-  V.resyncMarketplace(good.id);
+  asOwner(good.id, () => V.resyncMarketplace(good.id));
   V.completeSync(good.id, true);
   check(badge()!.status === 'active' && runs()[0].trigger === 'sync', 'ร้านซิงก์ใหม่ → ประเมินซ้ำอัตโนมัติ → Badge กลับมาแสดง');
 }
 
 describe('Merchant ประเมินเองแล้วระบบจัดเส้นทางต่อ (origin = merchant)');
 {
-  const a = V.runAssessment(MID)!;
+  const a = asOwner(MID, () => V.runAssessment(MID))!;
   check(a.origin === 'merchant' && runs()[0].trigger === 'merchant_assessment' && badge()!.assessmentId === a.id, 'ร้านกดประเมินใหม่ → ระบบใช้ผลนั้นจัดเส้นทางและอัปเดต Badge');
 }
 
@@ -168,7 +168,7 @@ const mis = connect('owner_mismatch');
   check(notes('กรณียกเว้นรอตรวจสอบ').length === 1 && notes('ข้อมูลบางส่วนส่งให้เจ้าหน้าที่ตรวจสอบเพิ่มเติม').length === 1, 'แจ้งเจ้าหน้าที่และร้านค้า');
   AU.processMerchant(MID, 'simulation');
   AU.processAll('simulation');
-  V.resyncMarketplace(mis.id);
+  asOwner(mis.id, () => V.resyncMarketplace(mis.id));
   V.completeSync(mis.id, true);
   check(tasks().length === 1 && notes('กรณียกเว้นรอตรวจสอบ').length === 1, 'Refresh / ประเมินซ้ำ / ซิงก์ซ้ำ → ไม่สร้างงานหรือแจ้งเตือนซ้ำ');
   const consumer = view(`/shop/${MID}`, { role: 'consumer' });
@@ -183,24 +183,24 @@ describe('Request More Information → ร้านตอบ → งานเด
 {
   const id = tasks()[0].id;
   asOfficer();
-  check(!AU.resolveTask(id, 'request_info', 'สั้น').ok, 'ต้องมีเหตุผลอย่างน้อย 5 ตัวอักษร');
-  check(AU.resolveTask(id, 'request_info', 'กรุณาส่งหลักฐานความเป็นเจ้าของบัญชีร้าน').ok && tasks()[0].status === 'info_requested', 'ขอข้อมูลเพิ่ม → สถานะรอข้อมูลจากร้านค้า');
+  check(!actAs(['officer', 'admin'], () => AU.resolveTask(id, 'request_info', 'สั้น')).ok, 'ต้องมีเหตุผลอย่างน้อย 5 ตัวอักษร');
+  check(actAs(['officer', 'admin'], () => AU.resolveTask(id, 'request_info', 'กรุณาส่งหลักฐานความเป็นเจ้าของบัญชีร้าน')).ok && tasks()[0].status === 'info_requested', 'ขอข้อมูลเพิ่ม → สถานะรอข้อมูลจากร้านค้า');
   check(notes('เจ้าหน้าที่ขอข้อมูลเพิ่มเติม').length >= 1, 'แจ้งร้านค้า');
   asMerchant();
   const page = view('/m/trust', { role: 'merchant', operatorId: 'OP-005' });
   check(page.includes('กรุณาส่งหลักฐานความเป็นเจ้าของบัญชีร้าน') && page.includes('ส่งข้อมูลให้เจ้าหน้าที่'), 'ร้านค้าเห็นคำขอและแบบฟอร์มตอบกลับ');
-  check(AU.respondToTask(id, 'แนบหนังสือมอบอำนาจจากเจ้าของบัญชี (จำลอง)').ok && tasks()[0].status === 'open' && tasks().length === 1, 'ร้านตอบ → งานเดิมกลับเข้าคิว (ไม่สร้างงานใหม่)');
-  check(!AU.respondToTask(id, 'ส่งซ้ำอีกครั้งหนึ่ง').ok, 'ตอบซ้ำไม่ได้เมื่องานไม่ได้รอข้อมูล');
+  check(asOwner(id, () => AU.respondToTask(id, 'แนบหนังสือมอบอำนาจจากเจ้าของบัญชี (จำลอง)')).ok && tasks()[0].status === 'open' && tasks().length === 1, 'ร้านตอบ → งานเดิมกลับเข้าคิว (ไม่สร้างงานใหม่)');
+  check(!asOwner(id, () => AU.respondToTask(id, 'ส่งซ้ำอีกครั้งหนึ่ง')).ok, 'ตอบซ้ำไม่ได้เมื่องานไม่ได้รอข้อมูล');
 }
 
 describe('Approve → ยืนยันตัวตน → ระบบประเมินและออก Badge ต่อเอง');
 {
   const id = tasks()[0].id;
   asOfficer();
-  check(AU.resolveTask(id, 'approve', 'ตรวจหนังสือมอบอำนาจแล้ว เป็นร้านเดียวกัน').ok, 'อนุมัติได้');
+  check(actAs(['officer', 'admin'], () => AU.resolveTask(id, 'approve', 'ตรวจหนังสือมอบอำนาจแล้ว เป็นร้านเดียวกัน')).ok, 'อนุมัติได้');
   check(tasks()[0].status === 'approved' && conn(mis.id).identityReview?.status === 'verified', 'บันทึกผลการตรวจข้อมูลตัวตนบนการเชื่อมต่อ');
   check(badge()!.status === 'active' && badge()!.route === 'AUTO_PASS' && runs()[0].trigger === 'officer_decision', 'ระบบประมวลผลใหม่ → AUTO_PASS → Badge แสดง');
-  check(!AU.resolveTask(id, 'approve', 'กดซ้ำอีกครั้งหนึ่ง').ok && tasks().length === 1, 'กดซ้ำไม่ได้ และไม่มีงานใหม่');
+  check(!actAs(['officer', 'admin'], () => AU.resolveTask(id, 'approve', 'กดซ้ำอีกครั้งหนึ่ง')).ok && tasks().length === 1, 'กดซ้ำไม่ได้ และไม่มีงานใหม่');
   AU.processAll('simulation');
   check(tasks().length === 1, 'ประมวลผลซ้ำหลังอนุมัติไม่สร้างงานเดิมอีก');
   check(S.useAuditStore.getState().items.some((a) => a.target === id && a.action === 'เจ้าหน้าที่อนุมัติกรณียกเว้น'), 'Audit Log บันทึกการตัดสิน');
@@ -214,7 +214,7 @@ V2S.fixtureV2Clean();
   const id = tasks()[0].id;
   asOfficer();
   const before = certsJson();
-  check(AU.resolveTask(id, 'reject', 'ไม่พบหลักฐานว่าเป็นเจ้าของบัญชีร้าน').ok && tasks()[0].status === 'rejected', 'ไม่อนุมัติได้');
+  check(actAs(['officer', 'admin'], () => AU.resolveTask(id, 'reject', 'ไม่พบหลักฐานว่าเป็นเจ้าของบัญชีร้าน')).ok && tasks()[0].status === 'rejected', 'ไม่อนุมัติได้');
   check(conn(c.id).identityReview?.status === 'rejected' && V.latestAssessment(MID)!.result.dataSources.length === 0, 'ข้อมูลจากการเชื่อมต่อนี้ไม่ถูกใช้ประเมิน (ประเมินใหม่โดยไม่มีข้อมูลร้านนั้น)');
   check(badge()!.status === 'insufficient' && badge()!.route === 'AUTO_REQUEST_INFO', 'กลับเป็นเส้นทางร้านค้าเพิ่มข้อมูลเอง (เชื่อมร้านของตนเอง)');
   check(certsJson() === before && !S.useRiskStore.getState().items.some((r) => r.merchantId === MID), 'ใบรับรองไม่เปลี่ยน และไม่เปิดเรื่องความเสี่ยงสำหรับกรณีข้อมูลตัวตน');
@@ -226,8 +226,8 @@ describe('Risk Signal → Reject เปิดเรื่องพิจาร�
 V2S.fixtureV2Clean();
 {
   const a = connect('established_good', 'shopee');
-  const b = V.connectMarketplace(MID, 'lazada', 'price_anomaly');
-  V.grantConsent(b.id);
+  const b = asOwner(MID, () => V.connectMarketplace(MID, 'lazada', 'price_anomaly'));
+  asOwner(b.id, () => V.grantConsent(b.id));
   V.completeSync(b.id, true);
   // สร้างสัญญาณ 2 ข้อขึ้นไปด้วยข้อมูลจริงจาก Generator: เปลี่ยนร้านที่สองเป็นรีวิวกระจุกตัว + ร้านแรกยอดขายพุ่ง
   S.useMarketplaceStore.getState().update(a.id, { archetype: 'sales_spike', seed: V.seedFor(MID, 'shopee', 'sales_spike', a.id) });
@@ -238,7 +238,7 @@ V2S.fixtureV2Clean();
     check(!!t && badge()!.status === 'under_review', `พบประเด็นที่ต้องพิจารณา (${r.riskFactors.map((f) => f.id).join(', ') || 'rating gap'}) → งานเจ้าหน้าที่ + Badge ไม่แสดง`);
     asOfficer();
     const certB = certsJson();
-    check(AU.resolveTask(t!.id, 'reject', 'พบประเด็นที่ต้องให้ร้านชี้แจงเพิ่มเติม').ok, 'ไม่อนุมัติได้');
+    check(actAs(['officer', 'admin'], () => AU.resolveTask(t!.id, 'reject', 'พบประเด็นที่ต้องให้ร้านชี้แจงเพิ่มเติม')).ok, 'ไม่อนุมัติได้');
     const rsk = S.useRiskStore.getState().items.find((x) => x.merchantId === MID);
     check(!!rsk && tasks().find((x) => x.id === t!.id)!.resolution?.riskCaseId === rsk.id, 'เปิดเรื่องพิจารณาความเสี่ยง (ร้านชี้แจง/อุทธรณ์ได้)');
     check(badge()!.status === 'withheld' && certsJson() === certB, 'Badge ระงับการแสดงระหว่างพิจารณา · ใบรับรองไม่ถูกระงับอัตโนมัติ');
@@ -255,11 +255,11 @@ asOfficer();
 {
   const cert = S.useCertificationStore.getState().items.find((c) => c.merchantId === 'M-001' && c.status === 'active')!;
   const nBefore = S.useAssessmentStore.getState().items.length;
-  check(W.setCertStatus(cert.id, 'suspended', 'ทดสอบระงับการรับรองชั่วคราว').ok, 'เจ้าหน้าที่ระงับใบรับรอง (Workflow เดิม)');
+  check(actAs(['officer', 'admin'], () => W.setCertStatus(cert.id, 'suspended', 'ทดสอบระงับการรับรองชั่วคราว')).ok, 'เจ้าหน้าที่ระงับใบรับรอง (Workflow เดิม)');
   check(badge('M-001')!.status === 'suspended' && badge('M-001')!.history[0].trigger === 'measure_change', 'Badge เปลี่ยนเป็น Suspended ทันที (ไม่แสดงต่อผู้บริโภค)');
   check(S.useAssessmentStore.getState().items.length === nBefore, 'มาตรการเปลี่ยนไม่สร้างผลประเมินใหม่ (สถานะอ่านจากข้อมูลปัจจุบัน)');
   check(!view('/shop/M-001', { role: 'consumer' }).includes('Trust Assessment Badge Band'), 'ผู้บริโภคไม่เห็น Badge ของร้านที่ถูกระงับ');
-  check(W.setCertStatus(cert.id, 'active', 'คืนสถานะหลังตรวจสอบแล้ว').ok && badge('M-001')!.status === 'active', 'คืนสถานะ → Badge กลับมาแสดง');
+  check(actAs(['officer', 'admin'], () => W.setCertStatus(cert.id, 'active', 'คืนสถานะหลังตรวจสอบแล้ว')).ok && badge('M-001')!.status === 'active', 'คืนสถานะ → Badge กลับมาแสดง');
 }
 
 // ------------------------------------------------------------------ Consumer visibility
@@ -289,15 +289,15 @@ asMerchant();
   S.useMarketplaceStore.getState().update(c.id, { sourceShopName: 'ดอยสูงต้นฉบับ' });
   const before = certsJson();
   const values = { ...V.registeredValues(S.useMerchantStore.getState().items.find((m) => m.id === MID)!), shopName: 'ดอยสูงต้นฉบับ' };
-  const res = V.confirmProfileUpdate(c.id, values, 'draft-auto-1');
+  const res = asOwner(c.id, () => V.confirmProfileUpdate(c.id, values, 'draft-auto-1'));
   const m = S.useMerchantStore.getState().items.find((x) => x.id === MID)!;
   check(res.ok && m.shopName === 'ดอยสูงต้นฉบับ' && !res.record?.changeRequestId && S.useProfileChangeStore.getState().items.length === 0, 'ตรงกับต้นฉบับ → บันทึกอัตโนมัติ ไม่สร้างคำขอให้เจ้าหน้าที่');
   check(S.useAuditStore.getState().items.some((a) => a.action.startsWith('ตรวจสอบข้อมูลร้านอัตโนมัติ')), 'Audit Log บันทึกการตรวจสอบอัตโนมัติ');
-  const res2 = V.confirmProfileUpdate(c.id, { ...values, shopName: 'ชื่อที่ตรวจไม่ได้' }, 'draft-auto-2');
+  const res2 = asOwner(c.id, () => V.confirmProfileUpdate(c.id, { ...values, shopName: 'ชื่อที่ตรวจไม่ได้' }, 'draft-auto-2'));
   check(res2.ok && !!res2.record?.changeRequestId && S.useMerchantStore.getState().items.find((x) => x.id === MID)!.shopName === 'ดอยสูงต้นฉบับ', 'ชื่อที่ตรวจไม่ได้ → Workflow อนุมัติชื่อร้านเดิม (ข้อมูลเดิมใช้ต่อ)');
   check(certsJson() === before, 'ใบรับรองไม่เปลี่ยน');
   const snapBefore = JSON.stringify(V.latestAssessment(MID)!.result.analysis);
-  V.confirmProfileUpdate(c.id, { ...values, description: 'แก้คำอธิบายเพื่อทดสอบ' }, 'draft-auto-3');
+  asOwner(c.id, () => V.confirmProfileUpdate(c.id, { ...values, description: 'แก้คำอธิบายเพื่อทดสอบ' }, 'draft-auto-3'));
   AU.processMerchant(MID, 'simulation');
   check(JSON.stringify(V.latestAssessment(MID)!.result.analysis) === snapBefore, 'ร้านแก้โปรไฟล์ไม่เปลี่ยนข้อมูลต้นฉบับ Marketplace และผลวิเคราะห์ที่ใช้ประเมิน');
 }

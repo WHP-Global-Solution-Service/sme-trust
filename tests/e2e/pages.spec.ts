@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openAllScenarios } from './helpers';
 
 /**
  * เว็บไซต์ GitHub Pages (playwright.pages.config.ts): SME Trust v2 แทน v1 ที่ URL เดิม /sme-trust/
@@ -41,6 +42,7 @@ test('หน้าแรก /sme-trust/ เป็น SME Trust v2: Asset ทั�
   expect((await page.request.get(icon!)).status()).toBe(200);
   // หน้า Demo มีทั้ง Full Journey เดิม (Scenario 1–8) และ v2 (Scenario 9–13)
   await page.goto('demo');
+  await openAllScenarios(page);
   await expect(page.getByRole('region', { name: 'สาธิตระบบแบบต่อเนื่อง (Full Journey Demo)' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' })).toBeVisible();
   await expect(page.getByRole('tab', { name: /Consumer Protection/ })).toBeVisible();
@@ -61,7 +63,7 @@ const DEEP: [string, Record<string, string | boolean>, RegExp | string][] = [
   ['m/trust', M5, /ผลประเมิน|ประเมินความน่าเชื่อถือ/],
   ['o/assessments', { role: 'officer', officerId: 'OF-001' }, /ผลประเมิน/],
   ['shop/M-005', { role: 'consumer', consumerId: 'CS-001' }, 'ร้านกาแฟดอยสูง'],
-  ['demo', {}, 'Full Journey — Marketplace & Trust Assessment'],
+  ['demo', {}, 'ทดลองใช้งาน SME Trust'],
   ['demo/v2/summary', {}, /Executive Impact Summary|สรุปผลกระทบ/],
   // ฟังก์ชันเดิมจาก v1: ตรวจใบรับรอง (ปลายทาง QR), ข้อร้องเรียน, AI, เจ้าหน้าที่, ผู้ดูแลระบบ
   ['verify/SMT-2569-000101', { role: 'consumer', consumerId: 'CS-001' }, 'SMT-2569-000101'],
@@ -113,6 +115,7 @@ test('ผู้ที่เคยเปิด v1: ข้อมูลเก่า
   await expect(page.getByText('ร้านจากเวอร์ชันเดิม')).toHaveCount(0);
   // เริ่ม Journey v2 → เขียนเฉพาะ smetrust:v2:*
   await page.goto('demo');
+  await openAllScenarios(page);
   await page.getByRole('button', { name: 'เริ่ม Journey Marketplace & Trust', exact: true }).click();
   await expect(page).toHaveURL(/\/sme-trust\/m$/);
   const after = await page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])));

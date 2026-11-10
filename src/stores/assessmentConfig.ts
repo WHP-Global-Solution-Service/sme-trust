@@ -1,3 +1,4 @@
+import { authorize } from '@/auth/authorize';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_PREFIX } from './createEntityStore';
@@ -43,6 +44,7 @@ export const useAssessmentConfigStore = create<AssessmentConfigState>()(
       return {
         ...initial(),
         setWeights: (w) => {
+          authorize('assessment_model.configure');
           const err = validateWeights(w);
           if (!err) record(w, 'ผู้ดูแลระบบปรับน้ำหนัก');
           return err;
