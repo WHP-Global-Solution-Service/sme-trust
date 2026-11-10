@@ -118,6 +118,21 @@ Build + `vite preview` อัตโนมัติ แล้วคลิกผ�
 
 Manual (ก่อนนำเสนอ): เปิดหน้าแรกบนจอ 375px / 768px / 1440px · เล่น Scenario 14 → 15 → 9B (+ เพิ่ม Shopee) ตาม `executive-demo-guide.md`
 
+**ผลรอบ Final Stability Verification — Release Candidate `3f85322` (10 พ.ย. 2569, ในเครื่อง RAM 8 GB / 8 Threads) — ตรวจรับแบบมีเงื่อนไข:**
+
+| รายการ | ผล |
+|---|---|
+| TypeScript | ✅ |
+| `npm test` | ✅ 19 ชุด · Role & Permission + Merchant Ownership 204/204 · Assessment / Badge / Band A 100/100 · `v2/p7` 110/110 |
+| E2E Chromium ครบทุกชุด (2 Worker) | ✅ 86/86 |
+| E2E Firefox ครบทุกชุด (2 Worker = ค่า CI) | 84/86 — Browser crash 2 ชุด (`lifecycle` · `responsive` 375px) จากข้อจำกัดทรัพยากร ไม่มี Application failure (KI-V2-39) |
+| E2E Firefox ครบทุกชุด (1 Worker) | ✅ 86/86 — **ใช้ผลนี้สำหรับการตรวจรับรอบนี้** |
+| Demo Stability: `continuity` · `scenarios` · `v2-journey` · `roles` × 5 รอบ (Chromium, 2 Worker) | ✅ 85/85 — Next / Back / Restart / กดซ้ำเร็ว / สลับบทบาท / Refresh / ขั้น–URL–หน้าจอ–บทบาท–Demo State ตรงกัน · ฉบับร่าง: `onboarding.spec` (บันทึกและทำต่อหลัง Refresh) ผ่านใน Chromium และ WebKit |
+| WebKit (7 ชุด: continuity, home, onboarding, automation, v2-journey, band-permissions, v2-assessment — 2 Worker) | ✅ 29/29 |
+| GitHub Pages จำลอง | ✅ 9/9 |
+| จัดประเภทความล้มเหลว (Firefox 2 Worker) | Application failure 0 · Browser crash 2 (สาเหตุ: ทรัพยากรเครื่องทดสอบ — CPU เฉลี่ย 98% · Firefox ใช้หน่วยความจำสูงสุด 1,442 MB) · Unknown 0 |
+| Not Tested | WebKit ครบทุกชุด · iphone/ipad-safari · Safari / Firefox จริง · อุปกรณ์มือถือจริง · เว็บจริง (ยังไม่ Deploy) |
+
 **ผลรอบ Demo Controller Stability & Firefox (10 พ.ย. 2569, ในเครื่อง, ต่อจาก `d07668c`):**
 
 | รายการ | ผล |
