@@ -3,7 +3,7 @@
  * ทุก Business Action ทำด้วยการคลิกในหน้าจอ (Demo Controller ใช้เพียงเปลี่ยนขั้น)
  */
 import type { Page } from '@playwright/test';
-import { confirm, demoState, expect, expectBlocked, expectStep, next, panel, store } from './helpers';
+import { confirm, demoState, expect, expectBlocked, expectStep, next, openAllScenarios, panel, store } from './helpers';
 
 const main = (page: Page) => page.locator('main');
 const mainBtn = (page: Page, name: string | RegExp) => main(page).getByRole('button', { name, exact: typeof name === 'string' });
@@ -25,6 +25,7 @@ export async function fillReportSample(page: Page) {
 
 /** เริ่ม Full Journey จากหน้ารวม (ยืนยันกล่องถ้ามี) */
 export async function startJourney(page: Page) {
+  await openAllScenarios(page);
   await page.getByRole('button', { name: 'Start Full Journey' }).click();
   const ok = page.getByRole('dialog').getByRole('button', { name: 'เริ่ม Full Journey' });
   if (await ok.isVisible({ timeout: 1000 }).catch(() => false)) await ok.click();

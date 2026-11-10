@@ -94,7 +94,7 @@
 | Automation/Assessment Integration | ใช้ Decision Router และ Engine v2.1 เดิม · ประมวลผลหลังส่งคำขอลงทะเบียน · ร้านที่ไม่มี Marketplace ไม่ถูกหักคะแนน |
 | Assessment Badge | ชื่อร้าน Band Coverage Confidence วันที่ แหล่งข้อมูล ลิงก์ตรวจสอบ Mock QR และสถานะ (รวม Outdated) |
 | Homepage Executive | 8 Section ตามข้อกำหนด · 4 CTA ไปเส้นทางจริง · ไม่แสดง v1/v2 |
-| Executive Presentation | Demo Center "เลือกตาม User Journey" + Demo แนะนำ · ประโยชน์ทางธุรกิจในตัวควบคุมการสาธิต |
+| Executive Presentation | ~~Demo Center "เลือกตาม User Journey"~~ → **MVP-First Demo Center** (Branch `sme-trustv.2`): Hero + CTA เดียว "เริ่ม Demo เส้นทางหลัก" (Scenario 14) · การ์ด 5 ระบบหลัก (MVP) · เส้นทาง Demo ที่แนะนำ 5 ขั้น · ระบบเพิ่มเติม และ Scenario ทั้งหมด (17 เรื่อง + Full Journey 2 ชุด) พับไว้ · ไม่แสดง v1/v2 · แยก MVP / Prototype / Future Integration · Feature/Scenario/Route ID เดิมครบ ไม่เปลี่ยน Business Logic หรือโมเดล v2.1-sim · ประโยชน์ทางธุรกิจในตัวควบคุมการสาธิต |
 
 สมมติฐานที่ตัดสินใจเอง:
 

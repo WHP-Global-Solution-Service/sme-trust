@@ -82,7 +82,10 @@ test('หน้าแรก: Demo ตาม User Journey เริ่ม Scenari
   await open(page, '/');
   await main(page).getByRole('button', { name: 'ดู Demo ทั้งหมด' }).click();
   await expect(page).toHaveURL(/\/demo$/);
-  await expect(main(page).getByTestId('journey-guide')).toContainText('เส้นทางอัตโนมัติ — จากเชื่อมร้านค้าจนถึงได้รับผลประเมิน');
+  // หน้า Demo (MVP-First): เห็น 5 ระบบหลักก่อน และมี CTA หลักเพียงปุ่มเดียว
+  await expect(main(page).getByTestId('mvp-card')).toHaveCount(5);
+  await expect(page.getByTestId('main-cta')).toHaveText('เริ่ม Demo เส้นทางหลัก');
+  await expect(main(page).getByTestId('recommended-flow')).toContainText('ผู้บริโภคตรวจสอบ');
 });
 
 for (const width of [320, 375, 390, 768, 1440]) {

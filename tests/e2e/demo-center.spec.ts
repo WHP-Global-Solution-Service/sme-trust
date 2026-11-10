@@ -1,0 +1,136 @@
+import type { Page } from '@playwright/test';
+import { demoState, expect, expectStep, fresh, isDesktop, next, open, openAllScenarios, panel, test } from './helpers';
+
+/** หน้า Demo — MVP-First Demo Center */
+const mvp = (page: Page) => page.getByTestId('mvp-section');
+const sessionRole = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v2:session') ?? '{"state":{}}').state.role);
+
+test('MVP-First: เปิดหน้า Demo เห็น 5 ระบบหลักก่อน · ระบบเพิ่มเติมและ Scenario ทั้งหมดพับไว้ · เปิด/ปิดได้', async ({ page }) => {
+  await fresh(page);
+  await open(page, '/demo');
+  await expect(page.getByRole('heading', { level: 1, name: 'ทดลองใช้งาน SME Trust' })).toBeVisible();
+  await expect(page.getByTestId('main-cta')).toBeVisible();
+  await expect(page.getByTestId('main-cta')).toHaveText('เริ่ม Demo เส้นทางหลัก');
+  const cards = mvp(page).getByTestId('mvp-card');
+  await expect(cards).toHaveCount(5);
+  for (const [i, t] of ['ลงทะเบียนร้านค้า', 'ประเมินความน่าเชื่อถือ', 'แสดงผล Assessment Badge', 'ตรวจสอบร้านค้า', 'ตรวจสอบเฉพาะกรณีจำเป็น'].entries()) await expect(cards.nth(i)).toContainText(t);
+  await expect(page.getByTestId('recommended-flow').getByRole('listitem')).toHaveCount(5);
+  // พับไว้เป็นค่าเริ่มต้น: ไม่เห็นปุ่มเริ่มของระบบเพิ่มเติมหรือ Scenario เดี่ยว
+  await expect(page.getByTestId('secondary-group')).toHaveCount(6);
+  await expect(page.getByRole('button', { name: /^เริ่มสาธิต:/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start Full Journey' })).toHaveCount(0);
+  // ขยาย / พับ กลุ่ม AI Simulation
+  const ai = page.getByTestId('secondary-group').filter({ hasText: 'AI Simulation' });
+  await ai.locator(':scope > summary').click();
+  await expect(ai.getByRole('button', { name: /^เริ่มสาธิต:/ })).toHaveCount(2);
+  await ai.locator(':scope > summary').click();
+  await expect(ai.getByRole('button', { name: /^เริ่มสาธิต:/ })).toHaveCount(0);
+  // Scenario ทั้งหมด: Full Journey 2 ชุด + Scenario เดี่ยวทุกเรื่อง (8 + 9)
+  await openAllScenarios(page);
+  await expect(page.getByRole('button', { name: 'Start Full Journey' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'เริ่ม Journey Marketplace & Trust', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(8);
+  await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
+  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(9);
+  // ไม่มีป้าย v1/v2 ที่ผู้ใช้เห็น
+  expect(await page.locator('main').innerText()).not.toMatch(/\bv[12]\b/i);
+});
+
+test('CTA หลัก → เส้นทางหลัก (Scenario 14): ขั้น · URL · บทบาท · ถัดไป/ย้อนกลับ · Refresh · Restart · เริ่มตั้งแต่ต้น', async ({ page }) => {
+  await fresh(page);
+  await open(page, '/demo');
+  await page.getByTestId('main-cta').click();
+  await expect(panel(page).getByText('Scenario 14:')).toBeVisible();
+  await expectStep(page, 1);
+  await expect(page).toHaveURL(/\/m\/marketplace-app$/);
+  expect(await sessionRole(page)).toBe('merchant');
+  expect((await demoState(page)).activeScenario).toBe('s14');
+  // ขั้น 1 ต้องทำ Action จริงก่อน (กดเชื่อมกับ SME Trust) แล้วจึงไปต่อ — Demo Controller เดิม
+  await page.locator('main').getByRole('button', { name: 'เชื่อมกับ SME Trust' }).click();
+  await expect(page).toHaveURL(/\/m\/marketplace$/);
+  await next(page);
+  await expectStep(page, 2);
+  await expect(page).toHaveURL(/\/m\/marketplace$/);
+  await panel(page).locator('[data-demo="back"]').click();
+  await expectStep(page, 1);
+  await expect(page).toHaveURL(/\/m\/marketplace-app$/);
+  // ขั้นที่ทำแล้วไปต่อได้โดยไม่ต้องทำซ้ำ · Refresh แล้วอยู่ขั้นเดิม (Demo State คงอยู่)
+  await next(page);
+  await expectStep(page, 2);
+  await page.reload();
+  await expectStep(page, 2);
+  expect((await demoState(page)).stepIndex).toBe(1);
+  // Restart Scenario (ตัวควบคุมเดิม) → ขั้น 1
+  await panel(page).getByRole('button', { name: 'Restart Scenario' }).click();
+  await page.getByRole('dialog').getByRole('button').last().click();
+  await expectStep(page, 1);
+  await expect(page).toHaveURL(/\/m\/marketplace-app$/);
+  // กลับหน้า Demo ระหว่างสาธิต → เห็นสถานะ และ "เริ่มสาธิตตั้งแต่ต้น" ต้องยืนยันก่อน
+  await open(page, '/demo');
+  await expect(page.getByTestId('demo-hero')).toContainText('Scenario 14');
+  await page.getByTestId('recommended-flow').getByRole('button', { name: 'เริ่มสาธิตตั้งแต่ต้น' }).click();
+  await expect(page.getByRole('dialog')).toContainText('เริ่มเส้นทางหลักตั้งแต่ต้น?');
+  await page.getByRole('dialog').getByRole('button', { name: 'เริ่มตั้งแต่ต้น' }).click();
+  await expect(panel(page).getByText('Scenario 14:')).toBeVisible();
+  await expectStep(page, 1);
+  await expect(page).toHaveURL(/\/m\/marketplace-app$/);
+});
+
+test('ปุ่มของ 5 ระบบหลักและระบบเพิ่มเติม เริ่ม Scenario ที่ถูกต้อง', async ({ page }) => {
+  test.setTimeout(240_000);
+  const cases: [string, string, string][] = [
+    ['เริ่ม Demo: เชื่อมร้านค้าออนไลน์', 'Scenario 9A:', 's9a'],
+    ['เริ่ม Demo: สมัครด้วยตนเอง', 'Scenario 9B:', 's9b'],
+    ['เริ่ม Demo: ประเมินความน่าเชื่อถือ', 'Scenario 11:', 's11'],
+    ['เริ่ม Demo: แสดงผล Assessment Badge', 'Scenario 14:', 's14'],
+    ['เริ่ม Demo: ตรวจสอบร้านค้า', 'Scenario 13:', 's13'],
+    ['เริ่ม Demo: ตรวจสอบเฉพาะกรณีจำเป็น', 'Scenario 15:', 's15'],
+  ];
+  await fresh(page);
+  for (const [name, label, id] of cases) {
+    await open(page, '/demo');
+    await mvp(page).getByRole('button', { name, exact: true }).click();
+    await expect(panel(page).getByText(label)).toBeVisible();
+    await expectStep(page, 1);
+    expect((await demoState(page)).activeScenario).toBe(id);
+  }
+  // ระบบเพิ่มเติม: กลุ่มร้องเรียนและอุทธรณ์ → Scenario 4
+  await open(page, '/demo');
+  const g = page.getByTestId('secondary-group').filter({ hasText: 'ระบบร้องเรียนและอุทธรณ์' });
+  await g.locator(':scope > summary').click();
+  await g.getByRole('button', { name: /^เริ่มสาธิต: ผู้บริโภคร้องเรียน/ }).click();
+  await expect(panel(page).getByText('Scenario 4:')).toBeVisible();
+  expect((await demoState(page)).activeScenario).toBe('s4');
+});
+
+test('Direct URL /demo?track=v2 เปิด Scenario ทั้งหมดที่ชุด Marketplace & Trust · Refresh ได้ · ลิงก์ไม่เสีย', async ({ page }) => {
+  await fresh(page);
+  await open(page, '/demo?track=v2');
+  await expect(page.getByTestId('all-scenarios')).toHaveAttribute('open', '');
+  await expect(page.getByRole('tab', { name: /Marketplace & Trust Assessment/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: 'Start Demo' })).toHaveCount(9);
+  await page.reload();
+  await expect(page.getByTestId('mvp-section')).toBeVisible();
+  // ทุกลิงก์บนหน้า Demo เปิดได้ (เส้นทางภายในแอป)
+  const hrefs = await page.locator('a[href]').evaluateAll((as) => [...new Set(as.map((a) => (a as HTMLAnchorElement).href))]);
+  expect(hrefs.length).toBeGreaterThan(0);
+  for (const h of hrefs) expect((await page.request.get(h)).status(), h).toBe(200);
+});
+
+for (const width of [375, 768]) {
+  test(`หน้า Demo ${width}px: การ์ดเรียงลง ไม่มี Horizontal overflow · CTA ใช้ได้`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await fresh(page);
+    await open(page, '/demo');
+    const cards = mvp(page).getByTestId('mvp-card');
+    await expect(cards).toHaveCount(5);
+    const boxes = await cards.evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, w: r.width })));
+    if (width < 640) expect(new Set(boxes.map((b) => Math.round(b.x))).size, 'มือถือ: การ์ดเรียงเป็นคอลัมน์เดียว').toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+    await openAllScenarios(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+    await page.getByTestId('main-cta').click();
+    await expect(panel(page).getByText(isDesktop(page) ? 'Scenario 14:' : 'S14 ·', { exact: false })).toBeVisible();
+  });
+}

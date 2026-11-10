@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { demoState, expect, expectStep, fresh, next, nextBtn, open, panel, store, test } from './helpers';
+import { demoState, expect, expectStep, fresh, next, nextBtn, open, openAllScenarios, panel, store, test } from './helpers';
 import { fillReportSample, playS1, startJourney } from './flows';
 
 test('ข้ามไป Scenario 3 ขณะร้านจาก Scenario 2 ยังไม่อนุมัติ → แจ้งเหตุผลและให้เลือก (ไม่สลับ Merchant แบบเงียบ)', async ({ page }) => {
@@ -22,6 +22,7 @@ test('ข้ามไป Scenario 3 ขณะร้านจาก Scenario 2 �
   const s2 = (await demoState(page)).current;
 
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('button', { name: /^3\s/ }).first().click();
   await page.getByRole('dialog').getByRole('button', { name: 'ข้ามไป' }).click();
   const dlg = page.getByRole('dialog');
@@ -38,6 +39,7 @@ test('ข้ามไป Scenario 3 ขณะร้านจาก Scenario 2 �
   // ทางเลือก 2: ใช้ข้อมูลตัวอย่าง → มีหมายเหตุอธิบายในตัวควบคุมตลอดทั้งเรื่อง และไม่สร้างร้านซ้ำ
   const merchants = (await store(page, 'merchants')).length;
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('button', { name: /^3\s/ }).first().click();
   await page.getByRole('dialog').getByRole('button', { name: 'ข้ามไป' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'ใช้ข้อมูลตัวอย่าง' }).click();
@@ -56,6 +58,7 @@ test('ข้ามไป Scenario 3 ขณะร้านจาก Scenario 2 �
 test('Restart Scenario ไม่สร้างข้อมูลซ้ำ / Refresh แล้วทำต่อได้ / Back-Next ไม่ทำ Action ซ้ำ', async ({ page }) => {
   await fresh(page);
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('button', { name: 'Start Demo' }).nth(3).click();
   await next(page);
   await fillReportSample(page);
@@ -111,6 +114,7 @@ async function confirmTransition(page: Page) {
 test('KI-V2-38: Scenario 4 — ขั้น · URL · หน้าจอ · บทบาท · Demo State สอดคล้องกันหลัง Next/Back เร็ว Refresh และ Restart', async ({ page }) => {
   await fresh(page);
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('button', { name: 'Start Demo' }).nth(3).click();
   const mid = (await demoState(page)).current.merchantId as string;
   const shopName = (await store<{ id: string; shopName: string }>(page, 'merchants')).find((m) => m.id === mid)!.shopName;

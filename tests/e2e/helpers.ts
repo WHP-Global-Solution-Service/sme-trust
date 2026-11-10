@@ -59,10 +59,19 @@ export async function expectBlocked(page: Page) {
 
 export const expectStep = (page: Page, n: number) => expect(panel(page).getByText(new RegExp(`ขั้น ${n}/\\d+`))).toBeVisible();
 
+/** หน้า Demo (MVP-First): Scenario เดี่ยว · Full Journey · Reset อยู่ในส่วน "ดู Scenario ทั้งหมด" ที่พับไว้ — เปิดก่อนใช้งาน */
+export async function openAllScenarios(page: Page) {
+  const all = page.getByTestId('all-scenarios');
+  await expect(all).toBeVisible();
+  if (!(await all.evaluate((el) => (el as HTMLDetailsElement).open))) await all.locator(':scope > summary').click();
+  await expect(all.getByRole('tab').first()).toBeVisible();
+}
+
 /** เริ่ม Scenario แบบเดี่ยวจากหน้ารวม */
 export async function startDemo(page: Page, no: number) {
   await fresh(page);
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('button', { name: 'Start Demo' }).nth(no - 1).click();
   await expect(panel(page).getByText(isDesktop(page) ? `Scenario ${no}:` : `S${no} ·`, { exact: false })).toBeVisible();
 }

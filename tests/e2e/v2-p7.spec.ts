@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { demoState, expect, expectBlocked, finishScenario, fresh, next, open, panel, store, test } from './helpers';
+import { demoState, expect, expectBlocked, finishScenario, fresh, next, open, openAllScenarios, panel, store, test } from './helpers';
 
 /**
  * P7 — Final QA: ผลลัพธ์แตกแขนง, 9B เล่นซ้ำ, ความใหม่ของข้อมูล, หมวดการเปรียบเทียบ, Dashboard v2,
@@ -31,6 +31,7 @@ async function expectNoOverflow(page: Page, label: string) {
 async function startV2(page: Page, index: number) {
   await fresh(page);
   await open(page, '/demo');
+  await openAllScenarios(page);
   await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
   await page.getByRole('button', { name: 'Start Demo' }).nth(index).click();
 }

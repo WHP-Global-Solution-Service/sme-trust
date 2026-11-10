@@ -39,13 +39,17 @@ type Session = Record<string, unknown> & { role: 'merchant' | 'consumer' | 'offi
 
 /** Render เส้นทางในบทบาทที่กำหนด แล้วคืนข้อความที่ผู้ใช้เห็น (ตัดแท็ก HTML) */
 export function view(url: string, session?: Session): string {
+  return viewHtml(url, session).replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+}
+
+/** Render เส้นทางในบทบาทที่กำหนด แล้วคืน HTML เต็ม (ใช้ตรวจโครงสร้าง เช่น data-testid และสถานะพับ/เปิด) */
+export function viewHtml(url: string, session?: Session): string {
   const keep = S.useSessionStore.getState();
   if (session) S.useSessionStore.setState({ merchantLoggedIn: true, ...session });
   const silenced = console.error;
   console.error = () => {};
   try {
-    const html = renderToString(R.createElement(StaticRouter, { location: url }, R.createElement(AppRoutes)));
-    return html.replace(/<!-- -->/g, '').replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+    return renderToString(R.createElement(StaticRouter, { location: url }, R.createElement(AppRoutes)));
   } finally {
     console.error = silenced;
     if (session) S.useSessionStore.setState({ role: keep.role, operatorId: keep.operatorId, consumerId: keep.consumerId, officerId: keep.officerId, merchantLoggedIn: keep.merchantLoggedIn });
