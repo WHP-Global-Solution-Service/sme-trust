@@ -64,8 +64,8 @@ const STATUS_CHIP = {
 };
 
 // ---------------------------------------------------------------- MVP-First content
-/** เส้นทางหลักสำหรับนำเสนอ — Scenario 14 ครอบคลุม ลงทะเบียน/เชื่อมร้าน → ตรวจข้อมูล → ประเมินอัตโนมัติ → Badge → ผู้บริโภค (ใช้ Scenario เดิม ไม่สร้าง Logic ใหม่) */
-export const MAIN_JOURNEY_ID = 's14';
+/** เส้นทางหลักสำหรับนำเสนอ — Scenario 9A: ลงทะเบียน (Marketplace + Auto-Fill) → ตรวจข้อมูลอัตโนมัติ → ผ่านการลงทะเบียน (AUTO_PASS) → ประเมินความน่าเชื่อถือ → ผู้บริโภคตรวจสอบ (ใช้ Scenario เดิม ไม่สร้าง Logic ใหม่) */
+export const MAIN_JOURNEY_ID = 's9a';
 
 /**
  * 5 ระบบหลัก (MVP) — แต่ละปุ่มเริ่ม Scenario ที่มีอยู่จริง
@@ -74,21 +74,21 @@ export const MAIN_JOURNEY_ID = 's14';
 export const MVP_FEATURES: { no: number; icon: LucideIcon; title: string; desc: string; note?: string; inMainStep?: string; actions: { label: string; id: string }[] }[] = [
   { no: 1, icon: Store, title: 'ลงทะเบียนร้านค้า', desc: 'เชื่อมร้านค้าออนไลน์ หรือสมัครด้วยตนเอง', note: 'ตรวจสอบอัตโนมัติ — ไม่ต้องรอเจ้าหน้าที่ในกรณีปกติ', actions: [{ label: 'เชื่อมร้านค้าออนไลน์', id: 's9a' }, { label: 'สมัครด้วยตนเอง', id: 's9b' }] },
   { no: 2, icon: BarChart3, title: 'ประเมินความน่าเชื่อถือ', desc: 'ระบบประเมินข้อมูลร้านค้าอัตโนมัติ', note: 'Trust Band · Coverage · Confidence', actions: [{ label: 'เริ่ม Demo', id: 's11' }] },
-  { no: 3, icon: BadgeCheck, title: 'แสดงผล Assessment Badge', desc: 'แสดงผลประเมินเมื่อข้อมูลผ่านเงื่อนไข', note: 'ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.', inMainStep: 's14-badge', actions: [{ label: 'เริ่มเส้นทางหลัก', id: MAIN_JOURNEY_ID }] },
+  { no: 3, icon: BadgeCheck, title: 'แสดงผล Assessment Badge', desc: 'แสดงผลประเมินเมื่อข้อมูลผ่านเงื่อนไข', note: 'ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.', actions: [{ label: 'เริ่ม Demo', id: 's14' }] },
   { no: 4, icon: SearchCheck, title: 'ตรวจสอบร้านค้า', desc: 'ผู้บริโภคค้นหาและตรวจสอบผลประเมิน', actions: [{ label: 'เริ่ม Demo', id: 's13' }] },
   { no: 5, icon: UserCheck, title: 'ตรวจสอบเฉพาะกรณีจำเป็น', desc: 'เจ้าหน้าที่พิจารณาเฉพาะข้อมูลที่ต้องตรวจเพิ่ม', note: 'เฉพาะกรณีผิดปกติ — ไม่ใช่การอนุมัติทุกร้าน', actions: [{ label: 'เริ่ม Demo', id: 's15' }] },
 ];
 
-/** ลำดับเส้นทางแนะนำ → ขั้นของ Scenario 14 ในตัวควบคุมการสาธิต */
+/** ลำดับเส้นทางแนะนำ → ขั้นของ Scenario 9A ในตัวควบคุมการสาธิต */
 export const RECOMMENDED_FLOW: { icon: LucideIcon; title: string; steps: string[] }[] = [
-  { icon: Link2, title: 'ลงทะเบียน / เชื่อมร้านค้า', steps: ['s14-app', 's14-connect'] },
-  { icon: FileCheck, title: 'ตรวจสอบข้อมูล', steps: ['s14-auto', 's14-autofill'] },
-  { icon: BarChart3, title: 'ประเมินอัตโนมัติ', steps: ['s14-route'] },
-  { icon: BadgeCheck, title: 'แสดง Assessment Badge', steps: ['s14-badge'] },
-  { icon: SearchCheck, title: 'ผู้บริโภคตรวจสอบ', steps: ['s14-consumer'] },
+  { icon: Link2, title: 'ลงทะเบียน / เชื่อมร้านค้า', steps: ['s9a-home', 's9a-entry', 's9a-authorize', 's9a-shop', 's9a-import', 's9a-review', 's9a-missing'] },
+  { icon: FileCheck, title: 'ส่งคำขอ → ตรวจข้อมูลอัตโนมัติ', steps: ['s9a-submit'] },
+  { icon: BadgeCheck, title: 'ผ่านการลงทะเบียน (AUTO_PASS)', steps: ['s9a-auto'] },
+  { icon: BarChart3, title: 'ประเมินความน่าเชื่อถือ · แสดงผลตามเงื่อนไข', steps: ['s9a-assess'] },
+  { icon: SearchCheck, title: 'ผู้บริโภคตรวจสอบ', steps: ['s9a-consumer'] },
 ];
 
-/** ขั้นของเส้นทางแนะนำ (1–5) ที่มีขั้นนี้ของ Scenario 14 */
+/** ขั้นของเส้นทางแนะนำ (1–5) ที่มีขั้นนี้ของเส้นทางหลัก */
 export const mainStepNo = (stepId: string) => RECOMMENDED_FLOW.findIndex((s) => s.steps.includes(stepId)) + 1;
 
 /** ระบบเพิ่มเติม — จัดกลุ่มจาก Scenario ที่มีอยู่จริง (แต่ละ Scenario อยู่กลุ่มเดียว ไม่ซ้ำกับระบบหลัก) */
@@ -233,7 +233,7 @@ export default function DemoScenariosPage() {
               </li>
             ))}
           </ol>
-          <p className="mt-3 text-xs text-ink-soft">ถ้าข้อมูลร้านยังไม่พอหรือยังไม่ผ่านเงื่อนไข ระบบแสดงสถานะจริงแทน Badge</p>
+          <p className="mt-3 text-xs text-ink-soft">ร้านปกติผ่านการลงทะเบียนอัตโนมัติโดยไม่ต้องรอเจ้าหน้าที่ · ถ้าข้อมูลร้านยังไม่พอหรือยังไม่ผ่านเงื่อนไข ระบบแสดงสถานะจริงแทน Badge</p>
         </section>
 
         {/* ---------------- Secondary features ---------------- */}

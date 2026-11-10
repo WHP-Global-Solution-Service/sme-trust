@@ -15,7 +15,11 @@ describe('Hero — ข้อความตามข้อกำหนด แล
 check(visible.includes('ทดลองใช้งาน SME Trust') && visible.includes('สาธิตการลงทะเบียนร้านค้า ประเมินความน่าเชื่อถือ และตรวจสอบผลผ่านระบบอัตโนมัติ') && visible.includes('เริ่มจากระบบหลัก (MVP)'), 'Title · Subtitle · Highlight "เริ่มจากระบบหลัก (MVP)"');
 check((html.match(/data-testid="main-cta"/g) ?? []).length === 1 && visible.includes('เริ่ม Demo เส้นทางหลัก'), 'มี CTA หลัก "เริ่ม Demo เส้นทางหลัก" ปุ่มเดียว');
 const main = SC.findScenario(P.MAIN_JOURNEY_ID)!;
-check(!!main && main.id === 's14', `CTA หลักเชื่อมกับ Scenario ที่มีอยู่จริง (${P.MAIN_JOURNEY_ID}: ${main?.title})`);
+check(!!main && main.id === 's9a', `CTA หลักเชื่อมกับ Scenario ที่มีอยู่จริง (${P.MAIN_JOURNEY_ID}: ${main?.title})`);
+// เส้นทางหลักต้องแสดง Automation First ครบ: ลงทะเบียน → ตรวจข้อมูลอัตโนมัติ → AUTO_PASS → ประเมิน → ผู้บริโภค และไม่มีขั้นตอนเจ้าหน้าที่
+const mainIds = main.steps.map((s) => s.id);
+check(['s9a-submit', 's9a-auto', 's9a-assess', 's9a-consumer'].every((id, k, arr) => mainIds.indexOf(id) >= 0 && (k === 0 || mainIds.indexOf(id) > mainIds.indexOf(arr[k - 1]))) && !main.steps.some((s) => s.role === 'officer'), 'เส้นทางหลักครอบคลุม ส่งคำขอ → ผ่านอัตโนมัติ → ประเมิน → ผู้บริโภค โดยไม่มีขั้นตอนเจ้าหน้าที่');
+check(main.steps.find((s) => s.id === 's9a-auto')?.title.includes('ผ่านการลงทะเบียน') === true, 'มีขั้นแสดงผลการตรวจอัตโนมัติ (ผ่านการลงทะเบียน) ก่อนประเมิน');
 
 describe('MVP — 5 ระบบหลักตามลำดับ ก่อนส่วนอื่น');
 const titles = ['ลงทะเบียนร้านค้า', 'ประเมินความน่าเชื่อถือ', 'แสดงผล Assessment Badge', 'ตรวจสอบร้านค้า', 'ตรวจสอบเฉพาะกรณีจำเป็น'];
@@ -29,17 +33,17 @@ check(mvpIds.every((id) => !!SC.findScenario(id)), `ทุกปุ่มใน 
 check(JSON.stringify(P.MVP_FEATURES[0].actions.map((a) => a.id)) === JSON.stringify(['s9a', 's9b']), 'ลงทะเบียนร้านค้า: ทั้งเชื่อม Marketplace (9A) และสมัครเอง (9B)');
 check(P.MVP_FEATURES[1].actions[0].id === 's11' && P.MVP_FEATURES[3].actions[0].id === 's13' && P.MVP_FEATURES[4].actions[0].id === 's15', 'ประเมิน = Scenario 11 · ตรวจสอบร้านค้า = Scenario 13 · กรณีจำเป็น = Scenario 15 (Exception Queue)');
 check(visible.includes('ผลประเมิน ไม่ใช่ใบรับรองของ สคบ.') && visible.includes('Trust Band · Coverage · Confidence'), 'Badge แยกจากใบรับรอง และการประเมินระบุ Band · Coverage · Confidence');
-// Regression: การ์ด Badge เปิด Scenario 14 ทั้งเส้น — ต้องไม่เขียนเหมือน Demo เฉพาะ Badge
+// Regression: การ์ด Badge ต้องไม่เขียนเหมือน Demo เฉพาะ Badge ถ้าเปิดเส้นทางทั้งเส้น — ปัจจุบันเปิด Scenario 14 (ขั้น Automatic Assessment Badge) โดยตรง
 const badge = P.MVP_FEATURES[2];
-check(badge.actions.length === 1 && badge.actions[0].id === P.MAIN_JOURNEY_ID && badge.actions[0].label === 'เริ่มเส้นทางหลัก' && badge.inMainStep === 's14-badge', 'การ์ด Badge: ปุ่ม "เริ่มเส้นทางหลัก" (ไม่ใช่ "เริ่ม Demo") และระบุว่าเป็นขั้นหนึ่งของเส้นทางหลัก');
-check(P.mainStepNo('s14-badge') === 4 && visible.includes('สาธิตในเส้นทางหลัก · ขั้นที่ 4 จาก 5') && (html.match(/data-testid="mvp-in-main"/g) ?? []).length === 1, 'การ์ด Badge แสดง "สาธิตในเส้นทางหลัก · ขั้นที่ 4 จาก 5" ตรงกับลำดับเส้นทางแนะนำ (มีเฉพาะการ์ดนี้)');
-check(P.MVP_FEATURES.filter((f) => f.actions.some((a) => a.id === P.MAIN_JOURNEY_ID)).every((f) => !!f.inMainStep), 'การ์ดใดที่เปิดเส้นทางหลักต้องระบุขั้นในเส้นทางหลักเสมอ');
+check(badge.actions.length === 1 && badge.actions[0].id === 's14' && badge.actions[0].label === 'เริ่ม Demo' && !badge.inMainStep && SC.findScenario('s14')!.steps.some((s) => s.id === 's14-badge'), 'การ์ด Badge เปิด Scenario 14 ซึ่งมีขั้น Automatic Assessment Badge (Scenario 14 ยังอยู่ครบ)');
+check((html.match(/data-testid="mvp-in-main"/g) ?? []).length === 0, 'ไม่มีการ์ดที่อ้างขั้นของเส้นทางหลักผิด');
+check(P.MVP_FEATURES.filter((f) => f.no !== 1 && f.actions.some((a) => a.id === P.MAIN_JOURNEY_ID)).every((f) => !!f.inMainStep), 'การ์ดอื่น (นอกจากการ์ดลงทะเบียนซึ่งคือเส้นทางหลักเอง) ที่เปิดเส้นทางหลักต้องระบุขั้นในเส้นทางหลักเสมอ');
 
-describe('เส้นทาง Demo ที่แนะนำ — ตรงกับขั้นจริงของ Scenario 14');
+describe('เส้นทาง Demo ที่แนะนำ — ตรงกับขั้นจริงของ Scenario 9A');
 const flowSteps = P.RECOMMENDED_FLOW.flatMap((s) => s.steps);
-check(JSON.stringify(flowSteps) === JSON.stringify(main.steps.map((s) => s.id)), `5 ขั้นครอบคลุมทุกขั้นของ Scenario 14 ตามลำดับ (${flowSteps.length} ขั้นในตัวควบคุม)`);
-check(JSON.stringify(P.RECOMMENDED_FLOW.map((s) => s.title)) === JSON.stringify(['ลงทะเบียน / เชื่อมร้านค้า', 'ตรวจสอบข้อมูล', 'ประเมินอัตโนมัติ', 'แสดง Assessment Badge', 'ผู้บริโภคตรวจสอบ']), 'ชื่อขั้นตามข้อกำหนด');
-check(visible.includes('เริ่มสาธิตตั้งแต่ต้น') && visible.includes('ถ้าข้อมูลร้านยังไม่พอหรือยังไม่ผ่านเงื่อนไข ระบบแสดงสถานะจริงแทน Badge'), 'ปุ่ม "เริ่มสาธิตตั้งแต่ต้น" และไม่สร้าง Badge หลอก');
+check(JSON.stringify(flowSteps) === JSON.stringify(main.steps.map((s) => s.id)), `5 ขั้นครอบคลุมทุกขั้นของ Scenario 9A ตามลำดับ (${flowSteps.length} ขั้นในตัวควบคุม)`);
+check(JSON.stringify(P.RECOMMENDED_FLOW.map((s) => s.title)) === JSON.stringify(['ลงทะเบียน / เชื่อมร้านค้า', 'ส่งคำขอ → ตรวจข้อมูลอัตโนมัติ', 'ผ่านการลงทะเบียน (AUTO_PASS)', 'ประเมินความน่าเชื่อถือ · แสดงผลตามเงื่อนไข', 'ผู้บริโภคตรวจสอบ']), 'ชื่อขั้นตามกระบวนการ Automation First');
+check(visible.includes('เริ่มสาธิตตั้งแต่ต้น') && visible.includes('ร้านปกติผ่านการลงทะเบียนอัตโนมัติโดยไม่ต้องรอเจ้าหน้าที่') && visible.includes('ถ้าข้อมูลร้านยังไม่พอหรือยังไม่ผ่านเงื่อนไข ระบบแสดงสถานะจริงแทน Badge'), 'ปุ่ม "เริ่มสาธิตตั้งแต่ต้น" · ร้านปกติไม่ต้องรอเจ้าหน้าที่ · ไม่สร้าง Badge หลอก');
 
 describe('ระบบเพิ่มเติม และ Scenario ทั้งหมด — พับไว้เป็นค่าเริ่มต้น');
 const secIds = P.SECONDARY_GROUPS.flatMap((g) => g.ids);

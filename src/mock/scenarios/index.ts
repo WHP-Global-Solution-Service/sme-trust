@@ -221,7 +221,7 @@ export const scenarios: ScenarioDef[] = [
         gate: { check: (g) => app(g.ctx.applicationId)?.status === 'approved', hint: 'กด "อนุมัติ" และยืนยัน' },
         capture: (g) => ({ certId: certOf(g.ctx.merchantId)?.id }),
       },
-      { id: 's2-notify', role: 'merchant', route: () => '/m/notifications', transition: 'เจ้าหน้าที่อนุมัติใบรับรองแล้ว กลับไปดูผลในมุมผู้ประกอบการ (ร้านเดิม)', title: 'การแจ้งเตือนผลอนุมัติ', instruction: 'ร้านค้าได้รับแจ้ง "คำขอลงทะเบียนได้รับอนุมัติ" พร้อมเลขใบรับรอง' },
+      { id: 's2-notify', role: 'merchant', route: () => '/m/notifications', transition: 'เจ้าหน้าที่อนุมัติใบรับรองแล้ว กลับไปดูผลในมุมผู้ประกอบการ (ร้านเดิม)', title: 'การแจ้งเตือนผลอนุมัติ', instruction: 'ร้านค้าได้รับแจ้ง "คำขอรับรองได้รับอนุมัติ" พร้อมเลขใบรับรอง' },
       { id: 's2-badge', role: 'merchant', route: () => '/m/toolkit', title: 'Trust Badge', instruction: 'Badge ระดับ Business Verified พร้อม QR และลิงก์ตรวจสอบ — คัดลอกไปใช้บนช่องทางขายเดิมได้', tip: 'ไม่สร้าง Marketplace ใหม่ ร้านค้าขายบนช่องทางเดิมต่อได้' },
       { id: 's2-passport', role: 'merchant', route: () => '/m/passport', title: 'SME Trust Passport', instruction: 'Passport แสดงร้านใหม่ ระดับการตรวจสอบ ใบรับรอง และช่องทางขาย', nextLabel: 'จบ Scenario และดูสรุป' },
     ],

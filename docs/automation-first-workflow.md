@@ -15,7 +15,8 @@
 
 | ขั้น | ผู้ทำ | สิ่งที่เกิดขึ้น |
 |---|---|---|
-| ลงทะเบียน / แก้ไขข้อมูล | ร้านค้า | ตาม Workflow เดิม · ข้อมูลทั่วไปบันทึกทันที |
+| ลงทะเบียนร้าน | ร้านค้า → ระบบ | ร้านส่งคำขอเอง → ระบบตรวจคำขออัตโนมัติ → AUTO_PASS / AUTO_REQUEST_INFO / MANUAL_REVIEW (ดู 2.1) |
+| แก้ไขข้อมูลร้าน | ร้านค้า | ข้อมูลทั่วไปบันทึกทันที (ดู 6) |
 | เชื่อม Marketplace (จำลอง) | ร้านค้า | ยินยอม → เลือกร้าน → Preview → ยืนยันนำเข้า |
 | นำเข้า + Auto-Fill | ระบบ | เติมโปรไฟล์จาก Raw Source (อ่านอย่างเดียว) |
 | ตรวจความครบถ้วน + ประเมิน | ระบบ | ประเมินด้วย Engine v2.1 ทันทีเมื่อข้อมูลเปลี่ยน (`origin = automation`) |
@@ -24,6 +25,24 @@
 | ส่งข้อมูลเพิ่ม / ประเมินใหม่ | ร้านค้า | ทำตามรายการที่ระบบแนะนำ · ระบบประเมินซ้ำเองเมื่อข้อมูลเปลี่ยน |
 
 โค้ด: `src/stores/automation.ts` (`processMerchant`, `processAll`, `resolveTask`, `respondToTask`) · Pure: `src/features/automation/{router,derive,policy,kpi}.ts`
+
+### 2.1 การลงทะเบียนร้านค้าอัตโนมัติ (Registration Automation)
+
+ร้านส่งคำขอลงทะเบียนเอง (ระบบไม่ส่งแทน) ทั้งช่องทาง A. เชื่อม Marketplace (Auto-Fill) และ B. ลงทะเบียนด้วยตนเอง — ระบบตรวจคำขอทันทีหลังส่ง
+
+| เส้นทาง | เงื่อนไข (เรียงความสำคัญ) | ผลลัพธ์ |
+|---|---|---|
+| **MANUAL_REVIEW** | พบความผิดปกติ: ข้อมูลตัวตนต้องตรวจเพิ่ม · เจ้าของบัญชีร้านบน Marketplace ไม่ตรงกับผู้ยืนยันตัวตน (ยังไม่ยืนยันเป็นร้านเดียวกัน) · ชื่อร้านที่กรอกต่างจากต้นฉบับ Marketplace (ตรวจกับแหล่งอ้างอิงไม่ได้) | คำขอและร้านเป็น "รอตรวจสอบ" · เข้า **Officer Exception Queue** (หมวด "คำขอลงทะเบียน — กรณียกเว้น") พร้อมเหตุผลที่ระบบส่งตรวจ · แจ้งเจ้าหน้าที่ |
+| **AUTO_REQUEST_INFO** | ข้อมูลยังไม่ครบ: ยังไม่ยืนยันตัวตน (e-KYC จำลอง) · ไม่มีเอกสารประกอบ (จำลอง) · ไม่มีช่องทางขาย (นับการเชื่อม Marketplace เป็นช่องทาง) | ส่งกลับให้ร้านพร้อมรายการที่ต้องเพิ่ม · ร้านแก้แล้วส่งใหม่ → ระบบตรวจซ้ำเอง · **ไม่สร้างงานเจ้าหน้าที่** |
+| **AUTO_PASS** | ข้อมูลครบและไม่พบความผิดปกติ | ลงทะเบียนร้านแล้วทันที (ไม่ต้องรอเจ้าหน้าที่) · บันทึก Timeline/Audit Log ว่าผ่านอัตโนมัติ · แจ้งร้าน · **ไม่ออกใบรับรองและไม่สร้าง Certification Badge** |
+
+- **แยกการลงทะเบียนออกจากการรับรอง:** AUTO_PASS = ร้านลงทะเบียนในระบบแล้ว (สถานะ "ยืนยันตัวตนแล้ว" สำหรับผู้บริโภค) — ใบรับรอง Level 2 (Business Verified) ร้านยื่นคำขอแยกที่หน้า "ใบรับรอง" และเจ้าหน้าที่อนุมัติตาม `CERTIFICATION_POLICY` (`autoApprovalAuthorized: false` เหมือนเดิม — ดู 7)
+- **Assessment / Assessment Badge ยังเป็นอัตโนมัติเหมือนเดิม:** หลังลงทะเบียนระบบประเมินด้วย Engine v2.1 และจัดเส้นทาง Badge ตามหัวข้อ 3–4 โดยไม่มีขั้นตอนเจ้าหน้าที่ (ข้อมูลไม่พอ → แสดงสถานะแทน Badge)
+- **กรณียกเว้นที่เจ้าหน้าที่อนุมัติ:** ร้านลงทะเบียนแล้ว (Audit "อนุมัติคำขอลงทะเบียน (กรณียกเว้น)") — ไม่ออกใบรับรองเช่นกัน · ไม่อนุมัติ/ขอข้อมูลเพิ่มใช้ Workflow เดิม
+- เมื่อเจ้าหน้าที่ตัดสินงาน Identity Mismatch ของร้านที่คำขอลงทะเบียนรอตรวจอยู่ ระบบตรวจคำขอนั้นซ้ำเอง (`reevaluatePendingRegistration`)
+- กฎเป็นค่าตั้งต้นของต้นแบบ (ตรวจการมีอยู่ของข้อมูลจำลอง) — **ไม่ได้ตรวจกับ DBD หรือ e-KYC จริง**
+
+โค้ด: Pure `src/features/automation/registration.ts` (`decideRegistration`) · `src/stores/workflows.ts` (`submitShopRegistration`, `applyRegistrationDecision`, `reevaluatePendingRegistration`, `resubmitApplication`) · หน้าจอ: ร้านค้า `/m/register-shop` (ผลการตรวจหลังส่ง), `/m/shop` · เจ้าหน้าที่ `/o/exceptions`, `/o/applications/:id` (แสดงผลและเหตุผลของระบบ)
 
 ## 3. Decision Router
 
@@ -68,11 +87,12 @@
 | งาน | ที่มา | หน้าจอ |
 |---|---|---|
 | Identity Mismatch / Evidence Conflict / Risk Signals | Decision Router (`officer-tasks`) | `/o/exceptions`, `/o/exceptions/:id` |
-| คำขอลงทะเบียน (Level 2) / คำขอรับรอง (Level 3–4) / ผลประเมินรอพิจารณา | Workflow เดิม (Certification Policy) | `/o/applications`, `/o/assessments` |
+| คำขอลงทะเบียนที่ระบบส่งตรวจ (MANUAL_REVIEW เท่านั้น — ดู 2.1) | Registration Automation | `/o/exceptions`, `/o/applications/:id` |
+| คำขอรับรอง (Level 2–4) / ผลประเมินรอพิจารณา | Workflow เดิม (Certification Policy) | `/o/applications`, `/o/assessments` |
 | ชื่อร้าน/หมวดที่ตรวจกับแหล่งอ้างอิงไม่ได้ | Workflow คำขอเปลี่ยนข้อมูลร้าน (KI-V2-15) | `/o/profile-changes` |
 | ข้อร้องเรียนส่งต่อ / ข้อกล่าวหา / อุทธรณ์ | Workflow เดิม | `/o/complaints`, `/o/risk` |
 
-Exception Queue รวมทุกอย่างข้างต้นเป็นหมวด: Pending Manual Review · High Priority · Identity Mismatch · Evidence Conflicts · Risk Signals · Certification Requests · Escalated Complaints · Completed Reviews (งานเดิมลิงก์ไปที่เรื่องเดิม ไม่คัดลอกเป็นงานใหม่)
+Exception Queue รวมทุกอย่างข้างต้นเป็นหมวด: Pending Manual Review · High Priority · Identity Mismatch · Evidence Conflicts · Risk Signals · Certification Requests · Escalated Complaints · Completed Reviews (งานเดิมลิงก์ไปที่เรื่องเดิม ไม่คัดลอกเป็นงานใหม่) · คำขอลงทะเบียนที่ผ่านอัตโนมัติ (AUTO_PASS) หรือถูกส่งกลับให้ร้านเพิ่มข้อมูล (AUTO_REQUEST_INFO) **ไม่เข้าคิว**
 
 ผลการตัดสินงานจาก Decision Router:
 
@@ -97,7 +117,7 @@ Exception Queue รวมทุกอย่างข้างต้นเป็�
 | Level | การดำเนินการ (ค่าเริ่มต้นของ Prototype = กฎเดิม) |
 |---|---|
 | 1 Identity Verified | อัตโนมัติจากผล e-KYC (จำลอง) — กฎเดิมของระบบ |
-| 2 Business Verified | เจ้าหน้าที่อนุมัติคำขอลงทะเบียน |
+| 2 Business Verified | ร้านที่ลงทะเบียนแล้วยื่นคำขอรับรองแยก → เจ้าหน้าที่อนุมัติ · **AUTO_PASS ของการลงทะเบียนไม่ออก Level 2** |
 | 3 Trusted SME | เจ้าหน้าที่อนุมัติ + เกณฑ์ v1 · ผลประเมินใช้ประกอบเท่านั้น |
 | 4 Trusted SME Plus | เจ้าหน้าที่อนุมัติ |
 
@@ -129,9 +149,11 @@ Exception Queue รวมทุกอย่างข้างต้นเป็�
 
 ## 10. Demo
 
-- **Scenario 14 — เส้นทางปกติ:** Marketplace App Simulation (`/m/marketplace-app`) → SME Trust → Auto-Fill → Automatic Trust Assessment → Automatic Assessment Badge → Consumer Verification · ใช้บทบาทผู้ประกอบการและผู้บริโภคเท่านั้น
+- **เส้นทางหลักบนหน้า Demo (ปุ่ม "เริ่ม Demo เส้นทางหลัก") = Scenario 9A:** ลงทะเบียน (Marketplace + Auto-Fill) → ส่งคำขอ → ตรวจข้อมูลอัตโนมัติ → ผ่านการลงทะเบียน (AUTO_PASS) → Trust Assessment อัตโนมัติ → ผู้บริโภคตรวจสอบ · ไม่มีขั้นตอนเจ้าหน้าที่
+- **Scenario 9B / Scenario 2:** ลงทะเบียนด้วยตนเอง → AUTO_PASS เช่นกัน · Scenario 2 ต่อด้วยการยื่นขอใบรับรอง Level 2 ที่เจ้าหน้าที่อนุมัติ (แสดงการแยกการลงทะเบียนกับการรับรอง)
+- **Scenario 14 — เส้นทางปกติของร้านเดิม:** Marketplace App Simulation (`/m/marketplace-app`) → SME Trust → Auto-Fill → Automatic Trust Assessment → Automatic Assessment Badge → Consumer Verification · ใช้บทบาทผู้ประกอบการและผู้บริโภคเท่านั้น
 - **Scenario 15 — กรณียกเว้น:** Marketplace Connection (ร้านตัวอย่าง "บัญชีร้านเป็นชื่อบุคคลอื่น") → Data Conflict → Manual Review Queue → Officer Decision → Updated Assessment / Certification Status
-- Scenario 1–13, 9A, 9B และ Full Journey ทั้งสองชุดคงเดิม · ชื่อใน UI รวมเป็นระบบเดียว (Consumer Protection / Marketplace & Trust Assessment) แทน v1/v2
+- Scenario อื่นและ Full Journey ทั้งสองชุดคงเดิม (ขั้นหลังส่งคำขอลงทะเบียนของ 2 / 9A / 9B ปรับเป็นผลการตรวจอัตโนมัติแทนการรอเจ้าหน้าที่) · ชื่อใน UI รวมเป็นระบบเดียว (Consumer Protection / Marketplace & Trust Assessment) แทน v1/v2
 
 ## 11. ข้อจำกัดของต้นแบบ
 

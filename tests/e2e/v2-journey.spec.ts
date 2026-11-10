@@ -184,7 +184,7 @@ test('Full Journey v2: เชื่อมต่อ → วิเคราะห�
   await expect(page.getByText('สาธิตแล้ว 5/5 Scenario')).toBeVisible();
 });
 
-test('ทางเลือก 9B: ไม่มี Marketplace → ลงทะเบียนเอง → Insufficient Data → เจ้าหน้าที่ขอหลักฐานเพิ่ม', async ({ page }) => {
+test('ทางเลือก 9B: ไม่มี Marketplace → ลงทะเบียนเอง → ระบบผ่านการลงทะเบียนอัตโนมัติ → Insufficient Data → ผู้บริโภคเห็นสถานะแทน Badge (ไม่มีขั้นเจ้าหน้าที่)', async ({ page }) => {
   test.setTimeout(300_000);
   await fresh(page);
   await open(page, '/demo');
