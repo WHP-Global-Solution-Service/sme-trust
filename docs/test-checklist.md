@@ -26,7 +26,7 @@ Build + `vite preview` อัตโนมัติ แล้วคลิกผ�
 |---|---|---|---|
 | `scenarios.spec.ts` (8) | Scenario 1–8 แบบเดี่ยว: Registration, Merchant Verification, Consumer Verification, Complaint Resolution, Warning & Training, Suspension & Appeal, AI-01, AI-02 | ✅ | ✅ |
 | `journey.spec.ts` (1) | Full Journey 1→8 ต่อเนื่อง, Context ID, กรณีศึกษาแยก, ไม่มีร้านซ้ำ, หน้าสรุปภาพรวม | ✅ | ✅ |
-| `continuity.spec.ts` (2) | ร้าน S2 ยังไม่อนุมัติ → กล่องเลือก + หมายเหตุ; Restart/Refresh/Back-Next | ✅ | ✅ |
+| `continuity.spec.ts` (3) | ร้าน S2 ยังไม่อนุมัติ → กล่องเลือก + หมายเหตุ; Restart/Refresh/Back-Next · **KI-V2-38:** ขั้น · URL · หน้าจอที่ Render · บทบาท · Demo State ตรงกันหลังทุกการเปลี่ยนขั้น (ถัดไป/ย้อนกลับข้ามบทบาท · กดย้อนกลับ/ถัดไปติดกันเร็ว · Refresh · Restart · เล่นต่อหลัง Restart) | ✅ | ✅ |
 | `ai.spec.ts` (5) | AI-01 อังกฤษหลายเงื่อนไข, Highlight, Copy (Clipboard จริง), Edit, Re-analyze, วัสดุ 100%; AI-02 คำปฏิเสธ, 3 Tone, เคสไม่มี/ของร้านอื่น, ประวัติ/Clear/Reset | ✅ | ✅ |
 | `roles.spec.ts` (3) | Role Switcher + Permission Denied + ข้อมูลข้ามบทบาท, Reset Demo Data, ลิงก์/QR อยู่ใต้ Base path | ✅ | ✅ |
 | `responsive.spec.ts` (6) | 375/768/1440 × 16 หน้า ไม่ล้นแนวนอน (+ ภาพหน้าจอ), Demo Controller ไม่บังปุ่ม, Modal อยู่ในจอ | ✅ | ✅ |
@@ -117,6 +117,21 @@ Build + `vite preview` อัตโนมัติ แล้วคลิกผ�
 | `tests/v2/onboarding.test.mts` (Release Validation) | นิติบุคคลสมัครเอง (Mock DBD + หนังสือมอบอำนาจ) → Insufficient Data ไม่มีใบรับรองอัตโนมัติ · ID ไม่ซ้ำ: Merchant / Application / Connection / Assessment / Officer Task · Badge ร้านละ 1 · การเชื่อมต่อที่ใช้งานแพลตฟอร์มละ 1 ต่อร้าน · ใบรับรองระงับ/เพิกถอน → ผู้บริโภคไม่เห็น Badge ที่มีผล |
 
 Manual (ก่อนนำเสนอ): เปิดหน้าแรกบนจอ 375px / 768px / 1440px · เล่น Scenario 14 → 15 → 9B (+ เพิ่ม Shopee) ตาม `executive-demo-guide.md`
+
+**ผลรอบ Demo Controller Stability & Firefox (10 พ.ย. 2569, ในเครื่อง, ต่อจาก `d07668c`):**
+
+| รายการ | ผล |
+|---|---|
+| TypeScript | ✅ |
+| `npm test` | ✅ 19 ชุด · Permissions & Ownership 204/204 · `v2/p7` 110/110 (เพิ่ม: โหลดหน้าไม่สำเร็จขณะเอกสารถูกปิด → รอ ไม่แสดง Error · Error ติดป้าย "โหลดหน้าไม่สำเร็จ" เฉพาะการโหลดไฟล์ · ไม่มี Reload อัตโนมัติ · โหลดล่วงหน้าทีละหน้า · หยุดรอเมื่อหน้าที่ผู้ใช้เปิดยังโหลดไม่เสร็จ) |
+| E2E Chromium ครบทุกชุด (4 Worker) | ✅ 86/86 |
+| `continuity` 2 Test × 8 รอบ (Chromium) | 4 Worker — โค้ดเดิม: Test เดิมไม่ผ่าน 1/8 (หน้าค้าง "กำลังโหลดหน้า...") · แก้เฉพาะโหลดล่วงหน้า: Test เดิมไม่ผ่าน 4/8 ("ขั้นนี้ทำเสร็จแล้ว" ไม่แสดง — Race) + Test ใหม่ 1/8 · แก้ครบ (รอหน้า Render ก่อนกดได้): 15/16 — Race 0 · 1 = หน้าแรกของ Scenario Render ช้า > 10 วินาที (ทรัพยากรเครื่อง) · 2 Worker: ✅ 16/16 |
+| E2E Firefox ครบทุกชุด (4 Worker) | 77/86 — ไม่ผ่าน 9 ชุด **ทั้งหมดเป็น Browser process ล้ม** (`Page crashed` 3 · `page.reload: NS_ERROR_FAILURE` 3 · Playwright `newPage … pageOrError` 3) ไม่มี Assertion ของแอปไม่ผ่าน · รัน 6 ชุดที่ล้มซ้ำ: โค้ดใหม่ 39/40 · ปิด Listener `beforeunload` 39/40 · **โค้ดเดิม `d07668c` 38/40** (ล้มแบบเดียวกัน) → ไม่ใช่ผลจากงานนี้ |
+| Firefox วินิจฉัย KI-V2-37 (4 Worker, 16 รอบ × 12 การเปลี่ยนหน้า) | ก่อนแก้: Render error 1 รอบ · หลังแก้: หน้าข้อผิดพลาด 0 · Console error 0 · Page crash 0 |
+| WebKit (6 ชุด: continuity, home, onboarding, automation, v2-journey, band-permissions — 2 Worker) | ✅ 27/27 |
+| GitHub Pages จำลอง | ✅ 9/9 |
+| TTFB ของ `vite preview` (ไฟล์ `/assets/`) | 1 Worker: Median 5 ms · P95 60 ms · Max 213 ms — 4 Worker + Trace: P95 1,560 ms · Max 6,460 ms |
+| Not Tested | WebKit ครบทุกชุด · iphone/ipad-safari · Safari / Firefox จริง · อุปกรณ์มือถือจริง |
 
 ผลรอบก่อน (9 พ.ย. 2569, `0123a25`): E2E Chromium 76/77 (KI-V2-32) · Firefox 44/44 · WebKit 15/15 · Pages จำลอง 9/9
 

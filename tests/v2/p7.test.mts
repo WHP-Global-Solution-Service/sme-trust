@@ -298,4 +298,74 @@ calls = 0;
 waits.length = 0;
 check((await withRetry(() => (++calls, Promise.resolve(1)), RETRY_DELAYS_MS, fakeWait)) === 1 && calls === 1 && waits.length === 0, 'โหลดสำเร็จครั้งแรก → ไม่รอและไม่โหลดซ้ำ');
 
+describe('Release — KI-V2-37: โหลดไม่สำเร็จขณะเอกสารกำลังถูกปิด / Error ที่ตรงสาเหตุ (ไม่ Reload อัตโนมัติ)');
+const LP = await import('@/routes/lazyPage');
+{
+  const noWait = () => Promise.resolve();
+  const err = new Error('error loading dynamically imported module');
+  let e2: unknown;
+  await LP.loadPage(() => Promise.reject(err), [0, 0], noWait).catch((x) => (e2 = x));
+  check(e2 === err && LP.isPageLoadError(e2), 'เอกสารไม่ได้ถูกปิด + ลองครบไม่สำเร็จ → ส่ง Error เดิม (ติดป้าย "โหลดหน้าไม่สำเร็จ") ให้ ErrorBoundary');
+  check(!LP.isPageLoadError(new Error('render bug')) && !LP.isPageLoadError(undefined), 'Error ระหว่าง Render ไม่ถูกจัดเป็นการโหลดหน้า (ไม่ซ่อน Error ประเภทอื่น)');
+
+  // กำลังออกจากหน้า (beforeunload / pagehide) → ไม่ส่ง Error · การออกถูกยกเลิก → โหลดใหม่ตามปกติ
+  let n = 0;
+  let settled = '';
+  LP.markLeaving();
+  const p = LP.loadPage(() => (++n <= 3 ? Promise.reject(new Error('NS_BINDING_ABORTED')) : Promise.resolve('page')), [0, 0], noWait).then(
+    (v) => (settled = `ok:${v}`),
+    (x) => (settled = `err:${(x as Error).message}`),
+  );
+  for (let k = 0; k < 20; k++) await Promise.resolve();
+  check(settled === '' && n === 3 && LP.isLeaving(), `ขณะเอกสารกำลังถูกปิด: ลองครบ 3 ครั้งแล้วรอ ไม่แสดงหน้าข้อผิดพลาด (ลอง ${n} ครั้ง)`);
+  LP.markStayed();
+  await p;
+  check(settled === 'ok:page' && n === 4 && !LP.isLeaving(), 'การออกจากหน้าถูกยกเลิก (pageshow / ครบเวลา) → โหลดใหม่และแสดงหน้าได้');
+
+  // ไม่ Reload อัตโนมัติ — ไม่มีการเรียก location.reload นอกปุ่มที่ผู้ใช้กด
+  const fsx = await import('node:fs');
+  const lpSrc = fsx.readFileSync(new URL('../../src/routes/lazyPage.tsx', import.meta.url), 'utf8');
+  const ebSrc = fsx.readFileSync(new URL('../../src/components/feedback/ErrorBoundary.tsx', import.meta.url), 'utf8');
+  check(!/location\.(reload|replace|href\s*=)/.test(lpSrc) && (ebSrc.match(/location\.reload\(/g) ?? []).length === 1 && /onClick=\{\(\) => window\.location\.reload\(\)\}/.test(ebSrc), 'ไม่มี Reload อัตโนมัติ (มีเฉพาะปุ่ม "โหลดหน้าใหม่" ที่ผู้ใช้กด) — ไม่เกิด Reload วน ไม่ลบฉบับร่าง');
+  check(/page-load-error/.test(ebSrc) && /โหลดหน้านี้ไม่สำเร็จ/.test(ebSrc) && /ขั้นตอนการสาธิตยังอยู่ครบ/.test(ebSrc), 'ErrorBoundary แจ้งผู้ใช้ว่าโหลดหน้าไม่สำเร็จ และข้อมูลยังอยู่');
+}
+
+describe('Release — KI-V2-38: โหลดหน้าล่วงหน้าทีละหน้า (ไม่แย่งการเชื่อมต่อกับหน้าที่ผู้ใช้เปิด)');
+{
+  let active = 0;
+  let peak = 0;
+  const order: number[] = [];
+  const task = (i: number, fail = false) => async () => {
+    active++;
+    peak = Math.max(peak, active);
+    await Promise.resolve();
+    await Promise.resolve();
+    order.push(i);
+    active--;
+    if (fail) throw new Error('x');
+  };
+  await LP.preloadSequentially([task(1), task(2, true), task(3)]);
+  check(peak === 1 && order.join() === '1,2,3', `โหลดทีละหน้าตามลำดับ (พร้อมกันสูงสุด ${peak}) · หน้าหนึ่งไม่สำเร็จยังโหลดหน้าถัดไป`);
+  order.length = 0;
+  LP.markLeaving();
+  await LP.preloadSequentially([task(1), task(2)]);
+  LP.markStayed();
+  check(order.length === 0, 'หยุดโหลดล่วงหน้าเมื่อเอกสารกำลังถูกปิด');
+  // หน้าที่ผู้ใช้เปิดยังโหลดไม่เสร็จ → การโหลดล่วงหน้าหยุดรอ แล้วทำต่อเมื่อหน้านั้นโหลดเสร็จ
+  order.length = 0;
+  let release!: () => void;
+  const userPage = LP.trackUserLoad(new Promise<void>((r) => (release = r)));
+  const pre = LP.preloadSequentially([task(1), task(2)]);
+  for (let k = 0; k < 10; k++) await Promise.resolve();
+  check(order.length === 0 && LP.userLoadsInFlight() === 1, 'ระหว่างโหลดหน้าที่ผู้ใช้เปิด การโหลดล่วงหน้ายังไม่เริ่ม (ไม่แย่งการเชื่อมต่อ)');
+  release();
+  await userPage;
+  await pre;
+  check(order.join() === '1,2' && LP.userLoadsInFlight() === 0, 'หน้าที่ผู้ใช้เปิดโหลดเสร็จ → โหลดล่วงหน้าต่อจนครบ');
+  const lpSrc = (await import('node:fs')).readFileSync(new URL('../../src/routes/lazyPage.tsx', import.meta.url), 'utf8');
+  check(/lazy\(\(\) => trackUserLoad\(loadOnce\(\)\)\)/.test(lpSrc), 'React.lazy (หน้าที่ผู้ใช้เปิด) นับเป็นการโหลดของผู้ใช้');
+  const idleFn = lpSrc.slice(lpSrc.indexOf('export function preloadWhenIdle'));
+  check(/preloadSequentially\(\)/.test(idleFn) && !/preloadAllPages/.test(idleFn), 'การโหลดตอนเครื่องว่างในเบราว์เซอร์ใช้แบบทีละหน้า (ไม่ใช่ Promise.all ทุกหน้า)');
+}
+
 finish();
