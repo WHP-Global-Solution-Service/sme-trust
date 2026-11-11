@@ -126,7 +126,7 @@ export const scenarios: ScenarioDef[] = [
       const op = operator(c.operatorId);
       return op
         ? [`สร้างบัญชีผู้ประกอบการ "${op.name}" (${op.id})`, `ผูกกับ Mock Identity ID ${op.mockIdentityId} — ไม่เก็บเลขบัตรประชาชน`, 'สถานะ e-KYC: ยืนยันตัวตนแล้ว (Level 1)', 'ตั้ง PIN สำหรับเข้าสู่ระบบสาธิต']
-        : ['ยังไม่มีบัญชีที่สร้างใน Scenario นี้'];
+        : ['ยังไม่มีบัญชีที่สร้างในการสาธิตนี้'];
     },
   },
 

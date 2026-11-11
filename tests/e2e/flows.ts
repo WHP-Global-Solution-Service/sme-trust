@@ -322,3 +322,42 @@ export async function playS8(page: Page) {
   await expect(main(page).getByText(draft.split('\n').find((l) => l.length > 20)!.slice(0, 25)).first()).toBeVisible();
   await next(page);
 }
+
+// ---------------- Demo หลัก (ใช้ร่วมกันระหว่างเดสก์ท็อปและมือถือ) ----------------
+
+/** ขั้น 1–5: เลือก Shopee → ร้าน "Official" (ตามคำแนะนำ) → ยืนยันนำเข้า → อยู่ที่ขั้น 6 (ทบทวนข้อมูลที่นำเข้า) — เริ่มที่ขั้น 1 แล้ว */
+export async function connectAndImport(page: Page) {
+  const m = page.locator('main');
+  await next(page);
+  await m.getByRole('button', { name: /A\. เชื่อมต่อร้านค้าจาก Marketplace/ }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop\/marketplace$/);
+  await next(page);
+  await m.getByRole('radio', { name: 'Shopee (จำลอง)' }).click();
+  await m.getByRole('button', { name: 'ถัดไป' }).click();
+  await m.getByLabel(/ข้าพเจ้าอนุญาต/).check();
+  await m.getByRole('button', { name: 'อนุญาต (จำลอง)' }).click();
+  await next(page);
+  await m.getByRole('radiogroup', { name: 'ร้านค้าในบัญชี' }).getByRole('radio').nth(1).click(); // ร้าน "Official" ตามคำแนะนำในขั้นนี้
+  await m.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
+  await expect(m.getByTestId('source-data')).toBeVisible();
+  await next(page);
+  await m.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop\?from=import$/);
+  await next(page);
+  await expectStep(page, 6);
+}
+
+/** ขั้น 6–7: แก้รายละเอียดสินค้า (คงชื่อร้าน) → กรอกข้อมูลที่ขาด แนบเอกสาร → ถึงขั้นตรวจสอบข้อมูล → อยู่ที่ขั้น 8 (ส่งคำขอ) */
+export async function review9aToSubmitStep(page: Page) {
+  const m = page.locator('main');
+  const desc = m.getByLabel(/รายละเอียดสินค้าและบริการ/);
+  await desc.fill(`${await desc.inputValue()} รับประกันสินค้า 30 วัน`);
+  await next(page);
+  await m.getByRole('button', { name: 'ใช้ข้อมูลติดต่อจากบัญชี' }).click();
+  await m.getByLabel(/อำเภอ\/เขต/).fill('เมืองขอนแก่น');
+  for (let i = 0; i < 2; i++) await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+  await m.getByRole('button', { name: /ทะเบียนพาณิชย์/ }).first().click();
+  await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+  await next(page);
+  await expectStep(page, 8);
+}

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { connectAndImport, review9aToSubmitStep } from './flows';
 import { DEMO_TITLE, demoState, expect, expectDemoTitle, expectStep, fresh, isDesktop, next, open, openOtherDemos, panel, startDemoById, store, test } from './helpers';
 
 /** หน้า Demo — Demo หลักเส้นเดียว (คลิกจริงตั้งแต่หน้าแรกจนจบ) · กรณีพิเศษ · ผลลัพธ์โดยตรง · ไม่มีเลข Scenario */
@@ -21,49 +22,12 @@ async function counts(page: Page) {
   return { shops: shops.length, apps: apps.length, imports: imports.length };
 }
 
-/** ขั้น 1–5: เลือก Shopee → ร้าน "Official" (ตามคำแนะนำ) → ยืนยันนำเข้า → อยู่ที่ขั้น 6 (ทบทวนข้อมูลที่นำเข้า) — เริ่มที่ขั้น 1 แล้ว */
-async function connectAndImport(page: Page) {
-  const m = page.locator('main');
-  await next(page);
-  await m.getByRole('button', { name: /A\. เชื่อมต่อร้านค้าจาก Marketplace/ }).click();
-  await expect(page).toHaveURL(/\/m\/register-shop\/marketplace$/);
-  await next(page);
-  await m.getByRole('radio', { name: 'Shopee (จำลอง)' }).click();
-  await m.getByRole('button', { name: 'ถัดไป' }).click();
-  await m.getByLabel(/ข้าพเจ้าอนุญาต/).check();
-  await m.getByRole('button', { name: 'อนุญาต (จำลอง)' }).click();
-  await next(page);
-  await m.getByRole('radiogroup', { name: 'ร้านค้าในบัญชี' }).getByRole('radio').nth(1).click(); // ร้าน "Official" ตามคำแนะนำในขั้นนี้
-  await m.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
-  await expect(m.getByTestId('source-data')).toBeVisible();
-  await next(page);
-  await m.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
-  await expect(page).toHaveURL(/\/m\/register-shop\?from=import$/);
-  await next(page);
-  await expectStep(page, 6);
-}
-
 /** เปิด Demo หลักจากหน้า Demo แล้วไปถึงขั้น 6 */
 async function start9aToReview(page: Page) {
   await open(page, '/demo');
   await startDemoById(page, 's9a');
   await expectStep(page, 1);
   await connectAndImport(page);
-}
-
-/** ขั้น 6–7: แก้รายละเอียดสินค้า (คงชื่อร้าน) → กรอกข้อมูลที่ขาด แนบเอกสาร → ถึงขั้นตรวจสอบข้อมูล → อยู่ที่ขั้น 8 (ส่งคำขอ) */
-async function review9aToSubmitStep(page: Page) {
-  const m = page.locator('main');
-  const desc = m.getByLabel(/รายละเอียดสินค้าและบริการ/);
-  await desc.fill(`${await desc.inputValue()} รับประกันสินค้า 30 วัน`);
-  await next(page);
-  await m.getByRole('button', { name: 'ใช้ข้อมูลติดต่อจากบัญชี' }).click();
-  await m.getByLabel(/อำเภอ\/เขต/).fill('เมืองขอนแก่น');
-  for (let i = 0; i < 2; i++) await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
-  await m.getByRole('button', { name: /ทะเบียนพาณิชย์/ }).first().click();
-  await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
-  await next(page);
-  await expectStep(page, 8);
 }
 
 /** ส่งคำขอ → ผลการตรวจอัตโนมัติต้องเป็น AUTO_PASS (ไม่ออกใบรับรอง) → ประเมิน → ผู้บริโภค → หน้าสรุป */
