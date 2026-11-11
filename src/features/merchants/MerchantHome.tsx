@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import {
+import { Link2,
   AlertTriangle,
   BadgeCheck,
   Bell,
@@ -51,7 +51,8 @@ export default function MerchantHome() {
 
   const services = [
     { to: '/m/shop', label: 'ข้อมูลร้านค้า', icon: Store },
-    { to: '/m/register-shop', label: 'ลงทะเบียนร้านค้า', icon: ClipboardEdit },
+    // ร้านที่ลงทะเบียนแล้ว: จัดการช่องทางขายออนไลน์ (ไม่พากลับไปลงทะเบียนร้านใหม่) · ลงทะเบียนร้านเพิ่มได้จากหน้าข้อมูลร้านค้า
+    hasShop ? { to: '/m/marketplace', label: 'ช่องทางขายออนไลน์', icon: Link2 } : { to: '/m/register-shop', label: 'ลงทะเบียนร้านค้า', icon: ClipboardEdit },
     { to: '/m/certification', label: 'ขอรับรอง', icon: BadgeCheck },
     { to: '/m/passport', label: 'Trust Passport', icon: IdCard },
     { to: '/m/complaints', label: 'ข้อร้องเรียน', icon: MessageSquareWarning, count: openComplaints },

@@ -172,7 +172,7 @@ V2S.fixtureV2Clean();
   check(tasks().length === 1 && tasks()[0].history.some((h) => h.action === 'updated'), 'ประเด็นประเภทเดียวกันเพิ่มขึ้น → อัปเดตหลักฐานในงานเดิม (ไม่สร้างงานใหม่)');
 }
 
-describe('5) Scenario 14–15 — Demo Controller ครบทุกขั้นจนจบ');
+describe('5) กรณีข้อมูลไม่ตรงกัน (s15) — Demo Controller ครบทุกขั้นจนจบ');
 {
   const nav = () => {};
   const demo = () => DS.useDemoStore.getState();
@@ -182,28 +182,6 @@ describe('5) Scenario 14–15 — Demo Controller ครบทุกขั้น
     const sc = C.activeScenario()!;
     return C.gateState(sc.steps[demo().stepIndex]).ok;
   };
-  // ---- 14
-  C.startScenario('s14', nav as never);
-  asMerchant();
-  check(demo().activeScenario === 's14' && demo().stepIndex === 0, 'S14 เริ่มที่ Marketplace App Simulation');
-  check(!canProceed(), 'S14: ปุ่มถัดไปถูกปิดจนกว่าจะกด "เชื่อมกับ SME Trust"');
-  sig('mktapp.connect', true);
-  check(canProceed() && nextOk(), 'S14 ขั้น 1 → 2');
-  check(!canProceed(), 'S14: ต้องยืนยันนำเข้าก่อน');
-  const c = asOwner(MID, () => V.connectMarketplace(MID, 'shopee', 'established_good'));
-  asOwner(c.id, () => V.grantConsent(c.id));
-  check(canProceed() && nextOk(), 'S14 ขั้น 2 → 3 (ยืนยันนำเข้าแล้ว)');
-  V.completeSync(c.id, true);
-  check(canProceed() && nextOk() && demo().current.connectionId === c.id, 'S14 ขั้น 3 → 4 (ระบบประมวลผลอัตโนมัติ · บันทึกการเชื่อมต่อลงบริบท)');
-  check(!canProceed(), 'S14: ต้องยืนยัน Auto-Fill ก่อน');
-  const r = asOwner(c.id, () => V.confirmProfileUpdate(c.id, V.registeredValues(merchant(MID)), 'S14-DRAFT'));
-  check(r.ok && canProceed() && nextOk(), 'S14 ขั้น 4 → 5 (ยืนยัน Auto-Fill)');
-  check(nextOk() && nextOk(), 'S14 ขั้น 5 → 6 → 7 (ผลอัตโนมัติ → Badge → ผู้บริโภค)');
-  const roles = SC.allScenarios.find((s) => s.id === 's14')!.steps.map((s) => s.role);
-  check(!roles.includes('officer') && !roles.includes('admin'), 'S14 ไม่มีขั้นตอนเจ้าหน้าที่');
-  check(nextOk(), 'S14 ขั้นสุดท้าย → จบ Scenario');
-  const out14 = SC.allScenarios.find((s) => s.id === 's14')!.outcome!(demo().results.s14 ?? demo().current);
-  check(demo().completed.includes('s14') && out14?.kind === 'approved', `S14 จบ → Completed · ผล: ${out14?.title}`);
   // ---- 15
   C.startScenario('s15', nav as never);
   asMerchant();

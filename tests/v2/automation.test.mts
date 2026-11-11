@@ -318,12 +318,11 @@ W.resetAllDemoData();
 // ------------------------------------------------------------------ Restart / Refresh / Reset + Scenario regression
 describe('Restart / Refresh / Reset · Scenario Regression');
 {
-  check(SC.allScenarios.length === 17 && SC.allScenarios.some((s) => s.id === 's14') && SC.allScenarios.some((s) => s.id === 's15'), 'Demo มี 17 Scenario (เดิม 15 + Scenario 14 / 15)');
-  check(SC.journeyScenarios('v1').length === 8 && SC.journeyScenarios('v2').length === 5, 'Full Journey เดิมไม่เปลี่ยน (8 + 5 Scenario)');
-  const s14 = SC.allScenarios.find((s) => s.id === 's14')!;
-  check(!s14.steps.some((st) => st.role === 'officer' || st.role === 'admin'), 'Scenario 14 (เส้นทางปกติ) ไม่มีขั้นตอนของเจ้าหน้าที่');
+  check(SC.allScenarios.length === 10 && SC.allScenarios.some((s) => s.id === 's15') && !SC.allScenarios.some((s) => s.id === 's14'), 'การสาธิตที่คงไว้ 10 เรื่อง — กรณีข้อมูลไม่ตรงกันยังอยู่ · เส้นทางที่ซ้ำกับ Demo หลักถูกยกเลิก');
+  const main = SC.allScenarios.find((s) => s.id === 's9a')!;
+  check(!main.steps.some((st) => st.role === 'officer' || st.role === 'admin'), 'Demo หลัก (เส้นทางปกติ) ไม่มีขั้นตอนของเจ้าหน้าที่');
   const s15 = SC.allScenarios.find((s) => s.id === 's15')!;
-  check(s15.steps.some((st) => st.role === 'officer'), 'Scenario 15 (กรณียกเว้น) มีขั้นตอนเจ้าหน้าที่');
+  check(s15.steps.some((st) => st.role === 'officer'), 'กรณีข้อมูลไม่ตรงกัน (กรณียกเว้น) มีขั้นตอนเจ้าหน้าที่');
   // เล่น Scenario 15 แบบ Logic: เริ่ม → เชื่อมร้านตัวอย่าง → มีงาน 1 งาน → Restart → งานหายและเริ่มใหม่ได้ไม่ซ้ำ
   const nav = () => {};
   C.startScenario('s15', nav as never);

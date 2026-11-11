@@ -1,6 +1,6 @@
 # Demo Scenario Architecture
 
-เอกสารนี้อธิบายโครงสร้างระบบสาธิต (Demo Presentation Mode) — Scenario 1–8, Demo Controller และ Full Journey
+เอกสารนี้อธิบายโครงสร้างระบบสาธิต (Demo Presentation Mode) — Demo หลักเส้นเดียว กรณีพิเศษ ฟังก์ชันอื่นของระบบ และ Demo Controller · ไม่มี Full Journey และไม่แสดงเลข Scenario แก่ผู้ใช้ (รหัส `s1`, `s9a` ฯลฯ ใช้ภายในโค้ดเท่านั้น)
 
 ## หลักการ
 
@@ -14,15 +14,18 @@
 
 | ไฟล์ | หน้าที่ |
 |---|---|
-| `src/demo/types.ts` | `ScenarioDef`, `DemoStep`, `GateInput` |
-| `src/mock/scenarios/index.ts` | นิยาม Scenario 1–8 (ข้อมูลล้วน ไม่มี UI) · `findScenario`, `stepInstruction` |
+| `src/demo/types.ts` | `ScenarioDef`, `DemoStep`, `GateInput`, `GateBlock` |
+| `src/demo/main.ts` | Demo หลัก (`MAIN_JOURNEY_ID = 's9a'`, `MAIN_CTA_LABEL`) · ลำดับกรณีพิเศษ (`SPECIAL_CASE_IDS`) · ฟังก์ชันอื่น (`OTHER_DEMO_IDS`) · `DEMO_GROUPS` — ใช้ร่วมกันระหว่างหน้าแรก หน้า Demo และเมนู Demo Mode |
+| `src/mock/scenarios/index.ts` · `v2.ts` · `automation.ts` | นิยามการสาธิต 10 เรื่อง (ข้อมูลล้วน ไม่มี UI): ฟังก์ชันอื่น `s1`, `s2`, `s4`, `s5`, `s7`, `s8` · กรณีพิเศษ `s6`, `s9b`, `s15` · Demo หลัก `s9a` |
 | `src/mock/scenarios/fixtures.ts` | เตรียมจุดเริ่มต้นของเรื่อง (คืนข้อมูลบางส่วนจาก Seed) |
-| `src/stores/demo.ts` | `useDemoStore` (persist `smetrust:v1:demo`) + `reportDemo()` |
-| `src/demo/controller.ts` | Logic ทั้งหมดของการเดินขั้น: start / next / back / restart / journey / pause |
-| `src/components/layout/DemoController.tsx` | UI: แผงด้านขวา (Desktop) แถบล่าง + Sheet (Mobile/Tablet) และ Role Transition Modal |
-| `src/features/demo/DemoScenariosPage.tsx` | `/demo` — Full Journey + การ์ด 8 เรื่อง |
-| `src/features/demo/DemoCompletePage.tsx` | `/demo/complete/:id` — สรุปเมื่อจบแต่ละเรื่อง |
-| `src/features/demo/DemoOverviewPage.tsx` | `/demo/overview` — สรุปภาพรวมหลังจบ Scenario 8 |
+| `src/stores/demo.ts` | `useDemoStore` (persist `smetrust:v2:demo`) + `reportDemo()` |
+| `src/demo/controller.ts` | Logic ของการเดินขั้น: start / next / back / restart / complete / pause / resume |
+| `src/components/layout/DemoController.tsx` | UI: แผงด้านขวา (Desktop) แถบล่าง + Sheet (Mobile/Tablet) · Role Transition · กล่องเหตุผลเมื่อขั้นไปต่อไม่ได้ (`GateBlock`) |
+| `src/features/demo/DemoScenariosPage.tsx` | `/demo` — Primary Action เดียว · ขั้นตอน Demo หลัก · กรณีพิเศษ · ผลลัพธ์โดยตรง · ฟังก์ชันอื่น (พับไว้) |
+| `src/features/demo/DemoCompletePage.tsx` | `/demo/complete/:id` — สรุปเมื่อจบแต่ละเรื่อง พร้อม "จบการสาธิต" / "เริ่ม Demo ใหม่" |
+| `src/features/merchants/DemoRegistrationGuard.tsx` | ครอบหน้าลงทะเบียนร้าน — ระหว่าง Demo ถ้าบัญชีลงทะเบียนร้านไปแล้วในการสาธิตครั้งนี้ แสดงสรุปแทนแบบฟอร์ม (กันสร้างร้านซ้ำ) |
+
+URL ที่ยกเลิก: `/demo/overview`, `/demo/v2/summary` → Redirect `/demo` · `/m/marketplace-app` → Redirect `/m/marketplace` (ช่องทางขายออนไลน์ของร้านที่ลงทะเบียนแล้ว)
 
 ## โมเดลข้อมูล
 
@@ -36,14 +39,14 @@ interface DemoStep {
   tip?: string;                       // ประเด็นนำเสนอ
   transition?: string;                // คำอธิบายใน Role Transition (บังคับเมื่อบทบาทเปลี่ยน)
   nextLabel?: string;                 // ข้อความปุ่ม เช่น "ดูการตรวจสอบในมุมเจ้าหน้าที่"
-  gate?: { check: (g: GateInput) => boolean; hint: string };  // เงื่อนไขก่อนกด "ถัดไป"
+  gate?: { check: (g: GateInput) => boolean; hint: string; blocked?: (g: GateInput) => GateBlock | undefined };  // เงื่อนไขก่อนกด "ถัดไป" + เหตุผล/ทางเลือกเมื่อไปต่อตามเส้นทางปกติไม่ได้
   capture?: (g: GateInput) => Partial<DemoCtx>;               // บันทึก ID ที่เกิดในขั้นนี้
 }
 
 interface ScenarioDef {
   id; no; title; objective; keyMessage; audience; duration; benefits; caseNote?; nextCta?;
-  prepare(journey: DemoCtx, carry: boolean): DemoCtx;  // เตรียมข้อมูล + คืน Context เริ่มต้น
-  exports?(ctx): Partial<DemoCtx>;                     // ID ที่ส่งต่อให้เรื่องถัดไปใน Journey
+  prepare(journey: DemoCtx, carry: boolean): DemoCtx;  // เตรียมข้อมูล + คืน Context เริ่มต้น (เริ่มแบบเดี่ยวเสมอ: prepare({}, false))
+  replayNote?(): string | undefined;                   // แจ้งก่อนเริ่มซ้ำว่าร้านจากการเล่นครั้งก่อนจะถูกล้าง
   steps: DemoStep[];
   summary(ctx): {...};                                 // ข้อมูลหน้าสรุป
 }
@@ -53,11 +56,9 @@ interface ScenarioDef {
 
 | Field | ความหมาย |
 |---|---|
-| `journeyMode` | กำลังเล่น Full Journey หรือไม่ |
 | `activeScenario`, `stepIndex`, `status` | ตำแหน่งปัจจุบัน · `idle` / `running` / `paused` / `completed` |
 | `completed` | Scenario ที่จบแล้ว |
 | `current` | Context IDs ของเรื่องที่กำลังเล่น (`operatorId`, `merchantId`, `applicationId`, `certId`, `complaintId`, `warningId`, `riskCaseId`, `consumerId`, `officerId`) |
-| `journey` | Context ที่ส่งต่อระหว่างเรื่องใน Full Journey |
 | `results` | Context ของแต่ละเรื่องที่จบ — ใช้แสดงหน้าสรุปย้อนหลังด้วยข้อมูลของเรื่องนั้น |
 | `passed` | Step ID ที่ผ่าน Gate แล้ว (ย้อนกลับมาไม่ต้องทำซ้ำ) |
 | `startedAt` | เวลาเริ่มเรื่อง — Gate ใช้แยกข้อมูลที่เกิดระหว่างสาธิตจากข้อมูลเดิม |
@@ -72,6 +73,8 @@ Gate อ่านได้ 2 แหล่ง:
 
 UI แสดง "ทำขั้นนี้ให้เสร็จก่อนไปต่อ: {hint}" และปิดปุ่มจนกว่า `gateState(step).ok`
 
+ถ้าขั้นไปต่อตามเส้นทางปกติไม่ได้ (เช่น ชื่อร้านไม่ตรงกับร้านบน Marketplace → MANUAL_REVIEW) `gate.blocked(g)` คืน `GateBlock { reason, restart?, altScenario? }` — ตัวควบคุมแสดงเหตุผลพร้อมปุ่ม "เริ่มใหม่ (กลับไปแก้ไข)" และ/หรือ "เปิดกรณีพิเศษ" โดย **ไม่ข้ามเงื่อนไขหรือบังคับผลให้ผ่าน**
+
 ## การเดินขั้น
 
 ```
@@ -80,7 +83,7 @@ next(nav, currentPath, confirmed?) → 'blocked' | 'transition' | 'moved' | 'com
 
 1. Gate ไม่ผ่าน → `blocked`
 2. ขั้นปัจจุบันมี `capture` → บันทึก ID ลง `current`
-3. ขั้นสุดท้าย → `completeScenario()` บันทึก `results`, เพิ่ม `completed`, ส่งต่อ `journey` แล้วเปิด `/demo/complete/:id` → `completed`
+3. ขั้นสุดท้าย → `completeScenario()` บันทึก `results`, เพิ่ม `completed` แล้วเปิด `/demo/complete/:id` → `completed`
 4. ขั้นถัดไปเปลี่ยนบทบาทและยังไม่ยืนยัน → `transition` (UI เปิด Role Transition)
 5. `enterStep()` — สลับบัญชีตาม Context เมื่อบทบาทเปลี่ยน (เช่น ร้านเดิมของ `operatorId`) และ **navigate เฉพาะเมื่อ Route ต่างจากหน้าปัจจุบัน** (ข้อมูลในฟอร์มจึงไม่หาย) → `moved`
 
@@ -90,36 +93,24 @@ next(nav, currentPath, confirmed?) → 'blocked' | 'transition' | 'moved' | 'com
 
 เมื่อกด "ถัดไป" ผ่านขั้นที่มี Gate ระบบบันทึก Step ID ใน `passed` — ย้อนกลับมาขั้นนั้นภายหลัง (ซึ่งแบบฟอร์มอาจเริ่มใหม่) `gateState()` คืน `{ ok: true, done: true }` และตัวควบคุมแสดง "ขั้นนี้ทำเสร็จแล้ว" จึงไม่ต้องทำ Business Action ซ้ำ · `startScenario` / `restartScenario` ล้าง `passed`
 
-## ความต่อเนื่อง (Continuity) — ไม่สลับข้อมูลแบบเงียบ
+## ไม่สร้างร้านหรือคำขอซ้ำ
 
-- `ScenarioDef.continuity(journey)` คืน `ContinuityIssue { message, fixScenario, fallbackLabel }` เมื่อข้อมูลที่ส่งต่อมาใช้ไม่ได้: S2 (บัญชีจาก S1 ยังไม่ยืนยันตัวตน/มีร้านแล้ว), S3–S4 (ร้านจาก S2 ยังไม่ได้รับการรับรอง), S7 (ไม่มีบัญชีจาก S1)
-- `effectiveJourney()` รวม `exports` ของ Scenario ที่กำลังเล่นแต่ยังไม่จบ เพื่อให้การข้ามเรื่องระหว่างทางเห็นร้าน/บัญชีล่าสุด
-- UI (`features/demo/ScenarioLauncher.tsx`) ใช้ก่อน "ดำเนินการต่อ" (หน้าสรุป) และ "ข้ามไป" (หน้ารวม): มีปัญหา → กล่องเลือก **กลับไปทำ Scenario X ให้ครบ** (`goFixScenario` — สาธิตต่อจากขั้นเดิมถ้ายังค้างอยู่) / **ใช้ข้อมูลตัวอย่าง** / ยกเลิก · เรื่องถัดไปเป็นกรณีศึกษาแยก (caseNote) → กล่องแจ้งก่อนเริ่ม
-- ใช้ข้อมูลตัวอย่าง → `prepareWithNotice()` ใส่ `current.notice` ซึ่งแสดงในตัวควบคุมและหน้าสรุป (persist — Refresh/Restart แล้วยังอยู่)
+- ทุกการเริ่มการสาธิตเป็นแบบเดี่ยว: `resetAllDemoData()` → `prepare({}, false)` → Snapshot — ไม่มีการส่งต่อข้อมูลข้ามเรื่อง
+- หน้าลงทะเบียนร้าน (`/m/register-shop`, `/m/register-shop/marketplace`) ครอบด้วย `withDemoRegistrationGuard` — ระหว่าง Demo ถ้าบัญชีปัจจุบันมีร้านที่สร้างหลัง `startedAt` จะแสดง "ส่งคำขอลงทะเบียนแล้วในการสาธิตนี้" แทนแบบฟอร์ม (ตรวจครั้งเดียวตอนเปิดหน้า — หน้าผลการตรวจหลังกดส่งยังแสดงตามปกติ)
+- ขั้นที่ผ่าน Gate แล้วอยู่ใน `passed` — ย้อนกลับ/ถัดไปไม่ทำ Business Action ซ้ำ
+- หน้าแรก / หน้าหลักผู้ประกอบการ: บัญชีที่มีร้านลงทะเบียนแล้วถูกพาไป "ช่องทางขายออนไลน์" (`/m/marketplace`) หรือ "ข้อมูลร้านค้า" แทนการเริ่มลงทะเบียนร้านใหม่
+- เริ่มเรื่องเดิมซ้ำขณะยังมีร้านจากครั้งก่อน → หน้ายืนยันแจ้ง `replayNote()` ก่อนล้าง
 
-## เริ่ม / Restart / Full Journey
+## เริ่ม / Restart / หยุดชั่วคราว
 
 | การกระทำ | ผลต่อข้อมูล |
 |---|---|
-| **Start Demo** (แบบเดี่ยว) | `resetAllDemoData()` → `prepare(…, carry=false)` ใช้ Fixture ของเรื่อง → Snapshot |
-| **Continue** (Full Journey) | ไม่ Reset — `prepare(journey, carry=true)` ใช้ ID จากเรื่องก่อน หรือกรณีศึกษาแยก (S5, S6, S8) → Snapshot |
-| **Restart Scenario** | คืน Snapshot ตอนเริ่มเรื่อง (`smetrust:v1:demo-snapshot`) → ขั้นแรก · ไม่มีข้อมูลซ้ำ และไม่ลบผลของเรื่องก่อนหน้าใน Journey |
-| **Reset Scenario** (หน้ารวม) | เหมือน Start แบบเดี่ยว แต่สถานะเป็น `idle` (ยังไม่เปิดแผงควบคุม) |
-| **Start / Restart Full Journey** | `resetAllDemoData()` → เริ่ม Scenario 1 ในโหมด Journey |
-| **Exit Demo** | `paused` — ซ่อนแผงควบคุม ข้อมูลยังอยู่ · "สาธิตต่อ" กลับขั้นเดิม |
-| **Jump** (หน้ารวม Journey) | Completed → ดูสรุป · Current → สาธิตต่อ · Not Started → ขอยืนยันก่อนข้าม |
+| **เริ่มการสาธิต** (หน้าแรก · หน้า Demo · Demo Mode) | `resetAllDemoData()` → `prepare({}, false)` ใช้ Fixture ของเรื่อง → Snapshot · ถ้ามีการสาธิตค้างอยู่ต้องยืนยันก่อน |
+| **เริ่มเรื่องนี้ใหม่** (ตัวควบคุม) / **เริ่ม Demo ใหม่** (หน้าสรุป) | คืน Snapshot ตอนเริ่มเรื่อง (`smetrust:v2:demo-snapshot`) → ขั้นแรก · ไม่มีข้อมูลซ้ำ |
+| **ดูผลลัพธ์โดยตรง** (หน้า Demo) | ไม่เปลี่ยนข้อมูล · สลับบทบาท/บัญชีสาธิตแล้วเปิดหน้าปลายทาง · การสาธิตที่ค้างอยู่ → `paused` |
+| **ออกจากการสาธิต** | `paused` — ซ่อนแผงควบคุม ข้อมูลยังอยู่ · "สาธิตต่อ" (หน้า Demo) กลับขั้นเดิมด้วยบทบาทและบัญชีเดิม |
+| **จบการสาธิต** (หน้าสรุป) | `exitDemo()` → กลับหน้า Demo · ข้อมูลที่สร้างยังอยู่จนกว่าจะเริ่มเรื่องใหม่ |
 | **Refresh Browser** | `useDemoStore` และ Domain Store persist ใน localStorage — กลับมาขั้นเดิมพร้อม Context |
-
-### Context ที่ส่งต่อใน Full Journey
-
-```
-S1 สมัคร  ──operatorId──▶ S2 ร้านค้า ──merchantId, applicationId, certId──▶ S3 ผู้บริโภคตรวจสอบ
-   ──merchantId──▶ S4 ร้องเรียน (complaintId)
-S5 คำเตือน (กรณีศึกษา M-003/OP-003 · warningId)      — caseNote อธิบายว่าเป็นคนละเหตุการณ์
-S6 ระงับ/อุทธรณ์ (กรณีศึกษา M-004 · RSK-2569-0001)
-S7 AI โฆษณา (ใช้บัญชีจาก S1 เมื่ออยู่ใน Journey)
-S8 AI ข้อร้องเรียน (CMP-2569-0005 ของ OP-003 · ผู้บริโภค CS-007)
-```
 
 ## Layout — ไม่บังปุ่มของแอป
 
@@ -129,7 +120,7 @@ S8 AI ข้อร้องเรียน (CMP-2569-0005 ของ OP-003 · �
 
 ## การเพิ่ม Scenario ใหม่
 
-1. เพิ่ม `ScenarioDef` ใน `src/mock/scenarios/index.ts` (ID ไม่ซ้ำ, ทุกการเปลี่ยนบทบาทมี `transition`)
+1. เพิ่ม `ScenarioDef` ใน `src/mock/scenarios/` (ID ไม่ซ้ำ, ชื่อเป็นภาษาที่ผู้ใช้เข้าใจได้โดยไม่มีเลข Scenario, ทุกการเปลี่ยนบทบาทมี `transition`) แล้วเพิ่ม ID ในกลุ่มที่เหมาะสมของ `src/demo/main.ts`
 2. ถ้าต้องการจุดเริ่มต้นเฉพาะ เพิ่ม Fixture ใน `fixtures.ts` และเรียกใน `prepare`
 3. ขั้นที่ต้องรอ Action ให้มี `gate` อ่านจาก Store หรือเพิ่ม `reportDemo()` ในหน้าจอ
-4. เพิ่มการทดสอบใน `tests/scenarios.test.mts` แล้วสร้าง `docs/demo-guide.md` ใหม่
+4. เพิ่มการทดสอบใน `tests/` (Unit ขับ Controller + E2E คลิกจริง) แล้วอัปเดต `docs/demo-guide.md`

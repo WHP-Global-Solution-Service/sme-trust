@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, Info, Link2, LayoutGrid, Lightbulb, Lock, Pause, Repeat, RotateCcw, TrendingUp, Undo2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, Info, Link2, LayoutGrid, Lightbulb, Lock, Pause, Repeat, TrendingUp, Undo2, X } from 'lucide-react';
 import { STEP_BENEFIT } from '@/demo/benefits';
 import type { Role } from '@/types';
 import { domainStores, useSessionStore, confirmDialog, toast } from '@/stores';
 import { useAiWorkspaceStore } from '@/stores/aiWorkspace';
 import { useDemoStore } from '@/stores/demo';
-import { findScenario, journeyScenarios, scenarioCode, stepInstruction, trackOf } from '@/mock/scenarios';
+import { findScenario, stepInstruction, trackOf } from '@/mock/scenarios';
 import { ROLE_LABEL } from '@/constants/labels';
-import { activeScenario, back, gateState, livePath, next, pauseDemo, restartJourney, restartScenario, returnToStep, scenarioStatus, startScenario, stepRoute } from '@/demo/controller';
+import { activeScenario, back, gateState, livePath, next, pauseDemo, restartScenario, returnToStep, startScenario, stepRoute } from '@/demo/controller';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/ui';
 import { cn } from '@/utils/cn';
@@ -51,14 +51,8 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
   const onRoute = role === step.role && here === stepRoute(step);
   const isLast = i === sc.steps.length - 1;
   const pct = Math.round(((i + 1) / sc.steps.length) * 100);
-  const nextLabel = step.nextLabel ?? (isLast ? 'จบ Scenario และดูสรุป' : 'ถัดไป');
-  const code = scenarioCode(sc);
-  const track = d.journeyMode ? d.journeyTrack ?? 'v1' : trackOf(sc);
-  const seq = journeyScenarios(track);
-  const pos = seq.findIndex((s) => s.id === sc.id) + 1;
-  const journeyLabel = track === 'v2' ? 'Full Journey — Marketplace & Trust Assessment' : 'Full Journey Demo';
-  const journeyPos = sc.branch ? 'เส้นทางทางเลือก' : track === 'v2' ? `Scenario ${pos}/${seq.length} ของเส้นทาง Marketplace & Trust` : `Scenario ${sc.no}/${seq.length}`;
-  // บริบทที่ส่งต่อตลอด Journey v2 (Merchant / Connection / Assessment / Application)
+  const nextLabel = step.nextLabel ?? (isLast ? 'จบการสาธิต' : 'ถัดไป');
+  // รหัสร้านค้าและคำขอที่ทุกขั้นใช้ร่วมกัน (แสดงว่าเป็นร้านเดียวกันตลอดการสาธิต)
   const ids = trackOf(sc) === 'v2'
     ? ([
         ['Merchant', d.current.merchantId],
@@ -93,53 +87,33 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
   };
   const doRestart = async () => {
     const r = await confirmDialog({
-      title: `เริ่ม Scenario ${sc.no} ใหม่`,
-      body: d.journeyMode ? 'ข้อมูลจะกลับเป็นจุดเริ่มต้นของ Scenario นี้ — ผลจาก Scenario ก่อนหน้าใน Full Journey ยังอยู่ และไม่สร้างข้อมูลซ้ำ' : 'ข้อมูลจะกลับเป็นจุดเริ่มต้นของ Scenario นี้ และไม่สร้างข้อมูลซ้ำ',
+      title: `เริ่ม "${sc.title}" ใหม่`,
+      body: 'ข้อมูลสาธิตจะกลับเป็นจุดเริ่มต้นของเรื่องนี้ และไม่สร้างข้อมูลซ้ำ',
       confirmText: 'เริ่มใหม่',
     });
     if (!r.ok) return;
     restartScenario(nav);
     setSheet(false);
-    toast.success(`เริ่ม Scenario ${sc.no} ใหม่แล้ว`);
+    toast.success('เริ่มใหม่ตั้งแต่ขั้นแรกแล้ว');
   };
   /** เปิด Scenario ที่สาธิตกรณียกเว้นโดยตรง — ยืนยันก่อน เพราะข้อมูลจะกลับเป็นจุดเริ่มต้นของ Scenario นั้น */
   const doOpenAlt = async (id: string) => {
     const alt = findScenario(id);
     if (!alt) return;
-    const r = await confirmDialog({ title: `เปิด Scenario ${scenarioCode(alt)}: ${alt.title}`, body: 'การสาธิตนี้จะหยุด และข้อมูลสาธิตกลับเป็นจุดเริ่มต้นของ Scenario ที่เลือก', confirmText: 'เปิด Scenario' });
+    const r = await confirmDialog({ title: `เปิด "${alt.title}"`, body: 'การสาธิตนี้จะหยุด และข้อมูลสาธิตกลับเป็นจุดเริ่มต้นของเรื่องที่เลือก', confirmText: 'เปิดกรณีนี้' });
     if (!r.ok) return;
     startScenario(alt.id, nav);
     setSheet(false);
   };
-  const doRestartJourney = async () => {
-    const r = await confirmDialog({ title: `Restart ${journeyLabel}`, body: 'ล้างข้อมูลทั้งหมดที่สร้างระหว่าง Journey และเริ่ม Scenario แรกของชุดนี้ใหม่', confirmText: 'เริ่ม Journey ใหม่', tone: 'danger' });
-    if (!r.ok) return;
-    restartJourney(nav);
-    setSheet(false);
-  };
   const doPause = async () => {
-    const r = await confirmDialog({ title: 'ออกจากโหมดสาธิตชั่วคราว?', body: 'ข้อมูลและขั้นตอนถูกเก็บไว้ กลับมาสาธิตต่อได้จากหน้ารวม Demo Scenarios', confirmText: 'ออกจากโหมดสาธิต' });
+    const r = await confirmDialog({ title: 'ออกจากการสาธิตชั่วคราว?', body: 'ข้อมูลและขั้นตอนถูกเก็บไว้ กลับมาสาธิตต่อได้จากหน้า Demo', confirmText: 'ออกจากการสาธิต' });
     if (r.ok) pauseDemo();
   };
 
   const header = (
     <div className="bg-ink px-4 pb-3 pt-2.5 text-white">
-      {d.journeyMode && (
-        <div className="mb-2">
-          <div className="flex items-center justify-between text-[11px] text-white/70">
-            <span>{journeyLabel}</span>
-            <span>{journeyPos}</span>
-          </div>
-          <div className="mt-1 grid gap-0.5" style={{ gridTemplateColumns: `repeat(${seq.length}, minmax(0, 1fr))` }} aria-label="ความคืบหน้าภาพรวม">
-            {seq.map((s) => {
-              const st = scenarioStatus(s.id);
-              return <span key={s.id} className={cn('h-1 rounded-full', st === 'completed' ? 'bg-success' : st === 'current' ? 'bg-white' : 'bg-white/20')} />;
-            })}
-          </div>
-        </div>
-      )}
-      <p className="truncate text-sm font-semibold">
-        Scenario {code}: {sc.title}
+      <p className="truncate text-sm font-semibold" data-testid="demo-title">
+        {sc.title}
       </p>
       <div className="mt-1.5 flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -245,12 +219,12 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
           <div className="flex flex-wrap gap-2">
             {gate.blocked.restart && (
               <Button size="sm" variant="outline" icon={Repeat} onClick={doRestart}>
-                Restart Scenario (กลับไปแก้ไข)
+                เริ่มใหม่ (กลับไปแก้ไข)
               </Button>
             )}
             {gate.blocked.altScenario && findScenario(gate.blocked.altScenario) && (
               <Button size="sm" variant="secondary" icon={ArrowRight} onClick={() => void doOpenAlt(gate.blocked!.altScenario!)}>
-                เปิด Demo เฉพาะกรณี (Scenario {scenarioCode(findScenario(gate.blocked.altScenario)!)})
+                เปิดกรณีพิเศษ: {findScenario(gate.blocked.altScenario)!.title}
               </Button>
             )}
           </div>
@@ -284,21 +258,15 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
         </button>
         <button onClick={doRestart} className="inline-flex items-center gap-1 font-medium text-ink-soft hover:text-primary">
           <Repeat className="h-3.5 w-3.5" />
-          Restart Scenario
+          เริ่มเรื่องนี้ใหม่
         </button>
-        {d.journeyMode && (
-          <button onClick={doRestartJourney} className="inline-flex items-center gap-1 font-medium text-ink-soft hover:text-primary">
-            <RotateCcw className="h-3.5 w-3.5" />
-            Restart Journey
-          </button>
-        )}
         <Link to="/demo" className="inline-flex items-center gap-1 font-medium text-ink-soft hover:text-primary">
           <LayoutGrid className="h-3.5 w-3.5" />
-          Demo Menu
+          หน้า Demo
         </Link>
         <button onClick={doPause} className="inline-flex items-center gap-1 font-medium text-ink-soft hover:text-primary">
           <Pause className="h-3.5 w-3.5" />
-          Exit Demo
+          ออกจากการสาธิต
         </button>
       </div>
       <p className="mt-2 text-[11px] leading-snug text-ink-soft">ระบบสาธิต — ข้อมูลจำลอง ผลตรวจสอบและใบรับรองไม่มีผลจริง</p>
@@ -323,7 +291,7 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
           <button onClick={() => setSheet(true)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left" aria-label="ดูรายละเอียดขั้นตอน">
             <span className="min-w-0">
               <span className="block truncate text-[11px] text-ink-soft">
-                {d.journeyMode ? `Journey ${sc.branch ? code : track === 'v2' ? pos : sc.no}/${seq.length} · ` : ''}S{code} · ขั้น {i + 1}/{sc.steps.length} · {ROLE_LABEL[step.role]}
+                ขั้น {i + 1}/{sc.steps.length} · {ROLE_LABEL[step.role]}
               </span>
               <span className="block truncate text-sm font-semibold text-ink">{step.title}</span>
               {!gate.ok && <span className="block truncate text-[11px] text-warning">{gate.hint}</span>}

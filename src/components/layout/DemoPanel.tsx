@@ -5,7 +5,8 @@ import { useSessionStore, toast, confirmDialog } from '@/stores';
 import { resetAllDemoData } from '@/stores/workflows';
 import { useOperatorStore } from '@/stores';
 import { consumers, officers } from '@/mock/data';
-import { allScenarios, demoMerchantAccounts, scenarioCode, trackOf } from '@/mock/scenarios';
+import { demoMerchantAccounts, findScenario } from '@/mock/scenarios';
+import { DEMO_GROUPS } from '@/demo/main';
 import { ROLE_LABEL } from '@/constants/labels';
 import { Button } from '@/components/common/ui';
 import { Select } from '@/components/forms/Field';
@@ -182,7 +183,7 @@ export function DemoPanel() {
 
           <section>
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-ink">3. Demo Scenario</p>
+              <p className="text-sm font-semibold text-ink">3. การสาธิต</p>
               <button
                 onClick={() => {
                   nav('/demo');
@@ -193,32 +194,38 @@ export function DemoPanel() {
                 ดูรายละเอียดทั้งหมด
               </button>
             </div>
-            <ul className="space-y-2">
-              {allScenarios.map((sc, k) => (
-                <li key={sc.id}>
-                  {(k === 0 || trackOf(allScenarios[k - 1]) !== trackOf(sc)) && (
-                    <p className="mb-1.5 mt-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">{trackOf(sc) === 'v2' ? 'Marketplace & Trust Assessment' : 'Consumer Protection'}</p>
-                  )}
-                  <button
-                    onClick={async () => {
-                      const r = await confirmDialog({ title: `เริ่ม Scenario ${scenarioCode(sc)}: ${sc.title}`, body: 'ระบบจะรีเซ็ตข้อมูลสาธิตทั้งหมดเป็นค่าเริ่มต้นก่อนเริ่มเรื่องราวนี้', confirmText: 'เริ่มสาธิต' });
-                      if (r.ok) {
-                        startScenario(sc.id, nav);
-                        toast.success(`เริ่ม Scenario ${scenarioCode(sc)}`, sc.title);
-                      }
-                    }}
-                    className={cn('flex w-full items-start gap-3 rounded-xl border p-3 text-left hover:bg-bg', activeScenario === sc.id ? 'border-primary bg-primary-50/60' : 'border-line')}
-                  >
-                    <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white', trackOf(sc) === 'v2' ? 'bg-info' : 'bg-primary')}>{scenarioCode(sc)}</span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-medium text-ink">{sc.title}</span>
-                      <span className="block text-xs text-ink-soft">{sc.duration} · {sc.steps.length} ขั้นตอน</span>
-                    </span>
-                    <Play className="ml-auto mt-1 h-4 w-4 shrink-0 text-primary" />
-                  </button>
-                </li>
+            <div className="space-y-3">
+              {DEMO_GROUPS.map((g) => (
+                <div key={g.title}>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-soft">{g.title}</p>
+                  <ul className="space-y-2">
+                    {g.ids.map((id) => {
+                      const sc = findScenario(id)!;
+                      return (
+                        <li key={sc.id}>
+                          <button
+                            onClick={async () => {
+                              const r = await confirmDialog({ title: `เริ่ม "${sc.title}"`, body: 'ระบบจะรีเซ็ตข้อมูลสาธิตทั้งหมดเป็นค่าเริ่มต้นก่อนเริ่มเรื่องนี้', confirmText: 'เริ่มสาธิต' });
+                              if (r.ok) {
+                                startScenario(sc.id, nav);
+                                toast.success(`เริ่ม "${sc.title}"`);
+                              }
+                            }}
+                            className={cn('flex w-full items-start gap-3 rounded-xl border p-3 text-left hover:bg-bg', activeScenario === sc.id ? 'border-primary bg-primary-50/60' : 'border-line')}
+                          >
+                            <Play className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium text-ink">{sc.title}</span>
+                              <span className="block text-xs text-ink-soft">{sc.steps.length} ขั้นตอน</span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
           </section>
 
           <section className="rounded-xl bg-bg p-3 text-xs text-ink-soft">

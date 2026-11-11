@@ -1,4 +1,4 @@
-import { expect, fresh, open, openAllScenarios, test } from './helpers';
+import { expect, fresh, open, startDemoById, test } from './helpers';
 
 /** Mobile 375 / Tablet 768 / Desktop 1440 — ไม่มี Horizontal overflow และแถบควบคุมการสาธิตไม่บังปุ่มของหน้า */
 const VIEWPORTS = [
@@ -47,8 +47,7 @@ for (const vp of VIEWPORTS) {
     await page.setViewportSize(vp);
     await fresh(page);
     await open(page, '/demo');
-    await openAllScenarios(page);
-    await page.getByRole('button', { name: 'Start Demo' }).nth(7).click();
+    await startDemoById(page, 's8');
     await page.locator('[data-demo="next"]:visible').first().click();
     await expect(page).toHaveURL(/\/m\/complaints\/CMP-2569-0005$/);
     // หน้าแยกไฟล์ (lazy) — รอให้เนื้อหาของหน้าแสดงก่อนวัดตำแหน่ง

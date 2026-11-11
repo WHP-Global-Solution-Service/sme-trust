@@ -1,8 +1,8 @@
 import { expect, finishScenario, startDemo, store, test } from './helpers';
-import { playS1, playS2, playS3, playS4, playS5, playS6, playS7, playS8 } from './flows';
+import { playS1, playS2, playS4, playS5, playS6, playS7, playS8 } from './flows';
 
-/** Scenario 1–8 แบบเดี่ยว — ทุก Business Action ทำผ่าน UI จริง */
-test.describe('Demo Scenario แบบเดี่ยว', () => {
+/** กรณีพิเศษ (ระงับ/อุทธรณ์) และฟังก์ชันอื่นของระบบ — เปิดจากหน้า Demo ทุก Business Action ทำผ่าน UI จริง */
+test.describe('การสาธิตแต่ละเรื่อง (เปิดจากหน้า Demo)', () => {
   test('S1 Registration: OTP, e-KYC, PIN → Identity Verified', async ({ page }) => {
     await startDemo(page, 1);
     await playS1(page);
@@ -14,12 +14,6 @@ test.describe('Demo Scenario แบบเดี่ยว', () => {
     const m = await playS2(page);
     expect(m.operatorId).toBe('OP-012');
     await finishScenario(page, 's2');
-  });
-
-  test('S3 Consumer Verification: ค้นหา → QR → ใบรับรอง → ช่องทางขาย', async ({ page }) => {
-    await startDemo(page, 3);
-    await playS3(page);
-    await finishScenario(page, 's3');
   });
 
   test('S4 Complaint Resolution: แจ้งปัญหา → ร้านเสนอคืนเงิน → ผู้บริโภคยืนยัน', async ({ page }) => {
@@ -52,6 +46,7 @@ test.describe('Demo Scenario แบบเดี่ยว', () => {
     await startDemo(page, 8);
     await playS8(page);
     await finishScenario(page, 's8');
-    await expect(page.getByText('ดูสรุปภาพรวม SME Trust Platform')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'จบการสาธิต' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'เริ่ม Demo ใหม่' })).toBeVisible();
   });
 });

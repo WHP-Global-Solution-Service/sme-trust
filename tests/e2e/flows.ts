@@ -1,9 +1,9 @@
 /**
- * ขั้นตอนของแต่ละ Scenario ผ่าน UI จริง — ใช้ทั้งแบบเดี่ยวและ Full Journey
+ * ขั้นตอนของแต่ละการสาธิตผ่าน UI จริง (เล่นทีละเรื่อง)
  * ทุก Business Action ทำด้วยการคลิกในหน้าจอ (Demo Controller ใช้เพียงเปลี่ยนขั้น)
  */
 import type { Page } from '@playwright/test';
-import { confirm, demoState, expect, expectBlocked, expectStep, next, openAllScenarios, panel, store } from './helpers';
+import { confirm, demoState, expect, expectBlocked, expectStep, next, panel, store } from './helpers';
 
 const main = (page: Page) => page.locator('main');
 const mainBtn = (page: Page, name: string | RegExp) => main(page).getByRole('button', { name, exact: typeof name === 'string' });
@@ -21,15 +21,6 @@ export async function fillReportSample(page: Page) {
   if (!(await normal.isVisible())) await main(page).getByText('เติมข้อมูลตัวอย่างสำหรับสาธิต').click();
   await normal.click();
   await expect(main(page).getByText(/ขั้นตอนที่ 6\/7/)).toBeVisible();
-}
-
-/** เริ่ม Full Journey จากหน้ารวม (ยืนยันกล่องถ้ามี) */
-export async function startJourney(page: Page) {
-  await openAllScenarios(page);
-  await page.getByRole('button', { name: 'Start Full Journey' }).click();
-  const ok = page.getByRole('dialog').getByRole('button', { name: 'เริ่ม Full Journey' });
-  if (await ok.isVisible({ timeout: 1000 }).catch(() => false)) await ok.click();
-  await expect(panel(page).getByText('Full Journey Demo')).toBeVisible();
 }
 
 type Merchant = { id: string; operatorId: string; registrationStatus: string; shopName: string };
@@ -152,29 +143,6 @@ export async function playS2(page: Page) {
   const m = (await store<Merchant>(page, 'merchants')).find((x) => x.id === current.merchantId)!;
   expect(m.registrationStatus).toBe('approved');
   return m;
-}
-
-// ------------------------------------------------------------------ S3
-export async function playS3(page: Page) {
-  const { current } = await demoState(page);
-  const shop = (await store<Merchant>(page, 'merchants')).find((x) => x.id === current.merchantId)!;
-  await expect(page).toHaveURL(/\/m\/toolkit$/);
-  await next(page, { expectTransition: true });
-  await expect(main(page).getByText(shop.shopName).first()).toBeVisible();
-  await next(page);
-  await expectBlocked(page);
-  await main(page).getByRole('button', { name: new RegExp(current.certId) }).click();
-  await expect(main(page).getByText('ผลการตรวจสอบใบรับรอง').first()).toBeVisible();
-  await expect(main(page).getByText(shop.shopName).first()).toBeVisible({ timeout: 5000 });
-  await next(page);
-  await expect(page).toHaveURL(new RegExp(`/verify/${current.certId}$`));
-  await next(page);
-  await expect(page).toHaveURL(new RegExp(`/shop/${shop.id}$`));
-  await next(page);
-  await expectBlocked(page);
-  await mainBtn(page, 'เปิด').first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: 'เข้าใจแล้ว' }).click();
 }
 
 // ------------------------------------------------------------------ S4
@@ -353,4 +321,43 @@ export async function playS8(page: Page) {
   await expect(page).toHaveURL(/\/consumer\/cases\/CMP-2569-0005$/);
   await expect(main(page).getByText(draft.split('\n').find((l) => l.length > 20)!.slice(0, 25)).first()).toBeVisible();
   await next(page);
+}
+
+// ---------------- Demo หลัก (ใช้ร่วมกันระหว่างเดสก์ท็อปและมือถือ) ----------------
+
+/** ขั้น 1–5: เลือก Shopee → ร้าน "Official" (ตามคำแนะนำ) → ยืนยันนำเข้า → อยู่ที่ขั้น 6 (ทบทวนข้อมูลที่นำเข้า) — เริ่มที่ขั้น 1 แล้ว */
+export async function connectAndImport(page: Page) {
+  const m = page.locator('main');
+  await next(page);
+  await m.getByRole('button', { name: /A\. เชื่อมต่อร้านค้าจาก Marketplace/ }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop\/marketplace$/);
+  await next(page);
+  await m.getByRole('radio', { name: 'Shopee (จำลอง)' }).click();
+  await m.getByRole('button', { name: 'ถัดไป' }).click();
+  await m.getByLabel(/ข้าพเจ้าอนุญาต/).check();
+  await m.getByRole('button', { name: 'อนุญาต (จำลอง)' }).click();
+  await next(page);
+  await m.getByRole('radiogroup', { name: 'ร้านค้าในบัญชี' }).getByRole('radio').nth(1).click(); // ร้าน "Official" ตามคำแนะนำในขั้นนี้
+  await m.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
+  await expect(m.getByTestId('source-data')).toBeVisible();
+  await next(page);
+  await m.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop\?from=import$/);
+  await next(page);
+  await expectStep(page, 6);
+}
+
+/** ขั้น 6–7: แก้รายละเอียดสินค้า (คงชื่อร้าน) → กรอกข้อมูลที่ขาด แนบเอกสาร → ถึงขั้นตรวจสอบข้อมูล → อยู่ที่ขั้น 8 (ส่งคำขอ) */
+export async function review9aToSubmitStep(page: Page) {
+  const m = page.locator('main');
+  const desc = m.getByLabel(/รายละเอียดสินค้าและบริการ/);
+  await desc.fill(`${await desc.inputValue()} รับประกันสินค้า 30 วัน`);
+  await next(page);
+  await m.getByRole('button', { name: 'ใช้ข้อมูลติดต่อจากบัญชี' }).click();
+  await m.getByLabel(/อำเภอ\/เขต/).fill('เมืองขอนแก่น');
+  for (let i = 0; i < 2; i++) await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+  await m.getByRole('button', { name: /ทะเบียนพาณิชย์/ }).first().click();
+  await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+  await next(page);
+  await expectStep(page, 8);
 }

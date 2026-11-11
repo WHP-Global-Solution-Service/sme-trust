@@ -30,15 +30,10 @@ export interface DemoCtx {
 export type ScenarioStatus = 'idle' | 'running' | 'paused' | 'completed';
 
 interface DemoState {
-  journeyMode: boolean;
-  /** Full Journey ชุดใด — v1 (Scenario 1–8) หรือ v2 (Scenario 9–13) */
-  journeyTrack: 'v1' | 'v2';
   activeScenario?: string;
   stepIndex: number;
   status: ScenarioStatus;
   completed: string[];
-  /** IDs ที่ส่งต่อระหว่าง Scenario (เช่น บัญชีและร้านค้าที่สร้างใน Scenario 1–2) */
-  journey: DemoCtx;
   /** IDs ที่ Scenario ปัจจุบันใช้ (currentMerchantId, currentComplaintId, …) */
   current: DemoCtx;
   /** บริบทตอนเริ่ม Scenario ปัจจุบัน — Restart ใช้คู่กับ Snapshot (ไม่เรียก Fixture ซ้ำ) */
@@ -58,13 +53,10 @@ interface DemoState {
 }
 
 const initial = {
-  journeyMode: false,
-  journeyTrack: 'v1' as 'v1' | 'v2',
   activeScenario: undefined,
   stepIndex: 0,
   status: 'idle' as ScenarioStatus,
   completed: [] as string[],
-  journey: {} as DemoCtx,
   current: {} as DemoCtx,
   results: {} as Record<string, DemoCtx>,
   startedAt: undefined,

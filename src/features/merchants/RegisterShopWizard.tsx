@@ -25,6 +25,7 @@ import { DocList, MockUpload } from '@/components/forms/MockUpload';
 import { DocumentChecklist, VerificationList } from '@/features/onboarding/VerificationParts';
 import { acceptedKinds, checkDocuments, DBD_LABEL, dbdMockStatus, documentRequirements, IDENTITY_DOC_LABEL, maskRef, verificationSummary } from '@/features/onboarding/verification';
 import type { Merchant } from '@/types';
+import { withDemoRegistrationGuard } from './DemoRegistrationGuard';
 
 const STEPS = ['ประเภทธุรกิจ', 'ข้อมูลผู้ประกอบการ', 'ข้อมูลร้านค้า', 'ช่องทางขาย', 'เอกสารประกอบ', 'ตรวจสอบข้อมูล', 'ส่งคำขอ'];
 const req = (m: string) => z.string().trim().min(1, m);
@@ -85,7 +86,7 @@ const fieldValues = (v: Partial<Form>): FieldValues => ({
 
 type DraftData = Form & { docs?: MockDocument[]; importSource?: ImportSource; draftId?: string };
 
-export default function RegisterShopWizard() {
+function RegisterShopWizard() {
   const nav = useNavigate();
   const op = useCurrentOperator()!;
   const draft = useSessionStore((s) => s.shopDrafts[op.id]);
@@ -669,3 +670,6 @@ export default function RegisterShopWizard() {
     </div>
   );
 }
+
+/** ระหว่าง Demo: ลงทะเบียนไปแล้วในการสาธิตครั้งนี้ → แสดงสรุปแทนแบบฟอร์ม (กันสร้างร้านซ้ำเมื่อย้อนกลับ / Refresh) */
+export default withDemoRegistrationGuard(RegisterShopWizard);

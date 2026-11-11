@@ -59,28 +59,60 @@ export async function expectBlocked(page: Page) {
 
 export const expectStep = (page: Page, n: number) => expect(panel(page).getByText(new RegExp(`ขั้น ${n}/\\d+`))).toBeVisible();
 
-/** หน้า Demo (MVP-First): Scenario เดี่ยว · Full Journey · Reset อยู่ในส่วน "ดู Scenario ทั้งหมด" ที่พับไว้ — เปิดก่อนใช้งาน */
-export async function openAllScenarios(page: Page) {
-  const all = page.getByTestId('all-scenarios');
-  await expect(all).toBeVisible();
-  if (!(await all.evaluate((el) => (el as HTMLDetailsElement).open))) await all.locator(':scope > summary').click();
-  await expect(all.getByRole('tab').first()).toBeVisible();
+/** ชื่อการสาธิตที่ผู้ใช้เห็น (ไม่มีเลข Scenario) — ตรงกับ src/mock/scenarios */
+export const DEMO_TITLE: Record<string, string> = {
+  s9a: 'ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ',
+  s9b: 'กรณีร้านค้าไม่มี Marketplace และข้อมูลยังไม่พอ',
+  s15: 'กรณีข้อมูลร้านค้าไม่ตรงกัน — เจ้าหน้าที่ตรวจสอบ',
+  s6: 'กรณีร้านค้าถูกระงับการรับรองและการอุทธรณ์',
+  s1: 'ผู้ประกอบการสมัครสมาชิกและยืนยันตัวตน',
+  s2: 'สมัครร้านค้าและได้รับการรับรองหลังการตรวจสอบ',
+  s4: 'ผู้บริโภคร้องเรียนและร้านค้าช่วยแก้ไขก่อนส่งต่อ',
+  s5: 'ผู้ประกอบการได้รับคำเตือนและเข้ารับการอบรม',
+  s7: 'AI ตรวจสอบโฆษณาก่อนเผยแพร่',
+  s8: 'AI ช่วยร้านค้าแก้ไขข้อร้องเรียน',
+};
+const SPECIAL = ['s9b', 's15', 's6'];
+
+/** หน้า Demo: เปิดส่วน "ฟังก์ชันอื่นของระบบ" ที่พับไว้ */
+export async function openOtherDemos(page: Page) {
+  const box = page.getByTestId('other-demos');
+  await expect(box).toBeVisible();
+  if (!(await box.evaluate((el) => (el as HTMLDetailsElement).open))) await box.locator(':scope > summary').click();
+  await expect(box.getByTestId('other-demo').first()).toBeVisible();
 }
 
-/** เริ่ม Scenario แบบเดี่ยวจากหน้ารวม */
-export async function startDemo(page: Page, no: number) {
+/** ตรวจว่าตัวควบคุมการสาธิตกำลังแสดงเรื่องนี้ (เดสก์ท็อปดูชื่อ · มือถือดู Demo State) */
+export async function expectDemoTitle(page: Page, id: string) {
+  await expect.poll(async () => (await demoState(page)).activeScenario).toBe(id);
+  if (isDesktop(page)) await expect(panel(page).getByTestId('demo-title')).toHaveText(DEMO_TITLE[id]);
+}
+
+/** เริ่มการสาธิตจากหน้า Demo (อยู่ที่ /demo แล้ว) — Demo หลัก · กรณีพิเศษ · ฟังก์ชันอื่น */
+export async function startDemoById(page: Page, id: string) {
+  if (id === 's9a') await page.getByTestId('main-cta').click();
+  else if (SPECIAL.includes(id)) await page.getByTestId('case-section').getByRole('button', { name: `ทดลองกรณีนี้: ${DEMO_TITLE[id]}`, exact: true }).click();
+  else {
+    await openOtherDemos(page);
+    await page.getByTestId('other-demos').getByRole('button', { name: `เริ่มสาธิต: ${DEMO_TITLE[id]}`, exact: true }).click();
+  }
+  const ok = page.getByRole('dialog').getByRole('button', { name: 'เริ่มตั้งแต่ต้น' });
+  if (await ok.isVisible({ timeout: 1000 }).catch(() => false)) await ok.click();
+  await expectDemoTitle(page, id);
+}
+
+/** เริ่มการสาธิตแบบเดี่ยวด้วยข้อมูลตั้งต้น (รับรหัส เช่น 's4' หรือหมายเลขเดิม เช่น 4) */
+export async function startDemo(page: Page, idOrNo: string | number) {
   await fresh(page);
   await open(page, '/demo');
-  await openAllScenarios(page);
-  await page.getByRole('button', { name: 'Start Demo' }).nth(no - 1).click();
-  await expect(panel(page).getByText(isDesktop(page) ? `Scenario ${no}:` : `S${no} ·`, { exact: false })).toBeVisible();
+  await startDemoById(page, typeof idOrNo === 'number' ? `s${idOrNo}` : idOrNo);
 }
 
-/** จบ Scenario → หน้าสรุป */
+/** จบการสาธิต → หน้าสรุป */
 export async function finishScenario(page: Page, id: string) {
   await nextBtn(page).click();
   await expect(page).toHaveURL(new RegExp(`/demo/complete/${id}$`));
-  await expect(page.getByText('Completed', { exact: true })).toBeVisible();
+  await expect(page.getByText('สาธิตครบทุกขั้นแล้ว', { exact: true })).toBeVisible();
 }
 
 /** ยืนยันกล่อง Confirm Dialog (ปุ่มสุดท้ายใน dialog) — กรอกเหตุผลถ้ามีช่อง */

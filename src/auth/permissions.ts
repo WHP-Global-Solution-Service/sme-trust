@@ -84,7 +84,7 @@ export const PERMISSIONS = {
     group: 'merchant',
     label: 'เชื่อมต่อและนำเข้าข้อมูล Marketplace (จำลอง)',
     roles: M,
-    routes: ['/m/marketplace', '/m/marketplace-app', '/m/marketplace/data/:id', '/m/marketplace/analysis', '/m/marketplace/profile/:id'],
+    routes: ['/m/marketplace', '/m/marketplace/data/:id', '/m/marketplace/analysis', '/m/marketplace/profile/:id'],
     actions: [gs('connectMarketplace'), gs('grantConsent'), gs('resyncMarketplace'), gs('disconnectMarketplace'), u('completeSync'), u('simulateDataAge')],
     note: 'completeSync จำลองการตอบกลับของแพลตฟอร์ม และ simulateDataAge เป็นเครื่องมือสาธิตอายุข้อมูล — ไม่ใช่การกระทำของผู้ใช้ จึงไม่ตรวจบทบาท',
   },

@@ -102,7 +102,7 @@ check(MODEL_V2.version === 'v2.1-sim' && JSON.stringify(MODEL_V2.weights) === JS
 
 // ---------------------------------------------------------------- demo scenarios
 describe('Demo — กรณีปกติไม่มีขั้นตอนเจ้าหน้าที่ · กรณียกเว้นแยกเป็น Scenario 15');
-for (const id of ['s9a', 's9b', 's14']) {
+for (const id of ['s9a', 's9b']) {
   const s = findScenario(id)!;
   check(!s.steps.some((st) => st.role === 'officer') && !s.audience.includes('officer'), `Scenario ${id.slice(1).toUpperCase()}: ไม่มีขั้นตอนหรือบทบาทเจ้าหน้าที่ในกรณีปกติ`);
 }

@@ -48,6 +48,6 @@ const model = view('/admin/assessment-model', { role: 'admin', officerId: 'AD-00
 check(model.includes('ผลรวม 100%') && model.includes('ไม่ถูกนับเป็น 0') && model.includes('คืนค่าเริ่มต้น'), 'หน้าโมเดลแสดงน้ำหนัก ผลรวม วิธีคำนวณ และคืนค่าเริ่มต้นได้');
 
 describe('ระบบเดิมยังทำงาน');
-check(view('/m', merchant('OP-001')).includes('ยืนยันตัวตนแล้ว') && view('/demo', consumer).includes('Start Demo'), 'หน้าหลักผู้ประกอบการและหน้ารวม Demo ของ v1 ยังแสดงผลปกติ');
+check(view('/m', merchant('OP-001')).includes('ยืนยันตัวตนแล้ว') && view('/demo', consumer).includes('ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ'), 'หน้าหลักผู้ประกอบการและหน้า Demo ยังแสดงผลปกติ');
 
 finish();

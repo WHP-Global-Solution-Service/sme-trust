@@ -1,8 +1,8 @@
 import type { Page } from '@playwright/test';
-import { demoState, expect, expectBlocked, finishScenario, fresh, next, open, openAllScenarios, panel, store, test } from './helpers';
+import { DEMO_TITLE, demoState, expect, expectBlocked, expectDemoTitle, finishScenario, fresh, next, open, panel, startDemo, store, test } from './helpers';
 
 /**
- * P7 — Final QA: ผลลัพธ์แตกแขนง, 9B เล่นซ้ำ, ความใหม่ของข้อมูล, หมวดการเปรียบเทียบ, Dashboard v2,
+ * P7 — Final QA: กรณีร้านไม่มี Marketplace เล่นซ้ำ, ความใหม่ของข้อมูล, หมวดการเปรียบเทียบ, Dashboard v2,
  * ชุดน้ำหนัก, Direct URL / Refresh / localStorage และ Layout ที่ 375 / 768 / 1440 px
  * ทุก Test ตรวจ Console/Runtime error อัตโนมัติ (helpers.test)
  */
@@ -10,7 +10,7 @@ const main = (page: Page) => page.locator('main');
 type Tas = { id: string; merchantId: string; status: string; applicationId?: string; decision?: { kind: string; certId?: string } };
 type App = { id: string; status: string };
 type Cert = { id: string; merchantId: string; level: number; status: string };
-type Conn = { id: string; merchantId: string; status: string; syncSource?: string };
+type Conn = { id: string; merchantId: string; platform: string; status: string; syncSource?: string };
 
 /** ตั้งบทบาทผ่าน Session Store (เหมือนการเลือกบัญชีตัวอย่าง) แล้วเปิดหน้า */
 async function asRole(page: Page, session: Record<string, string | boolean>, path: string) {
@@ -28,53 +28,26 @@ async function expectNoOverflow(page: Page, label: string) {
   expect(over, `ไม่มี Horizontal overflow: ${label}`).toBeLessThanOrEqual(1);
 }
 
-async function startV2(page: Page, index: number) {
+/** ร้านกาแฟดอยสูง (M-005 — มี Shopee ในข้อมูลตั้งต้นแล้ว) เชื่อม Lazada (จำลอง) เพิ่มผ่าน UI จริงของ "ช่องทางขายออนไลน์" — ได้การเชื่อมต่อที่ซิงก์ใหม่ (0 วัน) โดยไม่สร้างร้านใหม่ */
+async function connectM005(page: Page) {
   await fresh(page);
-  await open(page, '/demo');
-  await openAllScenarios(page);
-  await page.getByRole('tab', { name: /Marketplace & Trust Assessment/ }).click();
-  await page.getByRole('button', { name: 'Start Demo' }).nth(index).click();
+  await asRole(page, { role: 'merchant', operatorId: 'OP-005', merchantLoggedIn: true, activeMerchantId: 'M-005' }, '/m/marketplace');
+  const wiz = main(page).getByRole('region', { name: /^เชื่อมต่อ (Shopee|Lazada) \(จำลอง\)$/ });
+  await main(page).locator('[data-platform="lazada"]').getByRole('button', { name: 'เชื่อมต่อ Lazada (จำลอง)' }).click();
+  await wiz.getByLabel(/ข้าพเจ้ายินยอม/).check();
+  await wiz.getByRole('button', { name: 'ถัดไป' }).click();
+  await wiz.getByRole('radio', { name: /ร้านที่ขายมานาน ผลงานดี/ }).click();
+  await wiz.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
+  await wiz.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
+  await expect(wiz.getByText('เชื่อมต่อสำเร็จ (Connection Success)')).toBeVisible();
 }
 
 test.describe('P7 — Desktop flows', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 1440) < 1024, 'ใช้แผงควบคุมด้านขวา (Desktop)');
 
-  test('Scenario 12 ไม่อนุมัติ → หน้าจบแสดงผลจริง และ Scenario 13 ไม่แสดง Badge ว่าอนุมัติแล้ว', async ({ page }) => {
-    test.setTimeout(400_000);
-    await startV2(page, 3); // Scenario 12 (ใช้ข้อมูลตัวอย่างที่ส่งพิจารณาแล้ว)
-    await expect(panel(page).getByText('Scenario 12:')).toBeVisible();
-    const { current } = await demoState(page);
-    const before = (await store<Cert>(page, 'certifications')).filter((c) => c.merchantId === 'M-005' && c.status === 'active');
-    for (let k = 0; k < 5; k++) await next(page);
-    await expectBlocked(page);
-    await main(page).getByRole('radio', { name: 'ไม่อนุมัติ' }).click();
-    await main(page).getByPlaceholder('อธิบายเหตุผลของการพิจารณา').fill('ต้องการหลักฐานคุณภาพสินค้าเพิ่มเติมก่อนยกระดับ');
-    await main(page).getByRole('button', { name: 'บันทึกผลการพิจารณา' }).click();
-    expect((await store<Tas>(page, 'trust-assessments')).find((a) => a.id === current.assessmentId)!.decision!.kind).toBe('rejected');
-    expect((await store<App>(page, 'applications')).find((a) => a.id === current.applicationId)!.status).toBe('rejected');
-    const after = (await store<Cert>(page, 'certifications')).filter((c) => c.merchantId === 'M-005' && c.status === 'active');
-    expect(after.map((c) => `${c.id}:${c.level}`)).toEqual(before.map((c) => `${c.id}:${c.level}`)); // ไม่มีใบรับรองใหม่
-    await next(page, { expectTransition: true });
-    await next(page);
-    await nextBtn(page).click();
-    await expect(page).toHaveURL(/\/demo\/complete\/s12$/);
-    await expect(page.locator('[data-outcome="rejected"]')).toBeVisible();
-    await expect(main(page).getByText('ผลลัพธ์: ไม่อนุมัติการยกระดับ')).toBeVisible();
-    await expect(main(page).getByText(/ผู้บริโภคเห็นเฉพาะระดับเดิม/)).toBeVisible();
-    await expect(main(page).getByText('อนุมัติยกระดับเป็น')).toHaveCount(0);
-    await main(page).getByRole('button', { name: /ดูมุมผู้บริโภค: ยังไม่มี Badge ใหม่/ }).click();
-    await expect(panel(page).getByText('Scenario 13:')).toBeVisible();
-    await expect(panel(page).getByText(/ยังไม่มี Badge ระดับใหม่/)).toBeVisible();
-    expect((await demoState(page)).current.assessmentId).toBe(current.assessmentId); // ID เดิม
-    await asRole(page, { role: 'consumer', consumerId: 'CS-001' }, '/shop/M-005');
-    await expect(main(page).getByText('Level 3 — Trusted SME').first()).toBeVisible();
-    await expect(main(page).getByText('Trusted SME Plus')).toHaveCount(0);
-  });
-
   test('9B เล่นซ้ำ: แจ้งร้านเดิมของ OP-012 แล้วล้างก่อนเริ่มใหม่ (ไม่สร้างร้านซ้ำ)', async ({ page }) => {
     test.setTimeout(300_000);
-    await startV2(page, 6); // 9B (การ์ดลำดับ 9, 10, 11, 12, 13, 9A, 9B)
-    await expect(panel(page).getByText('Scenario 9B:')).toBeVisible();
+    await startDemo(page, 's9b');
     await next(page);
     await main(page).getByRole('button', { name: 'ไม่มีร้านบน Marketplace — ลงทะเบียนด้วยตนเอง' }).click();
     await next(page);
@@ -85,22 +58,22 @@ test.describe('P7 — Desktop flows', () => {
     await main(page).getByRole('button', { name: 'ส่งคำขอ', exact: true }).click();
     const shops = async () => (await store<{ id: string; operatorId: string }>(page, 'merchants')).filter((m) => m.operatorId === 'OP-012');
     await expect.poll(async () => (await shops()).length).toBe(1);
-    // เล่นซ้ำจากทางเลือกใน Scenario 9 → แจ้งก่อนล้าง
-    await open(page, '/demo/complete/s9');
-    await main(page).getByRole('button', { name: 'ทางเลือก 9B: ร้านที่ไม่มี Marketplace' }).click();
-    await expect(page.getByTestId('replay-note')).toContainText('OP-012');
-    await page.getByRole('dialog').getByRole('button', { name: 'ล้างร้านเดิมและเริ่มใหม่' }).click();
-    await expect(panel(page).getByText('Scenario 9B:')).toBeVisible();
+    // เล่นซ้ำจากการ์ดกรณีพิเศษบนหน้า Demo → แจ้งก่อนล้างร้านเดิมของบัญชีตัวอย่าง
+    await open(page, '/demo');
+    await page.getByTestId('case-section').getByRole('button', { name: `ทดลองกรณีนี้: ${DEMO_TITLE.s9b}`, exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText('OP-012');
+    await page.getByRole('dialog').getByRole('button', { name: 'เริ่มตั้งแต่ต้น' }).click();
+    await expectDemoTitle(page, 's9b');
     expect(await shops()).toHaveLength(0);
-    // Refresh ระหว่างเล่น → ยังอยู่ที่ 9B
+    // Refresh ระหว่างเล่น → ยังอยู่ที่เรื่องเดิม
     await page.reload();
-    await expect(panel(page).getByText('Scenario 9B:')).toBeVisible();
+    await expectDemoTitle(page, 's9b');
   });
 
   test('ความใหม่ของข้อมูล: จำลองข้อมูลเก่า → Confidence ลด → ซิงก์ใหม่ (ไม่สร้างข้อมูลซ้ำ)', async ({ page }) => {
-    await startV2(page, 1); // Scenario 10 — เชื่อมต่อ Shopee (จำลอง) แล้ว
-    await expect(panel(page).getByText('Scenario 10:')).toBeVisible();
-    const conn = (await store<Conn>(page, 'marketplace-connections')).find((c) => c.merchantId === 'M-005' && c.status === 'connected')!;
+    await connectM005(page);
+    const conn = (await store<Conn>(page, 'marketplace-connections')).find((c) => c.merchantId === 'M-005' && c.platform === 'lazada' && c.status === 'connected')!;
+    expect((await store<Conn>(page, 'marketplace-connections')).filter((c) => c.merchantId === 'M-005' && c.status !== 'disconnected').map((c) => c.platform).sort()).toEqual(['lazada', 'shopee']); // เพิ่มช่องทางให้ร้านเดิม ไม่สร้างร้านใหม่
     const count = (await store<Conn>(page, 'marketplace-connections')).length;
     await open(page, `/m/marketplace/data/${conn.id}`);
     const card = page.getByTestId('freshness');
@@ -127,8 +100,8 @@ test.describe('P7 — Desktop flows', () => {
   });
 
   test('การเปรียบเทียบใช้หมวดของร้าน และเตือนเมื่อเปรียบเทียบต่างหมวด', async ({ page }) => {
-    await startV2(page, 1);
-    await open(page, '/m/marketplace/analysis?tab=compare');
+    await fresh(page);
+    await asRole(page, { role: 'merchant', operatorId: 'OP-005', merchantLoggedIn: true, activeMerchantId: 'M-005' }, '/m/marketplace/analysis?tab=compare');
     const sel = main(page).getByLabel('หมวดสินค้าที่ใช้เปรียบเทียบ');
     await expect(sel).toHaveValue('อาหารและเครื่องดื่ม');
     await expect(page.getByTestId('compare-category')).toContainText('อาหารและเครื่องดื่ม');

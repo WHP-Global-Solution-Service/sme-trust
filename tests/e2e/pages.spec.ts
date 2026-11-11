@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openAllScenarios } from './helpers';
+import { openOtherDemos } from './helpers';
 
 /**
  * เว็บไซต์ GitHub Pages (playwright.pages.config.ts): SME Trust v2 แทน v1 ที่ URL เดิม /sme-trust/
@@ -40,13 +40,13 @@ test('หน้าแรก /sme-trust/ เป็น SME Trust v2: Asset ทั�
   const icon = await page.locator('link[rel="icon"]').getAttribute('href');
   expect(icon).toBe('/sme-trust/favicon.svg');
   expect((await page.request.get(icon!)).status()).toBe(200);
-  // หน้า Demo มีทั้ง Full Journey เดิม (Scenario 1–8) และ v2 (Scenario 9–13)
+  // หน้า Demo: Demo หลักเส้นเดียว · กรณีพิเศษ · ฟังก์ชันอื่นพับไว้ (ไม่มี Full Journey)
   await page.goto('demo');
-  await openAllScenarios(page);
-  await expect(page.getByRole('region', { name: 'สาธิตระบบแบบต่อเนื่อง (Full Journey Demo)' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Full Journey — Marketplace & Trust Assessment' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /Consumer Protection/ })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /Marketplace & Trust Assessment/ })).toBeVisible();
+  await expect(page.getByTestId('main-cta')).toHaveText('ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ');
+  await expect(page.getByTestId('case-card')).toHaveCount(3);
+  await openOtherDemos(page);
+  await expect(page.getByTestId('other-demo')).toHaveCount(6);
+  expect(await page.locator('main').innerText()).not.toMatch(/Full Journey|Scenario \d/);
   await page.waitForLoadState('networkidle');
   expect(requests.filter((u) => /\/sme-trust\/v2\//.test(u))).toEqual([]);
   expect(requests.filter((u) => !u.startsWith('http://localhost:4320/'))).toEqual([]);
@@ -74,7 +74,6 @@ const DEEP: [string, Record<string, string | boolean>, RegExp | string][] = [
   // Automation First
   ['o/exceptions?tab=identity', { role: 'officer', officerId: 'OF-001' }, 'Exception Queue — กรณีที่ต้องใช้เจ้าหน้าที่'],
   ['o/automation', { role: 'officer', officerId: 'OF-001' }, 'Certification Governance'],
-  ['m/marketplace-app', M5, 'Seller Center (จำลอง)'],
 ];
 
 test('Deep link และ Refresh ทุกกลุ่มฟังก์ชัน: GitHub Pages ตอบ 404.html แล้วแอปแสดงเส้นทางเดิม (รวม Query) โดยไม่ Redirect', async ({ page }) => {
@@ -113,10 +112,9 @@ test('ผู้ที่เคยเปิด v1: ข้อมูลเก่า
   await page.goto('shop/M-005');
   await expect(page.getByText('ร้านกาแฟดอยสูง').first()).toBeVisible();
   await expect(page.getByText('ร้านจากเวอร์ชันเดิม')).toHaveCount(0);
-  // เริ่ม Journey v2 → เขียนเฉพาะ smetrust:v2:*
+  // เริ่ม Demo หลัก → เขียนเฉพาะ smetrust:v2:*
   await page.goto('demo');
-  await openAllScenarios(page);
-  await page.getByRole('button', { name: 'เริ่ม Journey Marketplace & Trust', exact: true }).click();
+  await page.getByTestId('main-cta').click();
   await expect(page).toHaveURL(/\/sme-trust\/m$/);
   const after = await page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])));
   expect(Object.keys(after).some((k) => k.startsWith('smetrust:v2:demo'))).toBe(true);

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, fresh, open, panel, test } from './helpers';
+import { DEMO_TITLE, expect, expectDemoTitle, fresh, open, panel, test } from './helpers';
 
 /** หน้าแรก Executive Ready — ข้อความ CTA ขั้นตอน Demo ตาม User Journey และ Responsive */
 const main = (page: Page) => page.locator('main');
@@ -22,7 +22,7 @@ test('หน้าแรก: Hero ตามข้อกำหนด · 5 ขั�
   await expect(main(page).getByText('ระบบสร้างผลประเมินและ Assessment Badge อัตโนมัติ เมื่อข้อมูลผ่านเกณฑ์')).toBeVisible();
   await expect(main(page).getByTestId('home-mock-assessment')).toContainText('ไม่ใช่การรับรอง');
   await expect(main(page).getByTestId('prototype-disclaimer')).toHaveText('ระบบนี้เป็นต้นแบบเพื่อสาธิตแนวคิด ใช้ข้อมูลจำลอง และยังไม่เชื่อมต่อกับ Shopee, Lazada, DBD หรือ สคบ. จริง');
-  await expect(main(page)).toContainText('สาธิตระบบ 17 เส้นทาง');
+  await expect(main(page)).toContainText('ทดลองใช้งานด้วยข้อมูลจำลอง');
   const text = (await main(page).innerText()).replace(/v2\.1-sim/g, '');
   expect(text).not.toMatch(/\bv1\b|\bv2\b|Prevention First|8 Scenario/);
 });
@@ -56,36 +56,38 @@ test('หน้าแรก: CTA ไปยัง Route และ Flow จริ�
   await open(page, '/');
   await cta(page, 'ตรวจสอบร้านค้า').click();
   await expect(page).toHaveURL(/\/check$/);
+  // บัญชีที่มีร้านลงทะเบียนแล้ว (OP-001 / M-001) → ไม่พากลับไปลงทะเบียนร้านใหม่
   await open(page, '/');
-  await cta(page, 'ทดลอง Demo').click();
-  await expect(page).toHaveURL(/\/demo$/);
+  await session(page, { role: 'merchant', operatorId: 'OP-001', merchantLoggedIn: true });
+  await page.reload();
+  await cta(page, 'เชื่อมร้านค้าออนไลน์').click();
+  await expect(page).toHaveURL(/\/m\/marketplace$/);
+  await open(page, '/');
+  await cta(page, 'ลงทะเบียนด้วยตนเอง').click();
+  await expect(page).toHaveURL(/\/m\/shop$/);
   await open(page, '/');
   await page.getByRole('banner').getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test('หน้าแรก: Demo ตาม User Journey เริ่ม Scenario/Journey จริง', async ({ page }) => {
+test('หน้าแรก: Primary Action เดียวเริ่ม Demo หลักทันที · กรณีพิเศษเริ่มได้ · ไม่มีเลข Scenario / Full Journey', async ({ page }) => {
   await fresh(page);
-  await main(page).getByRole('button', { name: 'เริ่ม Scenario 9B' }).click();
-  await expect(panel(page).getByText('Scenario 9B:')).toBeVisible();
+  await expect(page.getByTestId('home-main-cta')).toHaveCount(1);
+  await expect(page.getByTestId('home-main-cta')).toHaveText(DEMO_TITLE.s9a);
+  expect(await main(page).innerText()).not.toMatch(/Scenario \d|Full Journey/);
+  await page.getByTestId('home-main-cta').click();
+  await expectDemoTitle(page, 's9a');
+  await expect(page).toHaveURL(/\/m$/);
+  // กำลังสาธิตอยู่ → เริ่มกรณีพิเศษต้องยืนยันก่อนรีเซ็ต (ไม่รีเซ็ตเงียบ)
   await open(page, '/');
-  await main(page).getByRole('button', { name: 'เริ่ม Full Journey: Consumer Protection' }).click();
-  // กำลังสาธิต 9B อยู่ → ต้องยืนยันก่อนรีเซ็ต (ไม่รีเซ็ตเงียบ)
+  await main(page).locator(`[data-journey="${DEMO_TITLE.s15}"]`).getByRole('button', { name: 'ทดลองกรณีนี้' }).click();
   await expect(page.getByRole('dialog')).toContainText('รีเซ็ตข้อมูลสาธิต');
-  await page.getByRole('dialog').getByRole('button', { name: 'เริ่ม' }).click();
-  await expect(panel(page).getByText('Scenario 1:')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'เริ่มตั้งแต่ต้น' }).click();
+  await expectDemoTitle(page, 's15');
   await open(page, '/');
-  await main(page).getByRole('button', { name: 'เริ่ม Full Journey: Marketplace & Trust' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'เริ่ม' }).click();
-  await expect(panel(page).getByText('Scenario 9:')).toBeVisible();
-  await expect(panel(page).getByText('Full Journey — Marketplace & Trust Assessment')).toBeVisible();
-  await open(page, '/');
-  await main(page).getByRole('button', { name: 'ดู Demo ทั้งหมด' }).click();
+  await main(page).getByRole('link', { name: 'หน้า Demo' }).click();
   await expect(page).toHaveURL(/\/demo$/);
-  // หน้า Demo: เส้นทางหลักเส้นเดียว และมี CTA หลักเพียงปุ่มเดียว
-  await expect(main(page).getByTestId('mvp-card')).toHaveCount(3);
-  await expect(page.getByTestId('main-cta')).toHaveText('ทดลองกระบวนการ SME Trust ตั้งแต่ต้น');
-  await expect(main(page).getByTestId('recommended-flow')).toContainText('ผู้บริโภคตรวจสอบ');
+  await expect(page.getByTestId('main-cta')).toHaveText(DEMO_TITLE.s9a);
 });
 
 for (const width of [320, 375, 390, 768, 1440]) {
@@ -94,7 +96,7 @@ for (const width of [320, 375, 390, 768, 1440]) {
     await fresh(page);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
-    for (const name of ['เชื่อมร้านค้าออนไลน์', 'ลงทะเบียนด้วยตนเอง', 'ตรวจสอบร้านค้า', 'ทดลอง Demo']) await expect(cta(page, name)).toBeVisible();
+    for (const name of [DEMO_TITLE.s9a, 'เชื่อมร้านค้าออนไลน์', 'ลงทะเบียนด้วยตนเอง', 'ตรวจสอบร้านค้า']) await expect(cta(page, name)).toBeVisible();
     // KI-V2-31: ปุ่มเข้าสู่ระบบอยู่ใน Header ทุกขนาดจอ ไม่ล้นจอ และไม่ทับกับปุ่ม Demo Mode
     const banner = page.getByRole('banner');
     const login = banner.getByRole('button', { name: 'เข้าสู่ระบบ' });
@@ -122,8 +124,9 @@ test('มือถือ 375px: เข้าสู่ระบบจาก Heade
   await page.getByRole('dialog').getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
   await expect(page).toHaveURL(/\/m$/);
   // ออกจากระบบ (มีบัญชีแต่ยังไม่เข้าสู่ระบบ) → CTA "เชื่อมร้านค้าออนไลน์" → เข้าสู่ระบบ → กลับไปที่ขั้นตอนเชื่อม Marketplace
+  // ใช้บัญชีตัวอย่างที่ยังไม่มีร้าน (OP-013) — บัญชีที่มีร้านแล้วจะไปหน้าช่องทางขายออนไลน์แทน (ทดสอบใน CTA test)
   await open(page, '/');
-  await session(page, { role: 'consumer', merchantLoggedIn: false });
+  await session(page, { role: 'consumer', operatorId: 'OP-013', merchantLoggedIn: false });
   await page.reload();
   await cta(page, 'เชื่อมร้านค้าออนไลน์').click();
   await expect(page).toHaveURL(/\/login$/);

@@ -14,6 +14,7 @@ import { useCurrentOperator } from '@/hooks/useCurrent';
 import { uid } from '@/utils/id';
 import { cn } from '@/utils/cn';
 import { Alert, Badge, Button, Card, PageHeader } from '@/components/common/ui';
+import { withDemoRegistrationGuard } from './DemoRegistrationGuard';
 
 const STEPS = ['เลือก Marketplace', 'อนุญาตเข้าถึง (จำลอง)', 'เลือกร้านค้า', 'ตรวจข้อมูลก่อนนำเข้า'];
 
@@ -51,7 +52,7 @@ export function importFormDefaults(op: { name: string }) {
  * ลงทะเบียนร้านใหม่ด้วยข้อมูลจาก Marketplace (จำลอง): เลือกแพลตฟอร์ม → อนุญาต (จำลอง) → เลือกร้าน → Preview → ยืนยันนำเข้า
  * ไม่มีหน้า Login ของแพลตฟอร์ม ไม่ขอรหัสผ่าน/Token และไม่เรียก API — ยืนยันแล้วไปเติมแบบฟอร์มลงทะเบียน (ยังไม่ส่งคำขอ)
  */
-export default function MarketplaceRegistrationPage() {
+function MarketplaceRegistrationPage() {
   const nav = useNavigate();
   const op = useCurrentOperator()!;
   const key = importFlowKey(op.id);
@@ -278,3 +279,6 @@ export default function MarketplaceRegistrationPage() {
     </div>
   );
 }
+
+/** ระหว่าง Demo: ลงทะเบียนไปแล้วในการสาธิตครั้งนี้ → แสดงสรุปแทนแบบฟอร์ม (กันสร้างร้านซ้ำเมื่อย้อนกลับ / Refresh) */
+export default withDemoRegistrationGuard(MarketplaceRegistrationPage);
