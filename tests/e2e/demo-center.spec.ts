@@ -10,6 +10,74 @@ const openResults = async (page: Page) => {
 };
 const sessionRole = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('smetrust:v2:session') ?? '{"state":{}}').state.role);
 
+type RegApp = { id: string; status: string; autoDecision?: { route: string; reasons: string[] } };
+const nextBtn = (page: Page) => panel(page).locator('[data-demo="next"]');
+
+/** 9A ขั้น 1–5: เปิดจาก CTA หลัก → เลือก Shopee → ร้าน "Official" (ตามคำแนะนำ) → ยืนยันนำเข้า → อยู่ที่ขั้น 6 (ทบทวนข้อมูลที่นำเข้า) */
+async function start9aToReview(page: Page) {
+  const m = page.locator('main');
+  await open(page, '/demo');
+  await page.getByTestId('main-cta').click();
+  const confirmRestart = page.getByRole('dialog').getByRole('button', { name: 'เริ่มตั้งแต่ต้น' });
+  if (await confirmRestart.isVisible({ timeout: 1500 }).catch(() => false)) await confirmRestart.click();
+  await expect(panel(page).getByText('Scenario 9A:')).toBeVisible();
+  await next(page);
+  await m.getByRole('button', { name: /A\. เชื่อมต่อร้านค้าจาก Marketplace/ }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop\/marketplace$/);
+  await next(page);
+  await m.getByRole('radio', { name: 'Shopee (จำลอง)' }).click();
+  await m.getByRole('button', { name: 'ถัดไป' }).click();
+  await m.getByLabel(/ข้าพเจ้าอนุญาต/).check();
+  await m.getByRole('button', { name: 'อนุญาต (จำลอง)' }).click();
+  await next(page);
+  await m.getByRole('radiogroup', { name: 'ร้านค้าในบัญชี' }).getByRole('radio').nth(1).click(); // ร้าน "Official" ตามคำแนะนำในขั้นนี้
+  await m.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
+  await expect(m.getByTestId('source-data')).toBeVisible();
+  await next(page);
+  await m.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
+  await expect(page).toHaveURL(/\/m\/register-shop\?from=import$/);
+  await next(page);
+  await expectStep(page, 6);
+}
+
+/** 9A ขั้น 6–7: แก้รายละเอียดสินค้า (คงชื่อร้าน) → กรอกข้อมูลที่ขาด แนบเอกสาร → ถึงขั้นตรวจสอบข้อมูล → อยู่ที่ขั้น 8 (ส่งคำขอ) */
+async function review9aToSubmitStep(page: Page) {
+  const m = page.locator('main');
+  const desc = m.getByLabel(/รายละเอียดสินค้าและบริการ/);
+  await desc.fill(`${await desc.inputValue()} รับประกันสินค้า 30 วัน`);
+  await next(page);
+  await m.getByRole('button', { name: 'ใช้ข้อมูลติดต่อจากบัญชี' }).click();
+  await m.getByLabel(/อำเภอ\/เขต/).fill('เมืองขอนแก่น');
+  for (let i = 0; i < 2; i++) await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+  await m.getByRole('button', { name: /ทะเบียนพาณิชย์/ }).first().click();
+  await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+  await next(page);
+}
+
+/** ส่งคำขอ → ขั้นผลการตรวจอัตโนมัติต้องเป็น AUTO_PASS (ไม่ออกใบรับรอง) → ประเมิน → ผู้บริโภค → จบ */
+async function submit9aExpectAutoPassToEnd(page: Page) {
+  const m = page.locator('main');
+  await m.getByRole('checkbox').last().check();
+  await m.getByRole('button', { name: 'ส่งคำขอ', exact: true }).click();
+  await expect(m.getByTestId('registration-decision')).toContainText('ผ่านการตรวจสอบอัตโนมัติ');
+  await next(page);
+  await expect(page).toHaveURL(/\/m\/shop$/);
+  await expect(m.getByTestId('registration-auto-pass')).toBeVisible();
+  await expect(panel(page).getByTestId('gate-blocked')).toHaveCount(0);
+  const { current } = await demoState(page);
+  const app = (await store<RegApp>(page, 'applications')).find((a) => a.id === current.applicationId)!;
+  expect(app.status).toBe('approved');
+  expect(app.autoDecision?.route).toBe('AUTO_PASS');
+  expect((await store<{ merchantId: string }>(page, 'certifications')).some((c) => c.merchantId === current.merchantId)).toBe(false);
+  await next(page);
+  await expect(page).toHaveURL(/\/m\/trust$/);
+  expect((await store<{ merchantId: string }>(page, 'officer-tasks')).some((t) => t.merchantId === current.merchantId)).toBe(false);
+  await next(page, { expectTransition: true });
+  await expect(page).toHaveURL(new RegExp(`/shop/${current.merchantId}$`));
+  await finishScenario(page, 's9a');
+  return current;
+}
+
 test('หน้า Demo: CTA หลักปุ่มเดียว · เส้นทางหลัก 6 ขั้น · Demo เฉพาะกรณี · ผลลัพธ์และฟังก์ชันเพิ่มเติมพับไว้', async ({ page }) => {
   await fresh(page);
   await open(page, '/demo');
@@ -96,31 +164,58 @@ test('CTA หลัก → เส้นทางหลัก (Scenario 9A): ข�
   await expect(page).toHaveURL(/\/m$/);
 });
 
-test('เส้นทางหลัก 9A ครบทุกขั้น: ลงทะเบียน (Marketplace) → ตรวจอัตโนมัติ → AUTO_PASS (ไม่มีเจ้าหน้าที่) → ประเมิน → ผู้บริโภค', async ({ page }) => {
+test('เส้นทางหลัก 9A ครบทุกขั้น: ลงทะเบียน (Marketplace) → ตรวจอัตโนมัติ → AUTO_PASS (ไม่มีเจ้าหน้าที่) → ประเมิน → ผู้บริโภค · Refresh', async ({ page }) => {
   test.setTimeout(300_000);
   const m = page.locator('main');
   await fresh(page);
-  await open(page, '/demo');
-  await page.getByTestId('main-cta').click();
-  await expect(panel(page).getByText('Scenario 9A:')).toBeVisible();
+  await start9aToReview(page);
+  await review9aToSubmitStep(page);
+  await m.getByRole('checkbox').last().check();
+  await m.getByRole('button', { name: 'ส่งคำขอ', exact: true }).click();
+  await expect(m.getByTestId('registration-decision')).toContainText('ผ่านการตรวจสอบอัตโนมัติ');
   await next(page);
-  await m.getByRole('button', { name: /A\. เชื่อมต่อร้านค้าจาก Marketplace/ }).click();
-  await expect(page).toHaveURL(/\/m\/register-shop\/marketplace$/);
+  await expect(m.getByTestId('registration-auto-pass')).toBeVisible();
+  // Refresh แล้วอยู่ขั้นเดิม
+  await page.reload();
+  await expect(m.getByTestId('registration-auto-pass')).toBeVisible();
+  const { current } = await demoState(page);
+  const app = (await store<RegApp>(page, 'applications')).find((a) => a.id === current.applicationId)!;
+  expect(app.status).toBe('approved');
+  expect(app.autoDecision?.route).toBe('AUTO_PASS');
+  expect((await store<{ merchantId: string }>(page, 'certifications')).some((c) => c.merchantId === current.merchantId)).toBe(false);
   await next(page);
-  await m.getByRole('radio', { name: 'Shopee (จำลอง)' }).click();
-  await m.getByRole('button', { name: 'ถัดไป' }).click();
-  await m.getByLabel(/ข้าพเจ้าอนุญาต/).check();
-  await m.getByRole('button', { name: 'อนุญาต (จำลอง)' }).click();
-  await next(page);
-  await m.getByRole('radiogroup', { name: 'ร้านค้าในบัญชี' }).getByRole('radio').nth(1).click(); // ร้าน "Official" ตามคำแนะนำในขั้นนี้
-  await m.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
-  await expect(m.getByTestId('source-data')).toBeVisible();
-  await next(page);
-  await m.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
-  await expect(page).toHaveURL(/\/m\/register-shop\?from=import$/);
-  await next(page);
+  await expect(page).toHaveURL(/\/m\/trust$/);
+  expect((await store<{ merchantId: string }>(page, 'assessment-badges')).some((x) => x.merchantId === current.merchantId)).toBe(true);
+  expect((await store<{ merchantId: string }>(page, 'officer-tasks')).some((t) => t.merchantId === current.merchantId)).toBe(false);
+  await next(page, { expectTransition: true });
+  await expect(page).toHaveURL(new RegExp(`/shop/${current.merchantId}$`));
+  expect(await sessionRole(page)).toBe('consumer');
+  await finishScenario(page, 's9a');
+});
+
+test('Regression 9A: แก้ชื่อร้านให้ต่างจากร้านบน Marketplace → "ถัดไป" ถูกล็อกพร้อมเหตุผล (MANUAL_REVIEW) → คืนชื่อร้าน → ไปต่อได้จนจบด้วย AUTO_PASS', async ({ page }) => {
+  test.setTimeout(300_000);
+  const m = page.locator('main');
+  await fresh(page);
+  await start9aToReview(page);
+  const name = m.getByLabel(/ชื่อร้านค้า/);
+  const original = await name.inputValue();
+  expect(original).toContain('Official');
+  // แก้ชื่อร้านอย่างเดียว → ล็อก พร้อมเหตุผลและทางเลือก
+  await name.fill(`${original} สาขาใหม่`);
+  await expect(nextBtn(page)).toBeDisabled();
+  const blocked = panel(page).getByTestId('gate-blocked');
+  await expect(blocked).toContainText('MANUAL_REVIEW');
+  await expect(blocked).toContainText('คืนชื่อร้านตามต้นฉบับ');
+  await expect(blocked.getByRole('button', { name: 'เปิด Demo เฉพาะกรณี (Scenario 15)' })).toBeVisible();
+  // แก้รายละเอียดเพิ่มก็ยังล็อก จนกว่าจะคืนชื่อร้าน
   const desc = m.getByLabel(/รายละเอียดสินค้าและบริการ/);
   await desc.fill(`${await desc.inputValue()} รับประกันสินค้า 30 วัน`);
+  await expect(nextBtn(page)).toBeDisabled();
+  await name.fill(original);
+  await expect(blocked).toHaveCount(0);
+  await expect(nextBtn(page)).toBeEnabled();
+  // ทำต่อตามคำแนะนำ → AUTO_PASS → ประเมิน → ผู้บริโภค → จบ (ไม่มีขั้นตอนเจ้าหน้าที่)
   await next(page);
   await m.getByRole('button', { name: 'ใช้ข้อมูลติดต่อจากบัญชี' }).click();
   await m.getByLabel(/อำเภอ\/เขต/).fill('เมืองขอนแก่น');
@@ -128,30 +223,73 @@ test('เส้นทางหลัก 9A ครบทุกขั้น: ล�
   await m.getByRole('button', { name: /ทะเบียนพาณิชย์/ }).first().click();
   await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
   await next(page);
+  await submit9aExpectAutoPassToEnd(page);
+});
+
+test('Regression 9A: ส่งคำขอด้วยชื่อร้านที่ไม่ตรง → ขั้นที่ 9 อธิบาย MANUAL_REVIEW พร้อม Restart / Demo เฉพาะกรณี (ไม่บังคับผ่าน) → Restart + ร้าน Official → AUTO_PASS', async ({ page }) => {
+  test.setTimeout(420_000);
+  const m = page.locator('main');
+  await fresh(page);
+  await start9aToReview(page);
+  await review9aToSubmitStep(page);
+  await expectStep(page, 8);
+  // ย้อนกลับในแบบฟอร์มไปแก้ชื่อร้านหลังผ่านขั้นก่อนหน้าแล้ว แล้วส่งคำขอ
+  const name = m.getByLabel(/ชื่อร้านค้า/);
+  for (let i = 0; i < 5 && !(await name.isVisible().catch(() => false)); i++) await m.getByRole('button', { name: 'ย้อนกลับ', exact: true }).click();
+  await name.fill(`${await name.inputValue()} สาขาใหม่`);
+  for (let i = 0; i < 5 && !(await m.getByRole('button', { name: 'ส่งคำขอ', exact: true }).isVisible().catch(() => false)); i++) await m.getByRole('button', { name: 'ถัดไป', exact: true }).click();
   await m.getByRole('checkbox').last().check();
   await m.getByRole('button', { name: 'ส่งคำขอ', exact: true }).click();
-  await expect(m.getByTestId('registration-decision')).toContainText('ผ่านการตรวจสอบอัตโนมัติ');
-  // AUTO_PASS: ผ่านการลงทะเบียนทันที ไม่ออกใบรับรอง ไม่มีงานเจ้าหน้าที่
+  await expect(m.getByTestId('registration-decision')).toContainText('เจ้าหน้าที่ตรวจสอบเฉพาะกรณีนี้');
   await next(page);
+  await expectStep(page, 9);
   await expect(page).toHaveURL(/\/m\/shop$/);
-  await expect(m.getByTestId('registration-auto-pass')).toBeVisible();
+  // ผลจริงคือ MANUAL_REVIEW — "ถัดไป" ยังถูกล็อก แต่มีเหตุผลและทางเลือก
+  await expect(nextBtn(page)).toBeDisabled();
+  const blocked = panel(page).getByTestId('gate-blocked');
+  await expect(blocked).toContainText('MANUAL_REVIEW');
+  await expect(blocked).toContainText('ชื่อร้าน');
+  await expect(blocked.getByRole('button', { name: 'Restart Scenario (กลับไปแก้ไข)' })).toBeVisible();
+  await expect(blocked.getByRole('button', { name: 'เปิด Demo เฉพาะกรณี (Scenario 15)' })).toBeVisible();
   const { current } = await demoState(page);
-  const app = (await store<{ id: string; status: string; autoDecision?: { route: string } }>(page, 'applications')).find((a) => a.id === current.applicationId)!;
-  expect(app.status).toBe('approved');
-  expect(app.autoDecision?.route).toBe('AUTO_PASS');
+  const app = (await store<RegApp>(page, 'applications')).find((a) => a.id === current.applicationId)!;
+  expect(app.status).toBe('pending_review');
+  expect(app.autoDecision?.route).toBe('MANUAL_REVIEW');
   expect((await store<{ merchantId: string }>(page, 'certifications')).some((c) => c.merchantId === current.merchantId)).toBe(false);
-  // Refresh แล้วอยู่ขั้นเดิม
-  await page.reload();
-  await expect(m.getByTestId('registration-auto-pass')).toBeVisible();
+  // Restart Scenario → เริ่มใหม่ด้วยร้าน Official ตามคำแนะนำ → AUTO_PASS
+  await blocked.getByRole('button', { name: 'Restart Scenario (กลับไปแก้ไข)' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'เริ่มใหม่' }).click();
+  await expectStep(page, 1);
+  expect((await store<{ operatorId: string }>(page, 'merchants')).filter((x) => x.operatorId === 'OP-013')).toHaveLength(0);
   await next(page);
-  await expect(page).toHaveURL(/\/m\/trust$/);
-  // ระบบประเมินอัตโนมัติ — ไม่ส่งงานให้เจ้าหน้าที่
-  expect((await store<{ merchantId: string }>(page, 'assessment-badges')).some((x) => x.merchantId === current.merchantId)).toBe(true);
-  expect((await store<{ merchantId: string }>(page, 'officer-tasks')).some((t) => t.merchantId === current.merchantId)).toBe(false);
-  await next(page, { expectTransition: true });
-  await expect(page).toHaveURL(new RegExp(`/shop/${current.merchantId}$`));
-  expect(await sessionRole(page)).toBe('consumer');
-  await finishScenario(page, 's9a');
+  await m.getByRole('button', { name: /A\. เชื่อมต่อร้านค้าจาก Marketplace/ }).click();
+  await next(page);
+  await m.getByRole('radio', { name: 'Shopee (จำลอง)' }).click();
+  await m.getByRole('button', { name: 'ถัดไป' }).click();
+  await m.getByLabel(/ข้าพเจ้าอนุญาต/).check();
+  await m.getByRole('button', { name: 'อนุญาต (จำลอง)' }).click();
+  await next(page);
+  await m.getByRole('radiogroup', { name: 'ร้านค้าในบัญชี' }).getByRole('radio').nth(1).click();
+  await m.getByRole('button', { name: 'ดูตัวอย่างข้อมูล' }).click();
+  await next(page);
+  await m.getByRole('button', { name: 'ยืนยันนำเข้าข้อมูล' }).click();
+  await next(page);
+  await review9aToSubmitStep(page);
+  await submit9aExpectAutoPassToEnd(page);
+});
+
+test('Regression 9A: ทางเลือก "เปิด Demo เฉพาะกรณี" จากขั้นที่ถูกล็อก → เริ่ม Scenario 15 (กรณียกเว้น)', async ({ page }) => {
+  test.setTimeout(240_000);
+  const m = page.locator('main');
+  await fresh(page);
+  await start9aToReview(page);
+  const name = m.getByLabel(/ชื่อร้านค้า/);
+  await name.fill(`${await name.inputValue()} สาขาใหม่`);
+  await panel(page).getByTestId('gate-blocked').getByRole('button', { name: 'เปิด Demo เฉพาะกรณี (Scenario 15)' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'เปิด Scenario' }).click();
+  await expect(panel(page).getByText('Scenario 15:')).toBeVisible();
+  await expectStep(page, 1);
+  expect((await demoState(page)).activeScenario).toBe('s15');
 });
 
 test('ปุ่ม Demo เฉพาะกรณี · ดูทีละขั้น · ระบบเพิ่มเติม เริ่ม Scenario เดิมที่ถูกต้อง', async ({ page }) => {

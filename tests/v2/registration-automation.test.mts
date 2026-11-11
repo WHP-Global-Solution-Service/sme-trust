@@ -113,4 +113,56 @@ check(ids.indexOf('s2-auto') === ids.indexOf('s2-submit') + 1 && ids.indexOf('s2
 const demo = view('/demo', { role: 'consumer', consumerId: 'CS-001' });
 check(demo.includes('ร้านปกติผ่านการลงทะเบียนอัตโนมัติโดยไม่ต้องรอเจ้าหน้าที่') && demo.includes('เจ้าหน้าที่เข้ามาเฉพาะกรณีผิดปกติ — ไม่ใช่ขั้นตอนของร้านค้าปกติ'), 'หน้า Demo ระบุว่าลงทะเบียนตรวจอัตโนมัติ และเจ้าหน้าที่ตรวจเฉพาะกรณีผิดปกติ');
 
+// ---------------------------------------------------------------- Scenario 9A — เส้นทางหลักต้องไม่ค้างที่ MANUAL_REVIEW โดยไม่มีทางออก
+describe('Scenario 9A — ชื่อร้านไม่ตรงร้านบน Marketplace: เตือนก่อนส่ง · ขั้นที่ 9 อธิบายเหตุผลและมีทางเลือก · ไม่บังคับ AUTO_PASS');
+{
+  const C = await import('@/demo/controller');
+  const { useDemoStore } = await import('@/stores/demo');
+  const sc9a = findScenario('s9a')!;
+  const st = (id: string) => sc9a.steps.find((s) => s.id === id)!;
+  const setSignals = (signals: Record<string, number>, ctx: Record<string, unknown> = {}) => useDemoStore.getState().set({ signals, current: { ...useDemoStore.getState().current, ...ctx }, passed: [] });
+  W.resetAllDemoData();
+  // ขั้นที่ 7 (ทบทวนข้อมูลที่นำเข้า): แก้รายละเอียด = เส้นทางปกติ · แก้ชื่อร้าน = ล็อกพร้อมเหตุผลและทางเลือก
+  setSignals({ 'reg.edited': 1, 'reg.verification': 0 });
+  check(C.gateState(st('s9a-review')).ok, 'แก้รายละเอียดสินค้า (ชื่อร้านตรงต้นฉบับ) → ไปต่อได้');
+  setSignals({ 'reg.edited': 1, 'reg.verification': 1 });
+  let g = C.gateState(st('s9a-review'));
+  check(!g.ok && !!g.blocked?.reason.includes('MANUAL_REVIEW') && g.blocked.altScenario === 's15', 'แก้ชื่อร้านอย่างเดียว → "ถัดไป" ถูกล็อก พร้อมเหตุผล (MANUAL_REVIEW) และทางเลือกเปิด Demo เฉพาะกรณี (Scenario 15)');
+  setSignals({ 'reg.edited': 2, 'reg.verification': 1 });
+  check(!C.gateState(st('s9a-review')).ok, 'แก้ทั้งรายละเอียดและชื่อร้าน → ยังล็อก (ต้องคืนชื่อร้านตามต้นฉบับ)');
+  setSignals({ 'shop.step': 5, 'reg.verification': 1 });
+  g = C.gateState(st('s9a-missing'));
+  check(!g.ok && g.blocked?.altScenario === 's15', 'เปลี่ยนชื่อร้านภายหลัง (ขั้นกรอกข้อมูลที่ขาด) → ล็อกพร้อมเหตุผลเดียวกัน');
+  setSignals({ 'shop.step': 5, 'reg.verification': 0 });
+  check(C.gateState(st('s9a-missing')).ok, 'ชื่อร้านตรงต้นฉบับ + ถึงขั้นตรวจสอบ → ไปต่อได้');
+  setSignals({ 'shop.step': 5 });
+  check(C.gateState(st('s9a-missing')).ok, 'ไม่มีสัญญาณช่องที่ต้องตรวจ (ค่าเริ่มต้น) → ถือว่าไม่มี');
+
+  // ขั้นที่ 9 (ผลการตรวจอัตโนมัติ): ส่งชื่อร้านที่ต่างจากต้นฉบับแล้วจริง → ผลจริงคือ MANUAL_REVIEW → อธิบาย + Restart + Exception Demo (ไม่บังคับผ่าน)
+  W.resetAllDemoData();
+  const OP = 'OP-013';
+  const AF = await import('@/features/marketplace/autofill');
+  const opName = S.useOperatorStore.getState().items.find((o) => o.id === OP)!.name;
+  const src = AF.sourceOfShop(AF.mockAccountShops(OP, opName, 'shopee')[1]); // ร้านลำดับที่ 2 = "Official" ตามคำแนะนำของขั้นเลือกร้าน
+  const base = form({ shopName: src.shopName, description: `${src.description} รับประกันสินค้า`, category: src.category });
+  const mismatch = asOwner(OP, () => V.submitMarketplaceRegistration(OP, { ...base, shopName: `${src.shopName} สาขาใหม่` }, { draftId: 'DRF-9A-MISMATCH', source: src }));
+  check(mismatch.app.autoDecision?.route === 'MANUAL_REVIEW' && mismatch.app.status === 'pending_review' && certOf(mismatch.merchant.id).length === 0, 'ชื่อร้านไม่ตรง → MANUAL_REVIEW จริง (กฎเดิม) · ไม่ออกใบรับรอง');
+  setSignals({}, { applicationId: mismatch.app.id });
+  g = C.gateState(st('s9a-auto'));
+  check(!g.ok && g.blocked?.restart === true && g.blocked.altScenario === 's15' && g.blocked.reason.includes('ชื่อร้าน'), 'ขั้นที่ 9 ล็อกตามผลจริง และแสดงเหตุผล · Restart Scenario · เปิด Demo เฉพาะกรณี');
+  check(app(mismatch.app.id).status === 'pending_review' && app(mismatch.app.id).autoDecision?.route === 'MANUAL_REVIEW' && certOf(mismatch.merchant.id).length === 0, 'การแสดงทางเลือกไม่เปลี่ยนสถานะคำขอ (ไม่บังคับ AUTO_PASS · ไม่ออกใบรับรอง)');
+
+  // ตามคำแนะนำ (Official + ชื่อร้านตามต้นฉบับ + แนบเอกสาร) → AUTO_PASS และขั้นที่ 9 ไปต่อได้โดยไม่มีข้อความล็อก
+  W.resetAllDemoData();
+  const normal = asOwner(OP, () => V.submitMarketplaceRegistration(OP, base, { draftId: 'DRF-9A-NORMAL', source: src }));
+  check(normal.app.autoDecision?.route === 'AUTO_PASS' && normal.app.status === 'approved' && certOf(normal.merchant.id).length === 0, 'ร้าน Official ตามคำแนะนำ → AUTO_PASS (ลงทะเบียนเท่านั้น ไม่ออกใบรับรอง)');
+  setSignals({}, { applicationId: normal.app.id });
+  g = C.gateState(st('s9a-auto'));
+  check(g.ok && !g.blocked, 'ขั้นที่ 9 ไปต่อได้เมื่อผ่านอัตโนมัติ');
+  check(src.shopName.includes('Official'), `ร้านลำดับที่ 2 ในบัญชีคือร้าน "Official" ตามคำแนะนำของขั้นเลือกร้าน (${src.shopName})`);
+  // กฎการตัดสินไม่เปลี่ยน: ความผิดปกติยังเป็น MANUAL_REVIEW
+  check(decideRegistration({ kycVerified: true, documents: 1, channels: 1, ownershipIssues: ['ชื่อร้านที่กรอกต่างจากร้านบน Shopee'] }).route === 'MANUAL_REVIEW', 'กฎ MANUAL_REVIEW ยังอยู่ครบ (ไม่ได้ปรับเพื่อให้ Demo ผ่าน)');
+  W.resetAllDemoData();
+}
+
 finish();

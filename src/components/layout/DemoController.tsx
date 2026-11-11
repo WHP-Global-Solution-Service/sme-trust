@@ -6,9 +6,9 @@ import type { Role } from '@/types';
 import { domainStores, useSessionStore, confirmDialog, toast } from '@/stores';
 import { useAiWorkspaceStore } from '@/stores/aiWorkspace';
 import { useDemoStore } from '@/stores/demo';
-import { journeyScenarios, scenarioCode, stepInstruction, trackOf } from '@/mock/scenarios';
+import { findScenario, journeyScenarios, scenarioCode, stepInstruction, trackOf } from '@/mock/scenarios';
 import { ROLE_LABEL } from '@/constants/labels';
-import { activeScenario, back, gateState, livePath, next, pauseDemo, restartJourney, restartScenario, returnToStep, scenarioStatus, stepRoute } from '@/demo/controller';
+import { activeScenario, back, gateState, livePath, next, pauseDemo, restartJourney, restartScenario, returnToStep, scenarioStatus, startScenario, stepRoute } from '@/demo/controller';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/ui';
 import { cn } from '@/utils/cn';
@@ -101,6 +101,15 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
     restartScenario(nav);
     setSheet(false);
     toast.success(`เริ่ม Scenario ${sc.no} ใหม่แล้ว`);
+  };
+  /** เปิด Scenario ที่สาธิตกรณียกเว้นโดยตรง — ยืนยันก่อน เพราะข้อมูลจะกลับเป็นจุดเริ่มต้นของ Scenario นั้น */
+  const doOpenAlt = async (id: string) => {
+    const alt = findScenario(id);
+    if (!alt) return;
+    const r = await confirmDialog({ title: `เปิด Scenario ${scenarioCode(alt)}: ${alt.title}`, body: 'การสาธิตนี้จะหยุด และข้อมูลสาธิตกลับเป็นจุดเริ่มต้นของ Scenario ที่เลือก', confirmText: 'เปิด Scenario' });
+    if (!r.ok) return;
+    startScenario(alt.id, nav);
+    setSheet(false);
   };
   const doRestartJourney = async () => {
     const r = await confirmDialog({ title: `Restart ${journeyLabel}`, body: 'ล้างข้อมูลทั้งหมดที่สร้างระหว่าง Journey และเริ่ม Scenario แรกของชุดนี้ใหม่', confirmText: 'เริ่ม Journey ใหม่', tone: 'danger' });
@@ -226,6 +235,26 @@ export function DemoController({ aboveBottomNav = false }: { aboveBottomNav?: bo
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           ทำขั้นนี้ให้เสร็จก่อนไปต่อ: {gate.hint}
         </p>
+      )}
+      {!gate.ok && gate.blocked && (
+        <div className="space-y-2 rounded-lg border border-info/30 bg-info-50 px-2.5 py-2 text-xs text-ink" role="alert" data-testid="gate-blocked">
+          <p className="flex gap-1.5">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info" />
+            <span>{gate.blocked.reason}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {gate.blocked.restart && (
+              <Button size="sm" variant="outline" icon={Repeat} onClick={doRestart}>
+                Restart Scenario (กลับไปแก้ไข)
+              </Button>
+            )}
+            {gate.blocked.altScenario && findScenario(gate.blocked.altScenario) && (
+              <Button size="sm" variant="secondary" icon={ArrowRight} onClick={() => void doOpenAlt(gate.blocked!.altScenario!)}>
+                เปิด Demo เฉพาะกรณี (Scenario {scenarioCode(findScenario(gate.blocked.altScenario)!)})
+              </Button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
