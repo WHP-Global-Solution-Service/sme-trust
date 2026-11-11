@@ -166,6 +166,7 @@ export default function RegisterShopWizard() {
     return r && (r.status === 'user_edited' || r.status === 'verification_required') ? `ต้นฉบับจาก Marketplace: ${r.imported}` : r?.status === 'missing' ? 'ไม่มีในข้อมูลที่นำเข้า — กรุณากรอกเพิ่ม' : fallback;
   };
   useEffect(() => reportDemo('reg.edited', summary.edited), [summary.edited]);
+  useEffect(() => reportDemo('reg.verification', summary.verification), [summary.verification]);
 
   const applicantIsAuthorized = bt === 'juristic' ? !!values.authorizedPerson?.trim() && values.authorizedPerson.trim() === values.applicantName?.trim() : undefined;
   const docReqs = documentRequirements({ businessType: bt, category: values.category, applicantIsAuthorized, kycVerified: op.kycStatus === 'verified', marketplaceImported: !!importSource });

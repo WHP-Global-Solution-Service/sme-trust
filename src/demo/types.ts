@@ -9,6 +9,15 @@ export interface GateInput {
   session: { role: Role; operatorId: string; merchantLoggedIn: boolean };
 }
 
+/** ขั้นนี้ไปต่อตามเส้นทางปกติไม่ได้ (เช่น ผลจริงของระบบต่างจากที่ Scenario สาธิต) — อธิบายเหตุผลและทางเลือก โดยไม่ข้ามเงื่อนไข */
+export interface GateBlock {
+  reason: string;
+  /** แสดงปุ่ม Restart Scenario (กลับไปแก้ไขตั้งแต่ต้น) */
+  restart?: boolean;
+  /** Scenario ที่สาธิตกรณีนี้โดยตรง (เช่น Exception Demo) */
+  altScenario?: string;
+}
+
 export interface DemoStep {
   id: string;
   title: string;
@@ -21,7 +30,7 @@ export interface DemoStep {
   /** ป้ายปุ่มถัดไป (CTA) เมื่ออยู่ที่ขั้นนี้ */
   nextLabel?: string;
   /** เงื่อนไขที่ต้องผ่านก่อนกดถัดไป — ไม่มี = ขั้นอธิบาย/ดูข้อมูล */
-  gate?: { check: (g: GateInput) => boolean; hint: string };
+  gate?: { check: (g: GateInput) => boolean; hint: string; blocked?: (g: GateInput) => GateBlock | undefined };
   /** บันทึก IDs ที่เกิดจากขั้นนี้ลงบริบท (ทำเมื่อกดถัดไป) */
   capture?: (g: GateInput) => Partial<DemoCtx>;
 }

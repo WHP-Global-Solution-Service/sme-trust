@@ -12,7 +12,7 @@ import { resetAllDemoData } from '@/stores/workflows';
 import { STORAGE_PREFIX } from '@/stores/createEntityStore';
 import { findScenario, journeyScenarios, trackOf } from '@/mock/scenarios';
 import { ROUTER_BASENAME } from '@/utils/appUrl';
-import type { ContinuityIssue, DemoStep, GateInput, ScenarioDef, Track } from './types';
+import type { ContinuityIssue, DemoStep, GateInput, ScenarioDef, Track, GateBlock } from './types';
 
 export const SNAPSHOT_KEY = `${STORAGE_PREFIX}demo-snapshot`;
 
@@ -52,12 +52,12 @@ export function gateInput(): GateInput {
   return { ctx: d.current, startedAt: d.startedAt ?? '', signals: d.signals, session: { role: s.role, operatorId: s.operatorId, merchantLoggedIn: s.merchantLoggedIn } };
 }
 
-export function gateState(step: DemoStep): { ok: boolean; hint?: string; done?: boolean } {
+export function gateState(step: DemoStep): { ok: boolean; hint?: string; done?: boolean; blocked?: GateBlock } {
   if (!step.gate) return { ok: true };
   if (step.gate.check(gateInput())) return { ok: true };
   // ย้อนกลับมาขั้นที่ทำสำเร็จแล้ว (เช่น แบบฟอร์มเริ่มใหม่เมื่อเปิดหน้าอีกครั้ง) — ไปต่อได้โดยไม่ต้องทำซ้ำ
   if ((useDemoStore.getState().passed ?? []).includes(step.id)) return { ok: true, done: true };
-  return { ok: false, hint: step.gate.hint };
+  return { ok: false, hint: step.gate.hint, blocked: step.gate.blocked?.(gateInput()) };
 }
 
 /** บริบทที่ส่งต่อได้ รวม ID ของ Scenario ที่กำลังเล่นแต่ยังไม่จบ (เช่น ร้านที่สมัครแล้วใน Scenario 2) */

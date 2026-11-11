@@ -74,6 +74,24 @@ const assessedSince = (g: GateInput) => {
 };
 
 /** ผลการตรวจคำขอลงทะเบียนอัตโนมัติ (Automation First) */
+/** จำนวนช่องที่ต้องตรวจกับแหล่งอ้างอิง (เช่น ชื่อร้านต่างจากร้านบน Marketplace) — ไม่มีสัญญาณ = 0 */
+const verifyCount = (g: GateInput) => Math.max(0, num(g, 'reg.verification'));
+const SHOP_NAME_BLOCK = {
+  reason: 'ชื่อร้านต่างจากร้านบน Marketplace (จำลอง) — ถ้าส่งคำขอนี้ ระบบจะส่งเจ้าหน้าที่ตรวจเฉพาะกรณี (MANUAL_REVIEW) ซึ่งไม่ใช่เส้นทางปกติของ Demo นี้ · คืนชื่อร้านตามต้นฉบับแล้วแก้ "รายละเอียดสินค้าและบริการ" แทน หรือเปิด Demo เฉพาะกรณี',
+  altScenario: 's15',
+};
+/** คำขอลงทะเบียนไม่ผ่านอัตโนมัติ — อธิบายผลจริงของระบบและทางเลือก (ไม่บังคับผล AUTO_PASS) */
+const registrationBlock = (g: GateInput) => {
+  const a = application(g.ctx.applicationId);
+  if (!a || a.status === 'approved') return undefined;
+  const reasons = (a.autoDecision?.reasons ?? []).join(' · ');
+  if (a.autoDecision?.route === 'MANUAL_REVIEW')
+    return { reason: `ระบบส่งคำขอนี้ให้เจ้าหน้าที่ตรวจเฉพาะกรณี (MANUAL_REVIEW): ${reasons} — ไม่ใช่เส้นทางปกติของ Demo นี้ · Restart Scenario แล้วทำตามคำแนะนำ (คงชื่อร้านตามร้านบน Marketplace) หรือเปิด Demo เฉพาะกรณี`, restart: true, altScenario: 's15' };
+  if (a.autoDecision?.route === 'AUTO_REQUEST_INFO')
+    return { reason: `ระบบขอข้อมูลเพิ่มเติม (AUTO_REQUEST_INFO): ${reasons} — ร้านค้าแก้ไขเองได้ที่หน้านี้ หรือ Restart Scenario แล้วทำตามคำแนะนำ`, restart: true };
+  return undefined;
+};
+
 const regLine = (c: DemoCtx) => {
   const a = application(c.applicationId);
   if (!a) return 'ยังไม่มีคำขอ';
@@ -674,7 +692,7 @@ export const v2Scenarios: ScenarioDef[] = [
         title: 'ทบทวนข้อมูลที่นำเข้า (Auto-Fill)',
         instruction: 'แบบฟอร์มถูกเติมอัตโนมัติ — ดูสรุป "นำเข้าสำเร็จ / ต้องกรอกเพิ่ม / ข้อมูลที่แก้ไข" และป้ายที่มาของแต่ละช่อง แล้วแก้ "รายละเอียดสินค้าและบริการ" อย่างน้อย 1 จุด (ถ้าแก้ชื่อร้านให้ต่างจากร้านบน Marketplace ระบบจะส่งเจ้าหน้าที่ตรวจเฉพาะกรณี)',
         tip: 'ช่องที่แก้จะแสดงต้นฉบับให้เทียบ — ข้อมูลต้นฉบับด้านบนไม่เปลี่ยน',
-        gate: { check: (g) => num(g, 'reg.edited') >= 1, hint: 'แก้ไขช่องที่นำเข้าอย่างน้อย 1 ช่อง' },
+        gate: { check: (g) => num(g, 'reg.edited') - verifyCount(g) >= 1 && verifyCount(g) === 0, hint: 'แก้ "รายละเอียดสินค้าและบริการ" อย่างน้อย 1 จุด โดยคงชื่อร้านตามร้านบน Marketplace', blocked: (g) => (verifyCount(g) > 0 ? SHOP_NAME_BLOCK : undefined) },
       },
       {
         id: 's9a-missing',
@@ -682,7 +700,7 @@ export const v2Scenarios: ScenarioDef[] = [
         route: () => '/m/register-shop?from=import',
         title: 'กรอกข้อมูลที่ขาดและแนบเอกสาร',
         instruction: 'กด "ใช้ข้อมูลติดต่อจากบัญชี" กรอกอำเภอ/เขต แล้วกด "ถัดไป" จนถึงขั้นเอกสาร แนบเอกสารจำลอง และไปขั้นตรวจสอบข้อมูล',
-        gate: { check: (g) => num(g, 'shop.step') >= 5, hint: 'ไปให้ถึงขั้น "ตรวจสอบข้อมูล"' },
+        gate: { check: (g) => num(g, 'shop.step') >= 5 && verifyCount(g) === 0, hint: 'ไปให้ถึงขั้น "ตรวจสอบข้อมูล" โดยคงชื่อร้านตามร้านบน Marketplace', blocked: (g) => (verifyCount(g) > 0 ? SHOP_NAME_BLOCK : undefined) },
       },
       {
         id: 's9a-submit',
@@ -704,7 +722,7 @@ export const v2Scenarios: ScenarioDef[] = [
         title: 'ระบบตรวจสอบอัตโนมัติ → ผ่านการลงทะเบียน',
         instruction: (c) => `คำขอ ${c.applicationId}: ${regLine(c)}`,
         tip: 'เจ้าหน้าที่เข้ามาเฉพาะกรณีพบความผิดปกติ เช่น เจ้าของร้านบน Marketplace ไม่ตรงกับผู้ยืนยันตัวตน (ดู Scenario 15)',
-        gate: { check: (g) => application(g.ctx.applicationId)?.status === 'approved', hint: 'คำขอยังไม่ผ่านอัตโนมัติ — ดูสิ่งที่ระบบแจ้งบนหน้านี้' },
+        gate: { check: (g) => application(g.ctx.applicationId)?.status === 'approved', hint: 'คำขอยังไม่ผ่านอัตโนมัติ — ดูสิ่งที่ระบบแจ้งบนหน้านี้', blocked: registrationBlock },
       },
       {
         id: 's9a-assess',
