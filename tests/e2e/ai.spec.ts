@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, fresh, open, openAllScenarios, store, test } from './helpers';
+import { expect, fresh, open, openOtherDemos, store, test } from './helpers';
 
 /** เข้าสู่ระบบผู้ประกอบการตัวอย่าง (OP-003 สวยใสคอสเมติก) ผ่าน Session จำลอง */
 async function asMerchant(page: Page, path: string) {
@@ -99,8 +99,8 @@ test.describe('AI-02 Complaint Resolution Assistant', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'ล้างประวัติ' }).click();
     await expect(page.getByText('ยังไม่มีประวัติการวิเคราะห์')).toBeVisible();
     await open(page, '/demo');
-    await openAllScenarios(page);
-    await page.getByRole('button', { name: 'Reset Demo Data ทั้งหมด' }).click();
+    await openOtherDemos(page);
+    await page.getByRole('button', { name: 'รีเซ็ตข้อมูลสาธิตทั้งหมด' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'รีเซ็ตข้อมูล' }).click();
     await expect.poll(async () => (await store(page, 'ai-history')).length).toBe(4);
   });

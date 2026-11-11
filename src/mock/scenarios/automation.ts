@@ -5,7 +5,7 @@
  */
 import type { DemoCtx } from '@/stores/demo';
 import type { GateInput, ScenarioDef, ScenarioOutcome } from '@/demo/types';
-import { useAssessmentBadgeStore, useCertificationStore, useImportRecordStore, useMarketplaceStore, useMerchantStore, useOfficerTaskStore } from '@/stores';
+import { useAssessmentBadgeStore, useCertificationStore, useMarketplaceStore, useMerchantStore, useOfficerTaskStore } from '@/stores';
 import { PLATFORMS } from '@/features/marketplace/data/platforms';
 import { BADGE_STATUS, ROUTE_LABEL, TASK_STATUS } from '@/features/automation/labels';
 import { BAND_LABEL } from '@/features/trust-assessment/labels';
@@ -26,27 +26,11 @@ const newConnection = (g: GateInput) =>
     .getState()
     .items.filter((c) => c.merchantId === g.ctx.merchantId && c.createdAt >= g.startedAt && c.status !== 'disconnected')
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
-const newImport = (g: GateInput) => useImportRecordStore.getState().items.find((r) => r.merchantId === g.ctx.merchantId && r.createdAt >= g.startedAt);
-const processedSince = (g: GateInput) => {
-  const b = badgeOf(g.ctx.merchantId);
-  return b && b.checkedAt >= g.startedAt ? b : undefined;
-};
 const tasksSince = (merchantId: string | undefined, since: string) => useOfficerTaskStore.getState().items.filter((t) => t.merchantId === merchantId && t.createdAt >= since);
-const sig = (g: GateInput, k: string) => g.signals[k];
 
 function badgeLine(c: DemoCtx) {
   const b = badgeOf(c.merchantId);
   return b ? `Assessment Badge: ${BADGE_STATUS[b.status].label} · ${BAND_LABEL[b.band].label} · ${ROUTE_LABEL[b.route].short}` : 'ยังไม่มี Assessment Badge';
-}
-
-function normalOutcome(c: DemoCtx): ScenarioOutcome | undefined {
-  const b = badgeOf(c.merchantId);
-  if (!b) return undefined;
-  const open = useOfficerTaskStore.getState().items.filter((t) => t.merchantId === c.merchantId && (t.status === 'open' || t.status === 'info_requested')).length;
-  const facts = [badgeLine(c), `งานที่ส่งเจ้าหน้าที่จากร้านนี้: ${open} งาน`, certLine(c.merchantId)];
-  if (b.status === 'active') return { kind: 'approved', tone: 'success', title: 'ระบบออก Assessment Badge อัตโนมัติ — ไม่ต้องใช้เจ้าหน้าที่', facts, consumerView: `ผู้บริโภคเห็น Trust Assessment Badge (Band ${b.band}) พร้อมคำอธิบายว่าเป็นผลประเมิน ไม่ใช่การรับรอง`, next: 'ดู Scenario 15 เพื่อเปรียบเทียบกับกรณีที่ระบบส่งให้เจ้าหน้าที่' };
-  if (b.route === 'MANUAL_REVIEW') return { kind: 'pending', tone: 'warning', title: 'ข้อมูลที่เลือกเข้าเกณฑ์ส่งเจ้าหน้าที่', facts, consumerView: BADGE_STATUS[b.status].consumer, next: 'เล่นใหม่และเลือก "ร้านที่ขายมานาน ผลงานดี" เพื่อดูเส้นทางปกติ หรือดู Scenario 15' };
-  return { kind: 'insufficient', tone: 'info', title: 'ร้านค้าต้องเพิ่มข้อมูลเอง (AUTO_REQUEST_INFO)', facts, consumerView: BADGE_STATUS[b.status].consumer, next: 'ร้านค้าทำตามรายการที่ระบบแนะนำได้เองโดยไม่ต้องรอเจ้าหน้าที่' };
 }
 
 function exceptionOutcome(c: DemoCtx): ScenarioOutcome | undefined {
@@ -67,91 +51,6 @@ const prepare = (): DemoCtx => {
 };
 
 export const automationScenarios: ScenarioDef[] = [
-  // ------------------------------------------------------------ 14
-  {
-    id: 's14',
-    no: 14,
-    track: 'v2',
-    branch: true,
-    title: 'Automation First — เส้นทางปกติที่ไม่ต้องใช้เจ้าหน้าที่',
-    objective: 'ผู้ขายเริ่มจากแอป Marketplace (จำลอง) เชื่อมข้อมูลกับ SME Trust ใช้ Auto-Fill แล้วระบบประเมินความน่าเชื่อถือ จัดเส้นทาง และออก Trust Assessment Badge ให้อัตโนมัติ จนผู้บริโภคตรวจสอบได้ — โดยไม่มีขั้นตอนของเจ้าหน้าที่',
-    keyMessage: 'Automation First, Human by Exception — งานปกติจบได้เองทั้งเส้นทาง เจ้าหน้าที่รับเฉพาะกรณีที่ระบบตัดสินเองอย่างปลอดภัยไม่ได้',
-    audience: ['merchant', 'consumer'],
-    duration: '≈ 4 นาที',
-    caseNote: 'ใช้ร้านกาแฟดอยสูง (M-005) ซึ่งมีใบรับรอง Level 3 อยู่แล้ว — เพื่อแสดงว่า Assessment Badge (อัตโนมัติ) แยกจากใบรับรอง (เจ้าหน้าที่อนุมัติ) และระบบอัตโนมัติไม่เปลี่ยนใบรับรอง',
-    benefits: {
-      sme: 'ไม่ต้องกรอกซ้ำ ไม่ต้องรอคิวเจ้าหน้าที่ ได้ผลประเมินและ Badge ทันทีหลังนำเข้าข้อมูล',
-      consumer: 'เห็น Badge ที่อัปเดตตามข้อมูลล่าสุด พร้อมคำอธิบายว่าไม่ใช่การรับรอง',
-      ocpb: 'ลดงานตรวจซ้ำในกรณีปกติ เจ้าหน้าที่มุ่งเน้นกรณีที่จำเป็น',
-    },
-    nextCta: 'ดำเนินการต่อ: กรณีที่ต้องใช้เจ้าหน้าที่ (Scenario 15)',
-    prepare,
-    steps: [
-      {
-        id: 's14-app',
-        role: 'merchant',
-        route: () => '/m/marketplace-app',
-        title: 'Marketplace App Simulation',
-        instruction: 'หน้าจอผู้ขายบนแอป Marketplace (จำลอง) — กด "เชื่อมกับ SME Trust"',
-        tip: 'หน้าจอจำลองทั้งหมด ไม่ใช่แอปหรือโลโก้ของแพลตฟอร์มจริง',
-        gate: { check: (g) => sig(g, 'mktapp.connect') === true, hint: 'กด "เชื่อมกับ SME Trust"' },
-      },
-      {
-        id: 's14-connect',
-        role: 'merchant',
-        route: () => '/m/marketplace',
-        title: 'SME Trust — อนุญาตและเลือกร้าน',
-        instruction: 'กดเชื่อมต่อ Shopee หรือ Lazada (จำลอง) → ติ๊กยินยอม → เลือก "ร้านที่ขายมานาน ผลงานดี" → ดูตัวอย่าง → "ยืนยันนำเข้าข้อมูล"',
-        gate: { check: (g) => !!newConnection(g)?.consentAt, hint: 'ยืนยันนำเข้าข้อมูลในหน้าต่างเชื่อมต่อ' },
-      },
-      {
-        id: 's14-auto',
-        role: 'merchant',
-        route: () => '/m/marketplace',
-        title: 'นำเข้าแล้ว — ระบบประเมินอัตโนมัติ',
-        instruction: 'เมื่อซิงก์สำเร็จ ระบบประเมินด้วย Trust Assessment Engine v2.1 ทันที แล้วจัดเส้นทางด้วย Decision Router — ร้านไม่ต้องกดประเมินหรือส่งพิจารณา',
-        gate: { check: (g) => !!processedSince(g), hint: 'รอให้ซิงก์สำเร็จ (ถ้าล้มเหลว กด "ลองซิงก์ใหม่")' },
-        capture: (g) => ({ connectionId: newConnection(g)?.id }),
-      },
-      {
-        id: 's14-autofill',
-        role: 'merchant',
-        route: (c) => `/m/marketplace/profile/${c.connectionId}`,
-        title: 'Marketplace Auto-Fill',
-        instruction: 'ระบบเติมโปรไฟล์ร้านจากข้อมูลที่นำเข้า — ตรวจแล้วติ๊กยืนยันและกด "ยืนยันการอัปเดตข้อมูลร้าน" (ไม่ต้องเปลี่ยนชื่อร้าน/หมวด)',
-        tip: 'ข้อมูลทั่วไปบันทึกอัตโนมัติ · ชื่อร้าน/หมวดที่ไม่ตรงกับแหล่งอ้างอิงเท่านั้นที่ส่งเจ้าหน้าที่',
-        gate: { check: (g) => !!newImport(g), hint: 'ติ๊กยืนยันแล้วกด "ยืนยันการอัปเดตข้อมูลร้าน"' },
-      },
-      {
-        id: 's14-route',
-        role: 'merchant',
-        route: () => '/m/trust',
-        title: 'Automatic Trust Assessment',
-        instruction: (c) => {
-          const b = badgeOf(c.merchantId);
-          return b ? `ผลการจัดเส้นทาง: ${b.route} — ${ROUTE_LABEL[b.route].desc}` : 'ผลการประมวลผลอัตโนมัติแสดงที่ส่วนบนของหน้า';
-        },
-      },
-      {
-        id: 's14-badge',
-        role: 'merchant',
-        route: () => '/m/trust',
-        title: 'Automatic Assessment Badge',
-        instruction: (c) => `${badgeLine(c)} — Badge นี้เป็นผลประเมินอัตโนมัติ แยกจากใบรับรอง Level 3 ที่ได้รับจากเจ้าหน้าที่`,
-        nextLabel: 'ดูในมุมผู้บริโภค',
-      },
-      {
-        id: 's14-consumer',
-        role: 'consumer',
-        route: (c) => `/shop/${c.merchantId}`,
-        transition: 'ผู้บริโภคตรวจสอบร้านได้ทันที — เส้นทางนี้ไม่มีขั้นตอนของเจ้าหน้าที่',
-        title: 'Consumer Verification',
-        instruction: 'ผู้บริโภคเห็น Trust Assessment Badge, Band, Coverage และ Confidence — ไม่เห็นคะแนนภายใน และเห็นสถานะใบรับรองแยกกัน',
-      },
-    ],
-    summary: (c) => [badgeLine(c), `เส้นทางนี้ใช้บทบาท: ผู้ประกอบการ → ผู้บริโภค (ไม่มีเจ้าหน้าที่)`, `งานที่ส่งเจ้าหน้าที่จากร้านนี้ (ค้างอยู่): ${useOfficerTaskStore.getState().items.filter((t) => t.merchantId === c.merchantId && (t.status === 'open' || t.status === 'info_requested')).length} งาน`, certLine(c.merchantId)],
-    outcome: normalOutcome,
-  },
 
   // ------------------------------------------------------------ 15
   {
@@ -159,12 +58,12 @@ export const automationScenarios: ScenarioDef[] = [
     no: 15,
     track: 'v2',
     branch: true,
-    title: 'Automation First — กรณียกเว้นที่ต้องใช้เจ้าหน้าที่',
+    title: 'กรณีข้อมูลร้านค้าไม่ตรงกัน — เจ้าหน้าที่ตรวจสอบ',
     objective: 'ร้านเชื่อมบัญชี Marketplace ที่ชื่อเจ้าของไม่ตรงกับผู้ยืนยันตัวตน ระบบตัดสินเองไม่ได้จึงส่งเข้า Manual Review Queue พร้อม Evidence Snapshot และเหตุผล เจ้าหน้าที่ตัดสิน แล้วระบบอัปเดตผลประเมินและ Badge ต่อเอง',
     keyMessage: 'เจ้าหน้าที่รับเฉพาะงานที่ต้องใช้วิจารณญาณหรืออำนาจ — หนึ่งงานต่อประเด็น ไม่มีงานซ้ำ และการคัดกรองไม่ใช่การตัดสินว่าร้านทุจริต',
     audience: ['merchant', 'officer', 'consumer'],
     duration: '≈ 5 นาที',
-    caseNote: 'ใช้ร้านเดียวกับ Scenario 14 (M-005) เพื่อเปรียบเทียบ — ร้านตัวอย่าง "บัญชีร้านเป็นชื่อบุคคลอื่น" มีข้อมูลการขายดี แต่ชื่อเจ้าของบัญชี (จำลอง) ไม่ตรงกับผู้ยืนยันตัวตน',
+    caseNote: 'ใช้ร้านตัวอย่างร้านกาแฟดอยสูง (M-005) — ร้านตัวอย่าง "บัญชีร้านเป็นชื่อบุคคลอื่น" มีข้อมูลการขายดี แต่ชื่อเจ้าของบัญชี (จำลอง) ไม่ตรงกับผู้ยืนยันตัวตน',
     benefits: {
       sme: 'รู้ว่าทำไมถูกส่งตรวจ และส่งคำชี้แจงในงานเดิมได้',
       consumer: 'ไม่เห็น Badge จากข้อมูลที่อาจไม่ใช่ของร้านจริง ระหว่างตรวจสอบ',
@@ -234,7 +133,7 @@ export const automationScenarios: ScenarioDef[] = [
         t ? `ระบบสร้างงาน ${t.id} หนึ่งงาน (${TASK_STATUS[t.status].label})` : 'ยังไม่มีงานให้เจ้าหน้าที่',
         badgeLine(c),
         certLine(c.merchantId),
-        'เปรียบเทียบ: Scenario 14 ใช้ 2 บทบาท 0 งานเจ้าหน้าที่ · Scenario 15 ใช้ 3 บทบาท 1 งานเจ้าหน้าที่',
+        'เปรียบเทียบ: Demo หลักไม่มีงานเจ้าหน้าที่ · กรณีนี้มีงานเจ้าหน้าที่ 1 งานเฉพาะประเด็นที่ผิดปกติ',
       ];
     },
     outcome: exceptionOutcome,

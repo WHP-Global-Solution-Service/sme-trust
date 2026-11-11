@@ -61,13 +61,10 @@ const OfficerProfileChanges = lazyPage(() => import('@/features/profile-change/p
 const OfficerExceptionQueue = lazyPage(() => import('@/features/automation/pages/OfficerExceptionQueue'));
 const OfficerTaskDetail = lazyPage(() => import('@/features/automation/pages/OfficerTaskDetail'));
 const AutomationPolicyPage = lazyPage(() => import('@/features/automation/pages/AutomationPolicyPage'));
-const MarketplaceAppSimulation = lazyPage(() => import('@/features/automation/pages/MarketplaceAppSimulation'));
 const OfficerProfileChangeDetail = lazyPage(() => import('@/features/profile-change/pages/OfficerProfileChangeDetail'));
 const MerchantProfileChanges = lazyPage(() => import('@/features/profile-change/pages/MerchantProfileChanges'));
 const DemoScenariosPage = lazyPage(() => import('@/features/demo/DemoScenariosPage'));
 const DemoCompletePage = lazyPage(() => import('@/features/demo/DemoCompletePage'));
-const DemoOverviewPage = lazyPage(() => import('@/features/demo/DemoOverviewPage'));
-const DemoV2SummaryPage = lazyPage(() => import('@/features/demo/DemoV2SummaryPage'));
 const AIAssistantHome = lazyPage(() => import('@/features/ai-assistant/pages/AIAssistantHome'));
 const AdvertisingChecker = lazyPage(() => import('@/features/ai-assistant/pages/AdvertisingChecker'));
 const ComplaintAssistant = lazyPage(() => import('@/features/ai-assistant/pages/ComplaintAssistant'));
@@ -97,8 +94,9 @@ export function AppRoutes() {
       <Route path="/preview" element={<DevicePreview />} />
       <Route path="/demo" element={<DemoScenariosPage />} />
       <Route path="/demo/complete/:id" element={<DemoCompletePage />} />
-      <Route path="/demo/overview" element={<DemoOverviewPage />} />
-      <Route path="/demo/v2/summary" element={<DemoV2SummaryPage />} />
+      {/* หน้าสรุป Full Journey เดิม — ยกเลิกแล้ว (ใช้หน้าจบการสาธิตแทน) */}
+      <Route path="/demo/overview" element={<Navigate to="/demo" replace />} />
+      <Route path="/demo/v2/summary" element={<Navigate to="/demo" replace />} />
 
       <Route element={<AppShell />}>
         {/* Merchant */}
@@ -120,7 +118,8 @@ export function AppRoutes() {
         <Route path="/m/notifications" element={gate(M, <NotificationsPage />)} />
         <Route path="/m/ai" element={gate(M, <AIAssistantHome />)} />
         <Route path="/m/marketplace" element={gate(M, <MarketplacePage />)} />
-        <Route path="/m/marketplace-app" element={gate(M, <MarketplaceAppSimulation />)} />
+        {/* หน้าจำลองแอป Marketplace เดิม — รวมเข้ากับ "ช่องทางขายออนไลน์" ของร้านที่ลงทะเบียนแล้ว */}
+        <Route path="/m/marketplace-app" element={<Navigate to="/m/marketplace" replace />} />
         <Route path="/m/marketplace/data/:id" element={gate(M, <MarketplaceDataPage />)} />
         <Route path="/m/marketplace/analysis" element={gate(M, <MarketplaceAnalysisPage />)} />
         <Route path="/m/marketplace/profile/:id" element={gate(M, <MarketplaceProfilePage />)} />

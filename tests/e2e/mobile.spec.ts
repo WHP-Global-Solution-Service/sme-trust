@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, finishScenario, panel, startDemo, test } from './helpers';
-import { playS1, playS3, playS7, playS8 } from './flows';
+import { playS1, playS7, playS8 } from './flows';
 
 /**
  * มือถือ/แท็บเล็ต (ใช้กับโปรเจกต์ iphone-safari และ ipad-safari — WebKit + Touch)
@@ -20,13 +20,6 @@ test.describe('มือถือ/แท็บเล็ต — Demo Controller �
     await noOverflow(page);
   });
 
-  test('S3 ผู้บริโภคตรวจสอบร้าน: QR, ใบรับรอง, หน้าต่างช่องทางขาย', async ({ page }) => {
-    await startDemo(page, 3);
-    await playS3(page);
-    await noOverflow(page);
-    await finishScenario(page, 's3');
-  });
-
   test('S7 AI ตรวจโฆษณา: Highlight และเปรียบเทียบบนจอเล็ก', async ({ page }) => {
     await startDemo(page, 7);
     await playS7(page);
@@ -36,9 +29,9 @@ test.describe('มือถือ/แท็บเล็ต — Demo Controller �
 
   test('S8 AI ร่างคำตอบ → ร้านกดส่งเอง → Role Transition → ผู้บริโภคเห็นคำตอบ', async ({ page }) => {
     await startDemo(page, 8);
-    // แผ่นรายละเอียดขั้นตอน (Sheet) เปิด/ปิดได้ และมีปุ่ม Restart / Exit
+    // แผ่นรายละเอียดขั้นตอน (Sheet) เปิด/ปิดได้ และมีปุ่มเริ่มใหม่ / ออกจากการสาธิต
     await panel(page).getByRole('button', { name: 'ดูรายละเอียดขั้นตอน' }).click();
-    await expect(page.getByText('Restart Scenario').last()).toBeVisible();
+    await expect(page.getByText('เริ่มเรื่องนี้ใหม่').last()).toBeVisible();
     await page.getByRole('button', { name: 'ปิด', exact: true }).click();
     await playS8(page);
     await noOverflow(page);

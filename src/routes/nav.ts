@@ -1,4 +1,4 @@
-import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal, FilePen, Bot, Smartphone, KeyRound } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Bell, BookOpen, Building2, ClipboardCheck, ClipboardList, Database, FileBarChart, FileWarning, GraduationCap, Home, IdCard, LayoutDashboard, ListChecks, Megaphone, MessageSquareWarning, QrCode, Scale, ScrollText, Search, Sparkles, ShieldAlert, Store, Users, Wrench, type LucideIcon, Link2, Gauge, SlidersHorizontal, FilePen, Bot, KeyRound } from 'lucide-react';
 import type { Role } from '@/types';
 
 export interface NavItem {
@@ -23,8 +23,7 @@ export const NAV: Record<Role, { title: string; items: NavItem[]; extra?: { titl
       { to: '/m/warnings', label: 'คำเตือนและการแก้ไข', icon: FileWarning },
       { to: '/m/review', label: 'สถานะความเสี่ยง/อุทธรณ์', icon: Scale },
       { to: '/m/training', label: 'ศูนย์อบรม', short: 'อบรม', icon: GraduationCap, mobile: true },
-      { to: '/m/marketplace-app', label: 'Marketplace App (จำลอง)', icon: Smartphone },
-      { to: '/m/marketplace', label: 'เชื่อมต่อ Marketplace (จำลอง)', icon: Link2 },
+      { to: '/m/marketplace', label: 'ช่องทางขายออนไลน์ (Marketplace จำลอง)', icon: Link2 },
       { to: '/m/trust', label: 'ผลประเมินความน่าเชื่อถือ', icon: Gauge },
       { to: '/m/profile-changes', label: 'คำขอเปลี่ยนข้อมูลร้าน', icon: FilePen },
       { to: '/m/ai', label: 'AI ผู้ช่วย SME', icon: Sparkles },

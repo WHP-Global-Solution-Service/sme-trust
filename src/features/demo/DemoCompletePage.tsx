@@ -1,55 +1,37 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, Database, GitBranch, Info, LayoutGrid, Repeat, Trophy, XCircle } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, Database, Flag, Info, Repeat, XCircle } from 'lucide-react';
 import { confirmDialog } from '@/stores';
 import { useDemoStore } from '@/stores/demo';
-import { findScenario, journeyScenarios, scenarioCode, trackOf } from '@/mock/scenarios';
-import { nextScenarioId, nextUnfinished, prevScenarioId, restartScenario, startScenario } from '@/demo/controller';
+import { findScenario } from '@/mock/scenarios';
+import { exitDemo, restartScenario, startScenario } from '@/demo/controller';
 import { Badge, Button } from '@/components/common/ui';
 import { cn } from '@/utils/cn';
 import NotFoundPage from '@/features/onboarding/NotFoundPage';
 import { DemoFrame } from './DemoFrame';
 import { BENEFIT_ROWS } from './DemoScenariosPage';
-import { useScenarioLauncher } from './ScenarioLauncher';
 
-/** Scenario Completion Screen */
+/** หน้าจบการสาธิต — สรุปผลจริงจากข้อมูลจำลอง พร้อม "จบการสาธิต" และ "เริ่ม Demo ใหม่" */
 export default function DemoCompletePage() {
   const { id } = useParams();
   const nav = useNavigate();
   const d = useDemoStore();
-  const { launch, dialog } = useScenarioLauncher();
   const sc = findScenario(id);
   if (!sc) return <NotFoundPage />;
   const done = d.completed.includes(sc.id);
   const ctx = d.results[sc.id] ?? (d.activeScenario === sc.id ? d.current : {});
-  const track = trackOf(sc);
-  const seq = journeyScenarios(track);
-  const code = scenarioCode(sc);
-  const nextId = nextScenarioId(sc.id);
-  const isLast = !sc.branch && !nextId;
-  const prev = prevScenarioId(sc.id);
-  const resume = sc.branch && d.journeyMode && d.journeyTrack === track ? nextUnfinished(track) : undefined;
-  const resumeSc = findScenario(resume);
-  const position = sc.branch ? `เส้นทางทางเลือก ${code} ของเส้นทาง Marketplace & Trust` : track === 'v2' ? `Scenario ${code} · ลำดับ ${seq.findIndex((s) => s.id === sc.id) + 1} จาก ${seq.length} ของเส้นทาง Marketplace & Trust` : `Scenario ${code} จาก ${seq.length}`;
-  const summaryPath = track === 'v2' ? '/demo/v2/summary' : '/demo/overview';
-  const primary = resume
-    ? { label: `กลับสู่ Full Journey: Marketplace & Trust: Scenario ${resumeSc ? scenarioCode(resumeSc) : ''}`, icon: ArrowRight, run: () => launch(resume) }
-    : isLast || sc.branch
-      ? { label: track === 'v2' ? 'ดูสรุปผลกระทบ (Executive Impact Summary)' : 'ดูสรุปภาพรวม SME Trust Platform', icon: Trophy, run: () => nav(summaryPath) }
-      : { label: sc.nextCta ?? 'Continue Next Scenario', icon: ArrowRight, run: () => launch(nextId!) };
   const isActive = d.activeScenario === sc.id;
-  // ผลลัพธ์จริงของ Scenario (เช่น อนุมัติ / ขอข้อมูลเพิ่ม / ไม่อนุมัติ) — หน้าจบแสดงตามผลจริงเสมอ
+  // ผลลัพธ์จริงของเรื่องนี้ (เช่น อนุมัติ / ขอข้อมูลเพิ่ม / ไม่อนุมัติ) — แสดงตามผลที่เกิดขึ้นจริง ไม่ใช่ผลสมมติ
   const outcome = done ? sc.outcome?.(ctx) : undefined;
   const tone = outcome?.tone ?? 'success';
   const HeadIcon = tone === 'error' ? XCircle : tone === 'warning' ? AlertTriangle : tone === 'info' ? Info : CheckCircle2;
   const toneCls = { success: 'border-success/30 text-success', warning: 'border-warning/40 text-warning', error: 'border-error/40 text-error', info: 'border-info/30 text-info' }[tone];
-  if (outcome && outcome.kind !== 'approved' && !resume && !isLast && !sc.branch) primary.label = `ดูมุมผู้บริโภค: ยังไม่มี Badge ใหม่ (Scenario ${scenarioCode(findScenario(nextId)!)})`;
 
-  const replay = async () => {
-    const r = await confirmDialog({
-      title: `Replay Scenario ${code}`,
-      body: isActive ? 'ข้อมูลจะกลับเป็นจุดเริ่มต้นของ Scenario นี้ (ผลจาก Scenario ก่อนหน้ายังอยู่ และไม่สร้างข้อมูลซ้ำ)' : 'ระบบจะเตรียมข้อมูลจุดเริ่มต้นของเรื่องนี้แบบเดี่ยว (รีเซ็ตข้อมูลสาธิต)',
-      confirmText: 'เล่นซ้ำ',
-    });
+  const finish = () => {
+    exitDemo();
+    nav('/demo');
+  };
+  const again = async () => {
+    const r = await confirmDialog({ title: `เริ่ม "${sc.title}" ใหม่`, body: 'ข้อมูลสาธิตจะกลับเป็นจุดเริ่มต้นของเรื่องนี้ และไม่สร้างข้อมูลซ้ำ', confirmText: 'เริ่มใหม่' });
     if (!r.ok) return;
     if (isActive) restartScenario(nav);
     else startScenario(sc.id, nav);
@@ -60,13 +42,9 @@ export default function DemoCompletePage() {
       <main className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6">
         <section className={cn('rounded-card border bg-white p-6 text-center shadow-card', toneCls.split(' ')[0])} data-outcome={outcome?.kind ?? (done ? 'completed' : 'incomplete')}>
           <HeadIcon className={cn('mx-auto h-14 w-14', toneCls.split(' ')[1])} />
-          <p className="mt-2 text-sm text-ink-soft">
-            {position}
-            {d.journeyMode && (d.journeyTrack === 'v2' ? ' · Full Journey: Marketplace & Trust' : ' · Full Journey')}
-          </p>
-          <h1 className="mt-1 text-xl font-bold text-ink sm:text-2xl">{sc.title}</h1>
+          <h1 className="mt-2 text-xl font-bold text-ink sm:text-2xl">{sc.title}</h1>
           <div className="mt-2 flex justify-center">
-            <Badge tone={done ? 'success' : 'warning'}>{done ? 'Completed' : 'ยังไม่จบ Scenario นี้'}</Badge>
+            <Badge tone={done ? 'success' : 'warning'}>{done ? 'สาธิตครบทุกขั้นแล้ว' : 'ยังไม่จบการสาธิตนี้'}</Badge>
           </div>
           {outcome && (
             <p className={cn('mt-3 text-lg font-semibold', toneCls.split(' ')[1])} role="status">
@@ -77,8 +55,8 @@ export default function DemoCompletePage() {
         </section>
 
         {outcome && (
-          <section className={cn('rounded-card border bg-white p-5 shadow-card', toneCls.split(' ')[0])} aria-label="ผลลัพธ์ของ Scenario">
-            <h2 className="mb-2 font-semibold text-ink">ผลลัพธ์จริงของการพิจารณา</h2>
+          <section className={cn('rounded-card border bg-white p-5 shadow-card', toneCls.split(' ')[0])} aria-label="ผลลัพธ์ของการสาธิต">
+            <h2 className="mb-2 font-semibold text-ink">ผลลัพธ์จริงจากระบบ</h2>
             <ul className="space-y-1 text-sm text-ink">
               {outcome.facts.map((f) => (
                 <li key={f}>• {f}</li>
@@ -95,7 +73,7 @@ export default function DemoCompletePage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <section className="rounded-card border border-line bg-white p-5 shadow-card">
-            <h2 className="mb-3 font-semibold text-ink">ขั้นตอนที่ทำสำเร็จ</h2>
+            <h2 className="mb-3 font-semibold text-ink">ขั้นตอนที่ทำ</h2>
             <ol className="space-y-1.5">
               {sc.steps.map((s) => (
                 <li key={s.id} className="flex items-start gap-2 text-sm text-ink">
@@ -105,10 +83,10 @@ export default function DemoCompletePage() {
               ))}
             </ol>
           </section>
-          <section className="rounded-card border border-line bg-white p-5 shadow-card">
+          <section className="rounded-card border border-line bg-white p-5 shadow-card" data-testid="demo-summary">
             <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink">
               <Database className="h-4 w-4 text-primary" />
-              สิ่งที่เปลี่ยนแปลงใน Mock State
+              สิ่งที่เกิดขึ้นในระบบ (ข้อมูลจำลอง)
             </h2>
             <ul className="space-y-1.5 text-sm text-ink">
               {sc.summary(ctx).map((t) => (
@@ -118,8 +96,7 @@ export default function DemoCompletePage() {
                 </li>
               ))}
             </ul>
-            {ctx.notice && <p className="mt-3 rounded-lg bg-warning-50 px-2.5 py-2 text-xs text-[#7a4705]">ใช้ข้อมูลตัวอย่าง: {ctx.notice}</p>}
-            <p className="mt-3 text-xs text-ink-soft">คำนวณจากข้อมูลจำลองในเบราว์เซอร์ — ไม่ใช่ข้อมูลหรือผลรับรองจริง</p>
+            <p className="mt-3 text-xs text-ink-soft">คำนวณจากข้อมูลจำลองในเบราว์เซอร์ — ไม่ใช่ข้อมูลหรือผลการตรวจสอบจริง</p>
           </section>
         </div>
 
@@ -135,35 +112,15 @@ export default function DemoCompletePage() {
           ))}
         </section>
 
-        <section className="flex flex-col gap-2 rounded-card border border-line bg-white p-4 shadow-card sm:flex-row sm:flex-wrap">
-          <Button size="lg" icon={primary.icon} className="sm:flex-1" onClick={primary.run}>
-            {primary.label}
+        <section className="flex flex-col gap-2 rounded-card border border-line bg-white p-4 shadow-card sm:flex-row" aria-label="จบการสาธิต">
+          <Button size="lg" icon={Flag} className="sm:flex-1" onClick={finish}>
+            จบการสาธิต
           </Button>
-          {sc.id === 's9' && (
-            <>
-              <Button size="lg" variant="outline" icon={GitBranch} onClick={() => launch('s9a')}>
-                ทางเลือก 9A: ร้านใหม่สมัครด้วย Auto-Fill
-              </Button>
-              <Button size="lg" variant="outline" icon={GitBranch} onClick={() => launch('s9b')}>
-                ทางเลือก 9B: ร้านที่ไม่มี Marketplace
-              </Button>
-            </>
-          )}
-          <Button size="lg" variant="outline" icon={Repeat} onClick={replay}>
-            {outcome && outcome.kind !== 'approved' && outcome.kind !== 'pending' ? 'Replay Scenario เพื่อเลือกผลอื่น' : 'Replay Scenario'}
-          </Button>
-          <Button size="lg" variant="ghost" icon={LayoutGrid} onClick={() => nav('/demo')}>
-            Back to Demo Menu
+          <Button size="lg" variant="outline" icon={Repeat} onClick={() => void again()}>
+            เริ่ม Demo ใหม่
           </Button>
         </section>
-        {prev && d.completed.includes(prev) && (
-          <Link to={`/demo/complete/${prev}`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-            <ChevronLeft className="h-4 w-4" />
-            ย้อนดูสรุป Scenario ก่อนหน้า
-          </Link>
-        )}
       </main>
-      {dialog}
     </DemoFrame>
   );
 }

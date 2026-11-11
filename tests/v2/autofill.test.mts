@@ -14,7 +14,7 @@ const G = await import('@/features/marketplace/services/generator');
 const INP = await import('@/features/trust-assessment/inputs');
 const MODEL = await import('@/stores/assessmentConfig');
 const C = await import('@/demo/controller');
-const { findScenario, scenarioCode } = await import('@/mock/scenarios');
+const { findScenario } = await import('@/mock/scenarios');
 const { useDemoStore, reportDemo } = await import('@/stores/demo');
 const V2S = await import('@/mock/scenarios/v2');
 
@@ -198,7 +198,7 @@ const nav = ((to: string) => {
 }) as never;
 const demo = () => useDemoStore.getState();
 const sc9a = findScenario('s9a')!;
-check(!!sc9a && sc9a.branch === true && scenarioCode(sc9a) === '9A' && sc9a.caseNote!.includes('ไม่ใช่การยกระดับร้านกาแฟดอยสูง'), 'มีเส้นทาง 9A แยกชัดเจน (สมัครร้านใหม่ ไม่ใช่การยกระดับ M-005)');
+check(!!sc9a && sc9a.title === 'ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ' && sc9a.caseNote!.includes('ยังไม่มีร้านใน SME Trust'), 'Demo หลักเป็นการสมัครร้านใหม่ด้วยบัญชีที่ยังไม่มีร้าน (ไม่ใช่การยกระดับร้านเดิม)');
 for (let round = 1; round <= 2; round++) {
   C.startScenario('s9a', nav);
   check(demo().current.operatorId === OP && !merchants().some((m) => m.operatorId === OP) && !records().some((x) => x.operatorId === OP), `รอบที่ ${round}: เริ่ม 9A ด้วย OP-013 — ไม่มีร้าน/บันทึกค้างจากรอบก่อน`);
@@ -232,7 +232,7 @@ for (let round = 1; round <= 2; round++) {
   check(C.next(nav, cur) === 'transition' && C.next(nav, cur, true) === 'moved' && cur === `/shop/${sub.merchant.id}`, '  เปลี่ยนเป็นมุมผู้บริโภค (มีคำอธิบายการเปลี่ยนบทบาท)');
   check(C.next(nav, cur) === 'completed' && cur === '/demo/complete/s9a', '  จบ 9A → หน้าสรุป');
   page = view(cur);
-  check(page.includes('เส้นทางทางเลือก 9A') && page.includes('AUTO_PASS'), '  สรุป 9A: ระบบผ่านการลงทะเบียนอัตโนมัติ (ไม่ใช่ใบรับรอง)');
+  check(page.includes('ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ') && page.includes('AUTO_PASS'), '  สรุป 9A: ระบบผ่านการลงทะเบียนอัตโนมัติ (ไม่ใช่ใบรับรอง)');
   check(merchants().filter((m) => m.operatorId === OP).length === 1 && records().filter((x) => x.operatorId === OP).length === 1, '  มีร้านและบันทึกการนำเข้าของ OP-013 อย่างละ 1 รายการ (ส่งซ้ำ/เล่นซ้ำไม่สร้างซ้ำ)');
 }
 check(!sc9a.steps.some((s) => s.role === 'officer') && sc9a.audience.every((r) => r !== 'officer'), 'เส้นทาง 9A กรณีปกติไม่มีขั้นตอนเจ้าหน้าที่');

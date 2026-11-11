@@ -1,5 +1,5 @@
 /**
- * Demo Controller — ควบคุมขั้นตอนการสาธิตทุก Scenario (v1: 1–8, v2: 9–13, 9A, 9B — แบบเดี่ยวและ Full Journey)
+ * Demo Controller — ควบคุมขั้นตอนการสาธิต (Demo หลัก · กรณีพิเศษ · ฟังก์ชันอื่น — เล่นทีละเรื่อง)
  * หลักการ: ไม่เปลี่ยนหน้าด้วย Timer, ไม่เปลี่ยนข้อมูลธุรกิจแทนผู้ใช้ (ยกเว้น Fixture ตอนเริ่ม Scenario),
  * ทุกการเปลี่ยนบทบาทผ่าน Role Transition ที่ผู้ใช้กดยืนยัน
  */
@@ -10,9 +10,9 @@ import { useAiWorkspaceStore } from '@/stores/aiWorkspace';
 import { useDemoStore, type DemoCtx } from '@/stores/demo';
 import { resetAllDemoData } from '@/stores/workflows';
 import { STORAGE_PREFIX } from '@/stores/createEntityStore';
-import { findScenario, journeyScenarios, trackOf } from '@/mock/scenarios';
+import { findScenario } from '@/mock/scenarios';
 import { ROUTER_BASENAME } from '@/utils/appUrl';
-import type { ContinuityIssue, DemoStep, GateInput, ScenarioDef, Track, GateBlock } from './types';
+import type { DemoStep, GateInput, ScenarioDef, GateBlock } from './types';
 
 export const SNAPSHOT_KEY = `${STORAGE_PREFIX}demo-snapshot`;
 
@@ -60,14 +60,6 @@ export function gateState(step: DemoStep): { ok: boolean; hint?: string; done?: 
   return { ok: false, hint: step.gate.hint, blocked: step.gate.blocked?.(gateInput()) };
 }
 
-/** บริบทที่ส่งต่อได้ รวม ID ของ Scenario ที่กำลังเล่นแต่ยังไม่จบ (เช่น ร้านที่สมัครแล้วใน Scenario 2) */
-function effectiveJourney(exceptId?: string): DemoCtx {
-  const d = useDemoStore.getState();
-  const sc = findScenario(d.activeScenario);
-  if (!sc || sc.id === exceptId || d.status === 'completed' || !sc.exports) return d.journey;
-  return { ...d.journey, ...sc.exports(d.current) };
-}
-
 /** ตั้งค่าบัญชีของบทบาทตามบริบท (เช่น Merchant ID เดิม) — ใช้ตอนสลับบทบาทเท่านั้น */
 function applyAccount(role: Role, ctx: DemoCtx) {
   const s = useSessionStore.getState();
@@ -110,52 +102,22 @@ export function needsTransition(index: number): boolean {
 }
 
 // ---------------- Scenario lifecycle ----------------
-/** ตรวจก่อน prepare ว่าต้องใช้ข้อมูลตัวอย่างแทนหรือไม่ แล้วบันทึกคำอธิบายไว้ในบริบท (ไม่สลับข้อมูลแบบเงียบ) */
-function prepareWithNotice(sc: ScenarioDef, journey: DemoCtx, carry: boolean): DemoCtx {
-  const issue = carry ? sc.continuity?.(journey) : undefined;
-  const ctx = sc.prepare(journey, carry);
-  return issue ? { ...ctx, notice: `${issue.message} จึงใช้${issue.fallbackLabel}แทน` } : ctx;
-}
-
-/** ข้อมูลที่ส่งต่อมาให้ Scenario นี้ใช้ได้หรือไม่ (ใช้ก่อน "ดำเนินการต่อ" / "ข้ามไป") */
-export function continuityIssue(id: string): ContinuityIssue | undefined {
-  return findScenario(id)?.continuity?.(effectiveJourney(id));
-}
-
-/** ย้อนกลับไปทำ Scenario ที่ยังไม่ครบ — ถ้ากำลังค้างอยู่ให้สาธิตต่อจากขั้นเดิม */
-export function goFixScenario(id: string, nav: NavigateFunction) {
-  if (scenarioStatus(id) === 'current') resumeDemo(nav);
-  else startScenario(id, nav, { carry: true, journey: true });
-}
-
 /**
- * เริ่ม Scenario
- * - แบบเดี่ยว (carry=false): Reset ข้อมูลทั้งหมด แล้วใช้ Fixture ของเรื่อง
- * - ต่อเนื่อง (carry=true): ไม่ Reset — ใช้ IDs จาก Scenario ก่อนหน้า (หรือ Fixture เมื่อจำเป็น)
+ * เริ่มการสาธิต — Reset ข้อมูลสาธิตทั้งหมด แล้วเตรียมข้อมูลจุดเริ่มต้นของเรื่องนั้น (ไม่มีการส่งต่อข้อมูลข้ามเรื่อง)
  */
-export function startScenario(id: string, nav: NavigateFunction, opts: { carry?: boolean; journey?: boolean } = {}) {
+export function startScenario(id: string, nav: NavigateFunction) {
   const sc = findScenario(id);
   if (!sc) return;
-  const carry = !!opts.carry;
   const prev = useDemoStore.getState();
-  const journeyMode = opts.journey ?? (carry ? prev.journeyMode : false);
-  // เส้นทางทางเลือกเล่นระหว่าง Journey ได้โดยไม่เปลี่ยนชุดของ Journey
-  const journeyTrack = journeyMode && sc.branch ? prev.journeyTrack : trackOf(sc);
-  const journey = carry ? effectiveJourney(id) : {};
-  const completed = carry ? prev.completed : [];
-  const results = carry ? prev.results : {};
-  if (!carry) resetAllDemoData();
-  const current = prepareWithNotice(sc, journey, carry);
+  resetAllDemoData();
+  const current = sc.prepare({}, false);
   takeSnapshot();
   useDemoStore.getState().set({
     activeScenario: sc.id,
     stepIndex: 0,
     status: 'running',
-    journeyMode,
-    journeyTrack,
-    journey,
-    completed,
-    results,
+    completed: prev.completed,
+    results: prev.results,
     current,
     startCtx: current,
     startedAt: new Date().toISOString(),
@@ -173,11 +135,11 @@ export function restartScenario(nav: NavigateFunction) {
   if (!sc) return;
   if (restoreSnapshot()) {
     // ข้อมูลกลับเป็นจุดเริ่มต้นแล้ว — ใช้บริบทตอนเริ่มเดิม (Fixture บางชุดสร้างรายการใหม่ทุกครั้งที่เรียก)
-    const current = d.startCtx ?? prepareWithNotice(sc, d.journey, true);
+    const current = d.startCtx ?? sc.prepare({}, false);
     d.set({ current, stepIndex: 0, status: 'running', startedAt: new Date().toISOString(), signals: {}, passed: [] });
     enterStep(sc, 0, nav, undefined, true);
   } else {
-    startScenario(sc.id, nav, { carry: false });
+    startScenario(sc.id, nav);
   }
 }
 
@@ -224,44 +186,10 @@ export function completeScenario(nav: NavigateFunction) {
   d.set({
     status: 'completed',
     completed: d.completed.includes(sc.id) ? d.completed : [...d.completed, sc.id],
-    journey: { ...d.journey, ...(sc.exports?.(d.current) ?? {}) },
     results: { ...d.results, [sc.id]: d.current },
   });
   nav(`/demo/complete/${sc.id}`);
 }
-
-/** Scenario ถัดไป/ก่อนหน้าในลำดับของชุดเดียวกัน — เส้นทางทางเลือกไม่มีลำดับต่อ */
-function neighbour(id: string, delta: 1 | -1) {
-  const sc = findScenario(id);
-  if (!sc || sc.branch) return undefined;
-  const seq = journeyScenarios(trackOf(sc));
-  return seq[seq.findIndex((s) => s.id === id) + delta]?.id;
-}
-export const nextScenarioId = (id: string) => neighbour(id, 1);
-export const prevScenarioId = (id: string) => neighbour(id, -1);
-
-/** Scenario แรกของ Journey ที่ยังไม่จบ (ใช้กลับเข้าสู่ Journey หลังเล่นเส้นทางทางเลือก) */
-export function nextUnfinished(track: Track) {
-  const done = useDemoStore.getState().completed;
-  return journeyScenarios(track).find((s) => !done.includes(s.id))?.id;
-}
-
-/** ดำเนินการต่อ Scenario ถัดไปโดยใช้ข้อมูลที่สร้างไว้ (ไม่ Reset) */
-export function continueToNext(fromId: string, nav: NavigateFunction) {
-  const nextId = nextScenarioId(fromId);
-  if (!nextId) return nav('/demo/overview');
-  startScenario(nextId, nav, { carry: true });
-}
-
-// ---------------- Full Journey ----------------
-export function startJourney(nav: NavigateFunction, track: Track = 'v1') {
-  resetAllDemoData();
-  useDemoStore.getState().set({ journeyMode: true, journeyTrack: track, completed: [], journey: {}, results: {} });
-  startScenario(journeyScenarios(track)[0].id, nav, { carry: true, journey: true });
-}
-
-/** เริ่ม Full Journey ชุดเดิมใหม่ทั้งหมด */
-export const restartJourney = (nav: NavigateFunction) => startJourney(nav, useDemoStore.getState().journeyTrack ?? 'v1');
 
 /** สถานะของแต่ละ Scenario ในภาพรวม */
 export function scenarioStatus(id: string): 'completed' | 'current' | 'not_started' {
@@ -285,7 +213,7 @@ export function resumeDemo(nav: NavigateFunction) {
 
 /** ออกจากการสาธิต — ข้อมูลที่สร้างไว้ยังอยู่ (ไม่ Reset) */
 export function exitDemo() {
-  useDemoStore.getState().set({ activeScenario: undefined, status: 'idle', journeyMode: false });
+  useDemoStore.getState().set({ activeScenario: undefined, status: 'idle' });
 }
 
 /** Reset Scenario จากหน้ารวม — คืนข้อมูลเป็นจุดเริ่มต้นของเรื่อง (แบบเดี่ยว) โดยยังไม่เริ่มสาธิต */

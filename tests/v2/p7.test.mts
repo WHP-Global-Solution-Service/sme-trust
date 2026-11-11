@@ -1,6 +1,6 @@
 /**
  * P7 — Regression Tests สำหรับสิ่งที่แก้ใน Final QA
- * A: ผลลัพธ์แตกแขนงของ Scenario 12/13 (ขอข้อมูลเพิ่ม/ไม่อนุมัติ ไม่แสดง Badge ว่าอนุมัติแล้ว)
+ * (A เดิม: ผลลัพธ์แตกแขนงของ Scenario 12/13 — ยกเลิกพร้อม Scenario ที่ซ้ำกับ Demo หลัก)
  * C: ชุดน้ำหนักมีเลขชุดและวันที่ ผลประเมินเดิมไม่ถูกแก้ย้อนหลัง
  * D: วันที่ซิงก์สัมพัทธ์กับวันเริ่ม Demo, Mock Sync ไม่สร้างข้อมูลซ้ำ, Fixture อายุข้อมูล
  * E: 9B เล่นซ้ำได้โดยไม่สร้างร้านซ้ำ
@@ -37,97 +37,6 @@ const integrity = (label: string) => {
   check(p.length === 0, `ข้อมูลสอดคล้องกันหลัง ${label}${p.length ? ' — ' + p.slice(0, 3).join(' | ') : ''}`);
 };
 const DAY = 86_400_000;
-
-// ================================================================ P7-A
-for (const kind of ['need_info', 'rejected'] as const) {
-  describe(`P7-A — Scenario 12 → 13 เมื่อเจ้าหน้าที่${kind === 'need_info' ? 'ขอข้อมูลเพิ่มเติม' : 'ไม่อนุมัติ'}`);
-  W.resetAllDemoData();
-  C.startScenario('s12', nav, { journey: true });
-  const ctx = demo().current;
-  const before = activeCert('M-005').map((c) => `${c.id}:L${c.level}`);
-  asOfficer();
-  check(actAs(['officer', 'admin'], () => V.decideAssessment(ctx.assessmentId!, kind, 'ทดสอบผลการพิจารณาที่ไม่ใช่การอนุมัติ')).ok, `เจ้าหน้าที่บันทึกผล ${kind}`);
-  const app = S.useVerificationStore.getState().items.find((a) => a.id === assessment(ctx.assessmentId)!.decision!.applicationId);
-  check(app?.status === (kind === 'need_info' ? 'need_info' : 'rejected'), `  คำขอ ${app?.id} ที่ผูกไว้เปลี่ยนเป็น ${app?.status} ผ่าน กระบวนการรับรอง`);
-  check(JSON.stringify(activeCert('M-005').map((c) => `${c.id}:L${c.level}`)) === JSON.stringify(before) && !activeCert('M-005').some((c) => c.level === 4), `  ไม่มีใบรับรองใหม่ — คงระดับเดิม (${before.join(', ')})`);
-  // เดินขั้นที่เหลือของ Scenario 12 จนจบ
-  let guard = 0;
-  while (demo().activeScenario === 's12' && guard++ < 20) {
-    const r = C.next(nav, cur);
-    if (r === 'transition') C.next(nav, cur, true);
-    if (r === 'completed' || r === 'blocked') break;
-  }
-  check(demo().completed.includes('s12'), '  จบ Scenario 12');
-  const s12 = findScenario('s12')!;
-  const o12 = s12.outcome!(demo().results.s12 ?? ctx);
-  check(o12?.kind === kind && o12.tone !== 'success', `  หน้าจบ Scenario 12 แสดงผลจริง: "${o12?.title}"`);
-  check(!!o12 && !o12.title.includes('อนุมัติยกระดับ') && o12.consumerView.includes('ไม่มี Badge ระดับใหม่'), `  สิ่งที่ผู้บริโภคเห็น: ${o12?.consumerView}`);
-  const capturedCert = demo().results.s12?.certId;
-  check(!capturedCert || S.useCertificationStore.getState().items.find((c) => c.id === capturedCert)?.level !== 4, '  Context ไม่ส่งต่อใบรับรอง Level 4 ที่ไม่มีอยู่จริง');
-
-  // Scenario 13 ต่อเนื่อง
-  C.startScenario('s13', nav, { carry: true, journey: true });
-  check(demo().current.assessmentId === ctx.assessmentId && demo().current.merchantId === 'M-005', '  Scenario 13 ใช้ Assessment/Merchant ID เดิม');
-  const s13 = findScenario('s13')!;
-  const badgeText = (typeof s13.steps[0].instruction === 'function' ? s13.steps[0].instruction(demo().current) : s13.steps[0].instruction) as string;
-  check(badgeText.includes('ยังไม่มี Badge ระดับใหม่') && !badgeText.includes('ได้รับอนุมัติ'), `  ขั้น Trust Badge: "${badgeText.slice(0, 70)}…"`);
-  const page = view('/shop/M-005', { role: 'consumer', consumerId: 'CS-001' });
-  check(page.includes('Level 3 — Trusted SME') && !page.includes('Trusted SME Plus') && !page.includes('Level 4 — '), '  หน้าร้านสาธารณะแสดงระดับเดิม (Level 3 — Trusted SME) ไม่มี Level 4');
-  check(s13.outcome!(demo().current)?.kind === kind, '  หน้าจบ Scenario 13 แสดงผลเดียวกัน (ไม่ใช่ "อนุมัติแล้ว")');
-  integrity(`ผล ${kind}`);
-}
-
-describe('P7-A — ผลอนุมัติยังทำงานตามเดิม');
-W.resetAllDemoData();
-C.startScenario('s12', nav, { journey: true });
-asOfficer();
-const ap = demo().current;
-check(actAs(['officer', 'admin'], () => V.decideAssessment(ap.assessmentId!, 'approved', 'ผลประเมินและเกณฑ์การรับรอง ผ่านครบ', 4)).ok, 'เจ้าหน้าที่อนุมัติ Level 4');
-const oA = findScenario('s12')!.outcome!(ap);
-check(oA?.kind === 'approved' && oA.tone === 'success' && activeCert('M-005').some((c) => c.level === 4), `  หน้าจบ: "${oA?.title}" และมีใบรับรอง Level 4`);
-
-describe('P7-A — ทางเลือกอื่นของ Journey');
-W.resetAllDemoData();
-const c1 = asOwner('M-005', () => V.connectMarketplace('M-005', 'lazada'));
-asOwner(c1.id, () => V.grantConsent(c1.id, 'established_good'));
-V.completeSync(c1.id, false, 'connect');
-let x = S.useMarketplaceStore.getState().items.find((c) => c.id === c1.id)!;
-check(x.status === 'sync_failed' && x.failKind === 'connect' && x.failReason!.includes('เชื่อมต่อ'), 'Connection Failed: สถานะและเหตุผลเฉพาะ');
-asOwner(c1.id, () => V.resyncMarketplace(c1.id));
-V.completeSync(c1.id, false, 'import');
-x = S.useMarketplaceStore.getState().items.find((c) => c.id === c1.id)!;
-check(x.failKind === 'import' && x.failReason!.includes('นำเข้า'), 'Import Failed: สถานะและเหตุผลเฉพาะ');
-check(!V.currentInputs('M-005')!.input.marketplace.some((m) => m.connection.id === c1.id), '  การเชื่อมต่อที่ล้มเหลวไม่ถูกใช้ประเมิน');
-asOwner(c1.id, () => V.resyncMarketplace(c1.id));
-V.completeSync(c1.id, true);
-x = S.useMarketplaceStore.getState().items.find((c) => c.id === c1.id)!;
-check(x.status === 'connected' && x.syncSource === 'sync' && x.syncCount === 3 && !x.failKind, 'ลองใหม่สำเร็จ: ใช้การเชื่อมต่อเดิม (นับการซิงก์ 3 ครั้ง)');
-// Suspended / Revoked
-for (const [mid, st] of [['M-008', 'revoked'], ['M-005', 'suspended']] as const) {
-  W.resetAllDemoData();
-  if (st === 'suspended') {
-    const cert = activeCert(mid)[0];
-    S.useCertificationStore.getState().update(cert.id, { status: 'suspended' });
-  }
-  const t = asOwner(mid, () => V.runAssessment(mid))!;
-  check(t.result.standing === st && t.result.recommendation.kind === 'blocked', `${st === 'revoked' ? 'Revoked' : 'Suspended'} Merchant (${mid}): Standing แยกจาก Band (${t.result.band}) และขอ Badge ไม่ได้`);
-  check(!asOwner(t.id, () => V.submitAssessment(t.id)).ok, '  ส่งพิจารณาไม่ได้จนกว่าสถานะจะกลับเป็นปกติ');
-}
-
-describe('P7-A — Refresh / Restart Scenario / Restart Journey');
-W.resetAllDemoData();
-C.startJourney(nav, 'v2');
-const startedOn = demo().activeScenario;
-const persisted = { ...storage };
-await (useDemoStore as unknown as { persist: { rehydrate: () => Promise<void> } }).persist.rehydrate();
-check(demo().activeScenario === startedOn && demo().journeyTrack === 'v2' && Object.keys(persisted).some((k) => k.includes('demo')), 'Refresh: สถานะ Journey v2 อ่านกลับจาก localStorage ได้');
-C.startScenario('s12', nav, { journey: true });
-const s12ctx = demo().current;
-const countBefore = S.useVerificationStore.getState().items.length;
-C.restartScenario(nav);
-check(demo().current.assessmentId === s12ctx.assessmentId && S.useVerificationStore.getState().items.length === countBefore, 'Restart Scenario: ใช้ ID เดิมและไม่สร้างคำขอซ้ำ');
-C.restartJourney(nav);
-check(demo().activeScenario === 's9' && demo().journeyTrack === 'v2' && demo().completed.length === 0, 'Restart Journey v2: กลับไป Scenario 9 และล้างความคืบหน้า');
 
 // ================================================================ P7-C
 describe('P7-C — Assessment Configuration');
@@ -213,11 +122,8 @@ const register = () => {
     documents: [{ id: 'd-b', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 1, addedAt: new Date().toISOString() }],
   }));
 };
-// เล่นใน Journey: ร้าน v2 ทำ Scenario 9 แล้ว → 9B
-C.startScenario('s11', nav, { journey: true });
-const journeyShop = JSON.stringify({ c: S.useMarketplaceStore.getState().items.filter((c) => c.merchantId === 'M-005'), a: S.useAssessmentStore.getState().items.filter((a) => a.merchantId === 'M-005') });
 for (const round of [1, 2, 3]) {
-  C.startScenario('s9b', nav, { carry: true, journey: true });
+  C.startScenario('s9b', nav);
   check(V2S.branchShops().length === 0, `รอบที่ ${round}: เริ่ม 9B แล้ว OP-012 ไม่มีร้านค้างจากรอบก่อน`);
   const { merchant, app } = register();
   // Automation First: 9B ไม่มีขั้นส่งเจ้าหน้าที่ — ระบบผ่านการลงทะเบียนอัตโนมัติและประเมินทันที
@@ -225,7 +131,6 @@ for (const round of [1, 2, 3]) {
   check(V2S.branchShops().length === 1 && app.merchantId === merchant.id && app.autoDecision?.route === 'AUTO_PASS' && t?.merchantId === merchant.id && t.origin === 'automation', `  รอบที่ ${round}: มีร้านเดียว (${merchant.id}) คำขอ ${app.id} ผ่านอัตโนมัติ และมีผลประเมินอัตโนมัติ`);
   if (round < 3) check(!!branch.replayNote?.()?.includes(merchant.shopName), '  เล่นซ้ำ → แจ้งว่ามีร้านเดิมและจะถูกล้าง');
 }
-check(JSON.stringify({ c: S.useMarketplaceStore.getState().items.filter((c) => c.merchantId === 'M-005'), a: S.useAssessmentStore.getState().items.filter((a) => a.merchantId === 'M-005') }) === journeyShop, 'ข้อมูลร้านของ Journey v2 (M-005) ไม่ถูกแตะ');
 integrity('เล่น 9B ซ้ำ 3 รอบ');
 C.restartScenario(nav);
 check(V2S.branchShops().length === 0, 'Restart 9B: กลับจุดเริ่มต้น (ไม่มีร้าน)');
@@ -264,10 +169,11 @@ check(k.connectedMerchants + k.selfRegistered <= merchants.length, '  ร้า�
 check(k.revoked === 1, `  ใบรับรองที่ถูกเพิกถอนตามข้อมูลตัวอย่าง = ${k.revoked}`);
 const adminPage = view('/admin', { role: 'admin' });
 check(adminPage.includes('SME Trust — Marketplace & Trust Assessment') && adminPage.includes('ข้อมูลจำลองทั้งหมด') && adminPage.includes('จำนวน SME ทั้งหมด'), 'หน้า Admin มี KPI v2 พร้อมหมายเหตุข้อมูลจำลอง และ Dashboard v1 เดิมยังอยู่');
-// เปลี่ยนตาม Scenario
-C.startScenario('s13', nav, { journey: true });
-const afterJourney = stats().kpi;
-check(afterJourney.approved === k.approved + 1, `หลัง Scenario 12 อนุมัติ: อนุมัติการรับรอง ${k.approved} → ${afterJourney.approved}`);
+// เปลี่ยนตามข้อมูลจริง: ร้านที่ไม่มี Marketplace ลงทะเบียนเองและผ่านอัตโนมัติ
+C.startScenario('s9b', nav);
+register();
+const afterReg = stats().kpi;
+check(afterReg.selfRegistered === k.selfRegistered + 1, `หลังร้านลงทะเบียนด้วยตนเอง: ร้านที่ลงทะเบียนเอง ${k.selfRegistered} → ${afterReg.selfRegistered}`);
 W.resetAllDemoData();
 check(JSON.stringify(stats()) === JSON.stringify(base), 'Reset Demo Data → KPI กลับค่าเริ่มต้น');
 

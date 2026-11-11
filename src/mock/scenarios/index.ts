@@ -64,16 +64,6 @@ const accountIssue = (j: DemoCtx): ContinuityIssue | undefined => {
   };
 };
 
-/** Scenario 3–4 ต้องใช้ร้านจาก Scenario 2 ที่ได้รับการรับรองแล้ว */
-const shopIssue = (j: DemoCtx): ContinuityIssue | undefined => {
-  if (certifiedShop(j.merchantId)) return undefined;
-  const m = merchant(j.merchantId);
-  return {
-    message: m ? `ร้าน "${m.shopName}" จาก Scenario 2 ยังไม่ได้รับการรับรอง (สถานะ: ${REGISTRATION_STATUS[m.registrationStatus].label})` : 'ยังไม่มีร้านค้าที่ได้รับการรับรองจาก Scenario 2',
-    fixScenario: 's2',
-    fallbackLabel: `ร้านค้าตัวอย่าง "${merchant('M-001')?.shopName}" (M-001) ที่ได้รับการรับรองแล้ว`,
-  };
-};
 
 /** Scenario 7 ใช้บัญชีจาก Scenario 1 */
 const operatorIssue = (j: DemoCtx): ContinuityIssue | undefined =>
@@ -130,7 +120,7 @@ export const scenarios: ScenarioDef[] = [
         },
         capture: (g) => ({ operatorId: g.session.operatorId }),
       },
-      { id: 's1-home', role: 'merchant', route: () => '/m', title: 'หน้าหลักผู้ประกอบการ', instruction: 'ชี้สถานะ "ยืนยันตัวตนแล้ว (Level 1)" และข้อความว่ายังไม่มีร้านค้า', tip: 'Level 1 คือยืนยันตัวตนเจ้าของบัญชีเท่านั้น ไม่ใช่การรับรองคุณภาพสินค้า', nextLabel: 'จบ Scenario และดูสรุป' },
+      { id: 's1-home', role: 'merchant', route: () => '/m', title: 'หน้าหลักผู้ประกอบการ', instruction: 'ชี้สถานะ "ยืนยันตัวตนแล้ว (Level 1)" และข้อความว่ายังไม่มีร้านค้า', tip: 'Level 1 คือยืนยันตัวตนเจ้าของบัญชีเท่านั้น ไม่ใช่การรับรองคุณภาพสินค้า', nextLabel: 'จบการสาธิตและดูสรุป' },
     ],
     summary: (c) => {
       const op = operator(c.operatorId);
@@ -155,7 +145,6 @@ export const scenarios: ScenarioDef[] = [
       ocpb: 'ตรวจสอบด้วย Checklist มาตรฐาน และมี Audit Log ทุกการตัดสินใจ',
     },
     nextCta: 'ดำเนินการต่อ: ตรวจสอบร้านค้าในมุมผู้บริโภค',
-    continuity: accountIssue,
     prepare: (j, carry) => {
       const fromS1 = carry && !accountIssue(j);
       const operatorId = fromS1 ? j.operatorId! : 'OP-012';
@@ -223,7 +212,7 @@ export const scenarios: ScenarioDef[] = [
       },
       { id: 's2-notify', role: 'merchant', route: () => '/m/notifications', transition: 'เจ้าหน้าที่อนุมัติใบรับรองแล้ว กลับไปดูผลในมุมผู้ประกอบการ (ร้านเดิม)', title: 'การแจ้งเตือนผลอนุมัติ', instruction: 'ร้านค้าได้รับแจ้ง "คำขอรับรองได้รับอนุมัติ" พร้อมเลขใบรับรอง' },
       { id: 's2-badge', role: 'merchant', route: () => '/m/toolkit', title: 'Trust Badge', instruction: 'Badge ระดับ Business Verified พร้อม QR และลิงก์ตรวจสอบ — คัดลอกไปใช้บนช่องทางขายเดิมได้', tip: 'ไม่สร้าง Marketplace ใหม่ ร้านค้าขายบนช่องทางเดิมต่อได้' },
-      { id: 's2-passport', role: 'merchant', route: () => '/m/passport', title: 'SME Trust Passport', instruction: 'Passport แสดงร้านใหม่ ระดับการตรวจสอบ ใบรับรอง และช่องทางขาย', nextLabel: 'จบ Scenario และดูสรุป' },
+      { id: 's2-passport', role: 'merchant', route: () => '/m/passport', title: 'SME Trust Passport', instruction: 'Passport แสดงร้านใหม่ ระดับการตรวจสอบ ใบรับรอง และช่องทางขาย', nextLabel: 'จบการสาธิตและดูสรุป' },
     ],
     summary: (c) => {
       const m = merchant(c.merchantId);
@@ -238,51 +227,6 @@ export const scenarios: ScenarioDef[] = [
     },
   },
 
-  // ------------------------------------------------------------ 3
-  {
-    id: 's3',
-    no: 3,
-    title: 'ผู้บริโภคตรวจสอบร้านค้าก่อนซื้อ',
-    objective: 'ผู้บริโภคตรวจสอบร้านเดียวกับที่เพิ่งได้รับการรับรอง ผ่านการค้นหาและ QR จำลอง แล้วเห็นข้อมูลตรงกับ Badge ของร้าน',
-    keyMessage: 'ผู้บริโภคตรวจสอบได้เองก่อนโอนเงิน ข้อมูลตรงกันทุกช่องทาง',
-    audience: ['merchant', 'consumer'],
-    duration: '≈ 4 นาที',
-    benefits: {
-      sme: 'ร้านที่โปร่งใสโดดเด่นกว่า และได้รับความไว้วางใจจากลูกค้าใหม่',
-      consumer: 'รู้สถานะร้านก่อนโอนเงิน ลดความเสี่ยงจากร้านไม่น่าเชื่อถือ',
-      ocpb: 'ป้องกันปัญหาก่อนเกิดเหตุ ลดเรื่องร้องเรียนปลายทาง',
-    },
-    nextCta: 'ดำเนินการต่อ: ทดลองแจ้งปัญหาจากการซื้อสินค้า',
-    continuity: shopIssue,
-    prepare: (j, carry) => {
-      const m = (carry && certifiedShop(j.merchantId)) || merchant('M-001')!;
-      return { merchantId: m.id, operatorId: m.operatorId, certId: certOf(m.id)?.id, consumerId: 'CS-001', officerId: 'OF-001' };
-    },
-    steps: [
-      { id: 's3-badge', role: 'merchant', route: () => '/m/toolkit', title: 'Trust Badge ของร้าน', instruction: (c) => `ร้าน "${shopName(c)}" แสดง Badge และ QR บนช่องทางขาย — ต่อไปดูว่าผู้บริโภคตรวจสอบได้อย่างไร`, nextLabel: 'ดำเนินการต่อในมุมผู้บริโภค' },
-      { id: 's3-search', role: 'consumer', route: (c) => `/check?q=${encodeURIComponent(shopName(c))}`, transition: 'ร้านค้านำ Badge ไปแสดงแล้ว เปลี่ยนเป็นมุมผู้บริโภคที่กำลังจะซื้อสินค้าจากร้านเดียวกัน', title: 'ค้นหาร้านค้า', instruction: 'ผลค้นหาแสดงสถานะเดียวกับ Badge — ไม่ต้องเข้าสู่ระบบ' },
-      {
-        id: 's3-qr',
-        role: 'consumer',
-        route: () => '/verify',
-        title: 'สแกน QR (จำลอง)',
-        instruction: (c) => `เลือก QR ของร้าน "${shopName(c)}" — ระบบจำลองการสแกนโดยไม่เปิดกล้อง`,
-        gate: { check: (g) => sig(g, 'verify.viewed') === g.ctx.certId, hint: 'เลือก QR ของร้านนี้เพื่อจำลองการสแกน' },
-      },
-      { id: 's3-cert', role: 'consumer', route: (c) => `/verify/${c.certId}`, title: 'รายละเอียดใบรับรอง', instruction: 'เลขอ้างอิง ระดับ วันหมดอายุ และสถานะปัจจุบัน — ตรงกับที่ร้านค้าเห็น', tip: 'ใบรับรองตัวอย่างในระบบสาธิต ไม่มีผลรับรองจริง' },
-      { id: 's3-profile', role: 'consumer', route: (c) => `/shop/${c.merchantId}`, title: 'โปรไฟล์ร้านและช่องทางขายที่ตรวจแล้ว', instruction: 'ช่องทางขายแต่ละช่องทางมีสถานะการตรวจสอบของตัวเอง' },
-      {
-        id: 's3-external',
-        role: 'consumer',
-        route: (c) => `/shop/${c.merchantId}`,
-        title: 'ตัวอย่างหน้าร้านบนแพลตฟอร์มเดิม',
-        instruction: 'กด "เปิด" ที่ช่องทางขาย เพื่อดูตัวอย่าง (Mockup ภายในแอป ไม่เปิดเว็บจริง)',
-        gate: { check: (g) => sig(g, 'channel.preview') === true, hint: 'กด "เปิด" ที่ช่องทางขายใดก็ได้' },
-        nextLabel: 'จบ Scenario และดูสรุป',
-      },
-    ],
-    summary: (c) => [`ผู้บริโภคตรวจสอบร้าน "${shopName(c)}" — ผล: ${verdictText(c.merchantId)}`, `ใบรับรองที่ตรวจ: ${c.certId}`, 'ไม่มีการเปลี่ยนข้อมูลธุรกิจ (เป็นการอ่านข้อมูลเท่านั้น)'],
-  },
 
   // ------------------------------------------------------------ 4
   {
@@ -299,7 +243,6 @@ export const scenarios: ScenarioDef[] = [
       ocpb: 'เรื่องที่ร้านแก้ไขเองได้ไม่ต้องเข้าสู่กระบวนการของเจ้าหน้าที่ ลดภาระงาน',
     },
     nextCta: 'ดำเนินการต่อ: ระบบตักเตือนและอบรม',
-    continuity: shopIssue,
     prepare: (j, carry) => {
       const m = (carry && certifiedShop(j.merchantId)) || merchant('M-001')!;
       return { merchantId: m.id, operatorId: m.operatorId, consumerId: 'CS-003', officerId: 'OF-002' };
@@ -346,7 +289,7 @@ export const scenarios: ScenarioDef[] = [
         instruction: 'กด "ได้รับการแก้ไขแล้ว (Consumer Confirm)" — (ถ้าเลือกส่งต่อ ขั้นนี้ผ่านอัตโนมัติ)',
         gate: { check: (g) => ['resolved', 'escalated'].includes(complaint(g.ctx.complaintId)?.status ?? ''), hint: 'กด "ได้รับการแก้ไขแล้ว"' },
       },
-      { id: 's4-timeline', role: 'consumer', route: (c) => `/consumer/cases/${c.complaintId}`, title: 'Timeline ของเรื่อง', instruction: 'Timeline บันทึกทุกขั้นตอน ตั้งแต่ยื่นเรื่องจนปิดเรื่อง', nextLabel: 'จบ Scenario และดูสรุป' },
+      { id: 's4-timeline', role: 'consumer', route: (c) => `/consumer/cases/${c.complaintId}`, title: 'Timeline ของเรื่อง', instruction: 'Timeline บันทึกทุกขั้นตอน ตั้งแต่ยื่นเรื่องจนปิดเรื่อง', nextLabel: 'จบการสาธิตและดูสรุป' },
     ],
     summary: (c) => {
       const x = complaint(c.complaintId);
@@ -369,7 +312,7 @@ export const scenarios: ScenarioDef[] = [
     keyMessage: 'เน้นการแนะนำและพัฒนาก่อนมาตรการลงโทษ — มีหลักฐานและ Timeline ทุกขั้น',
     audience: ['officer', 'merchant'],
     duration: '≈ 7 นาที',
-    caseNote: 'กรณีศึกษาแยก: ร้าน "สวยใสคอสเมติก" ซึ่งมีข้อร้องเรียนเรื่องโฆษณาเกินจริง (คนละเหตุการณ์กับร้านใน Scenario 1–4)',
+    caseNote: 'กรณีศึกษาแยก: ร้าน "สวยใสคอสเมติก" ซึ่งมีข้อร้องเรียนเรื่องโฆษณาเกินจริง (กรณีศึกษาแยกจากเรื่องอื่น)',
     benefits: {
       sme: 'ได้รับคำแนะนำและโอกาสปรับปรุงก่อนถูกพิจารณามาตรการ พร้อมความรู้ที่ใช้ได้จริง',
       consumer: 'โฆษณาที่อาจทำให้เข้าใจผิดถูกแก้ไขอย่างรวดเร็ว',
@@ -450,7 +393,7 @@ export const scenarios: ScenarioDef[] = [
         title: 'ตรวจผลและปิดรายการ',
         instruction: 'กด "เริ่มตรวจผล" แล้ว "ตรวจผลผ่าน" (หรือ "ส่งกลับให้แก้ไข" พร้อมเหตุผล)',
         gate: { check: (g) => warning(g.ctx.warningId)?.status === 'completed', hint: 'ตรวจผลให้ผ่านเพื่อปิดรายการ' },
-        nextLabel: 'จบ Scenario และดูสรุป',
+        nextLabel: 'จบการสาธิตและดูสรุป',
       },
     ],
     summary: (c) => {
@@ -469,12 +412,12 @@ export const scenarios: ScenarioDef[] = [
   {
     id: 's6',
     no: 6,
-    title: 'เจ้าหน้าที่พิจารณาระงับการรับรอง พร้อมกระบวนการชี้แจงและอุทธรณ์',
+    title: 'กรณีร้านค้าถูกระงับการรับรองและการอุทธรณ์',
     objective: 'ข้อกล่าวหายังไม่ใช่ความผิด: เจ้าหน้าที่พิจารณาหลักฐาน ระงับพร้อมเหตุผล ร้านค้าชี้แจง/อุทธรณ์ และเจ้าหน้าที่พิจารณาอีกครั้ง',
     keyMessage: 'กระบวนการเป็นธรรม โปร่งใส ตรวจสอบย้อนหลังได้ และสถานะต่อสาธารณะอัปเดตทันที',
     audience: ['officer', 'merchant', 'consumer'],
     duration: '≈ 7 นาที',
-    caseNote: 'กรณีศึกษาแยก: ร้าน "ไอทีแกดเจ็ตช็อป" มีข้อร้องเรียนไม่ได้รับสินค้าหลายเรื่อง — ไม่เกี่ยวกับคำเตือนหรือการอบรมใน Scenario 5',
+    caseNote: 'กรณีศึกษาแยก: ร้าน "ไอทีแกดเจ็ตช็อป" มีข้อร้องเรียนไม่ได้รับสินค้าหลายเรื่อง — กรณีศึกษาแยกจากเรื่องอื่น',
     benefits: {
       sme: 'ได้รับสิทธิชี้แจงและอุทธรณ์อย่างเป็นธรรม ทุกการตัดสินใจมีเหตุผล',
       consumer: 'สถานะใบรับรองต่อสาธารณะอัปเดตทันทีเมื่อมีปัญหา',
@@ -517,7 +460,7 @@ export const scenarios: ScenarioDef[] = [
         gate: { check: (g) => risk(g.ctx.riskCaseId)?.status === 'appeal_reviewed', hint: 'บันทึกผลการพิจารณาอุทธรณ์' },
         nextLabel: 'ดูสถานะในมุมผู้บริโภค',
       },
-      { id: 's6-public', role: 'consumer', route: (c) => `/verify/${c.certId}`, transition: 'ผลพิจารณาถูกบันทึกแล้ว ดูสถานะใบรับรองที่ผู้บริโภคเห็นในขณะนี้', title: 'สถานะต่อสาธารณะ', instruction: 'รับอุทธรณ์ → "ผ่านเกณฑ์ธุรกิจ" · ยกอุทธรณ์ → "ถูกระงับการรับรอง"', nextLabel: 'จบ Scenario และดูสรุป' },
+      { id: 's6-public', role: 'consumer', route: (c) => `/verify/${c.certId}`, transition: 'ผลพิจารณาถูกบันทึกแล้ว ดูสถานะใบรับรองที่ผู้บริโภคเห็นในขณะนี้', title: 'สถานะต่อสาธารณะ', instruction: 'รับอุทธรณ์ → "ผ่านเกณฑ์ธุรกิจ" · ยกอุทธรณ์ → "ถูกระงับการรับรอง"', nextLabel: 'จบการสาธิตและดูสรุป' },
     ],
     summary: (c) => {
       const r = risk(c.riskCaseId);
@@ -545,7 +488,6 @@ export const scenarios: ScenarioDef[] = [
       ocpb: 'ป้องกันปัญหาโฆษณาเกินจริงตั้งแต่ต้นทาง ลดเรื่องร้องเรียนปลายทาง',
     },
     nextCta: 'ดำเนินการต่อ: AI ช่วยร้านค้าแก้ไขข้อร้องเรียน',
-    continuity: operatorIssue,
     prepare: (j, carry) => {
       fixtureAdChecker();
       const op = carry && !operatorIssue(j) ? j.operatorId! : 'OP-001';
@@ -561,7 +503,7 @@ export const scenarios: ScenarioDef[] = [
       { id: 's7-findings', role: 'merchant', route: () => '/m/ai/ad-checker', title: 'ประเด็นและคำแนะนำ', instruction: 'แต่ละประเด็นมีข้อความที่พบ คำอธิบาย เหตุผล และคำแนะนำ' },
       { id: 's7-edit', role: 'merchant', route: () => '/m/ai/ad-checker', title: 'แก้ข้อความตามข้อเสนอ', instruction: 'แก้ไขในช่อง "ข้อความฉบับเสนอแก้ไข" — ข้อความใน [ ] คือข้อมูลที่ร้านต้องกรอกเองตามจริง', gate: { check: () => !!useAiWorkspaceStore.getState().ad.revisionDraft?.trim(), hint: 'แก้ไขหรือเขียนข้อความฉบับปรับปรุงในช่องด้านล่าง' } },
       { id: 's7-reanalyze', role: 'merchant', route: () => '/m/ai/ad-checker', title: 'วิเคราะห์ใหม่', instruction: 'กด "วิเคราะห์ใหม่เพื่อเปรียบเทียบ"', gate: { check: () => !!useAiWorkspaceStore.getState().ad.after, hint: 'กด "วิเคราะห์ใหม่เพื่อเปรียบเทียบ"' } },
-      { id: 's7-compare', role: 'merchant', route: () => '/m/ai/ad-checker', title: 'เปรียบเทียบก่อน–หลัง', instruction: 'ประเด็นที่ไม่พบแล้ว และประเด็นที่ยังควรตรวจสอบ', tip: 'AI Simulation ไม่ได้อนุมัติโฆษณา ผู้ประกอบการต้องตรวจสอบข้อเท็จจริงก่อนเผยแพร่', nextLabel: 'จบ Scenario และดูสรุป' },
+      { id: 's7-compare', role: 'merchant', route: () => '/m/ai/ad-checker', title: 'เปรียบเทียบก่อน–หลัง', instruction: 'ประเด็นที่ไม่พบแล้ว และประเด็นที่ยังควรตรวจสอบ', tip: 'AI Simulation ไม่ได้อนุมัติโฆษณา ผู้ประกอบการต้องตรวจสอบข้อเท็จจริงก่อนเผยแพร่', nextLabel: 'จบการสาธิตและดูสรุป' },
     ],
     summary: () => {
       const { before, after } = useAiWorkspaceStore.getState().ad;
@@ -628,7 +570,7 @@ export const scenarios: ScenarioDef[] = [
         nextLabel: 'ดูในมุมผู้บริโภค',
       },
       { id: 's8-consumer', role: 'consumer', route: (c) => `/consumer/cases/${c.complaintId}`, transition: 'ร้านค้าส่งคำตอบแล้ว ดูเรื่องเดียวกันในมุมผู้บริโภค', title: 'ผู้บริโภคเห็นคำตอบ', instruction: 'คำตอบที่ร้านส่งปรากฏในการสนทนาและ Timeline' },
-      { id: 's8-follow', role: 'consumer', route: (c) => `/consumer/cases/${c.complaintId}`, title: 'ติดตามเคส', instruction: 'ผู้บริโภคตอบกลับ ยอมรับข้อเสนอ หรือขอส่งต่อเจ้าหน้าที่ได้ตาม Workflow เดิม', nextLabel: 'จบ Scenario และดูสรุป' },
+      { id: 's8-follow', role: 'consumer', route: (c) => `/consumer/cases/${c.complaintId}`, title: 'ติดตามเคส', instruction: 'ผู้บริโภคตอบกลับ ยอมรับข้อเสนอ หรือขอส่งต่อเจ้าหน้าที่ได้ตาม Workflow เดิม', nextLabel: 'จบการสาธิตและดูสรุป' },
     ],
     summary: (c) => {
       const x = complaint(c.complaintId);
@@ -669,15 +611,7 @@ export const allScenarios: ScenarioDef[] = [...scenarios, ...v2Scenarios, ...aut
 export const findScenario = (id?: string) => allScenarios.find((s) => s.id === id);
 export const trackOf = (sc?: ScenarioDef): Track => sc?.track ?? 'v1';
 /** Scenario ทั้งหมดของชุด (รวมเส้นทางทางเลือก) */
-export const trackScenarios = (t: Track) => allScenarios.filter((s) => trackOf(s) === t);
-/** ลำดับของ Full Journey (ไม่รวมเส้นทางทางเลือก) */
-export const journeyScenarios = (t: Track) => trackScenarios(t).filter((s) => !s.branch);
 /** รหัสที่แสดง เช่น "3", "9B" */
-export const scenarioCode = (sc: ScenarioDef) => sc.code ?? String(sc.no);
-export const TRACK_INFO: Record<Track, { name: string; tagline: string; desc: string }> = {
-  v1: { name: 'SME Trust — Consumer Protection', tagline: 'Scenario 1–8', desc: 'ยืนยันตัวตน รับรองร้านค้า ร้องเรียน คำเตือน การระงับ/อุทธรณ์ และ AI Simulation ช่วยผู้ประกอบการ' },
-  v2: { name: 'SME Trust — Marketplace & Trust Assessment', tagline: 'Scenario 9–15', desc: 'เชื่อมข้อมูลจากแพลตฟอร์มขายเดิม (จำลอง) ประเมินความน่าเชื่อถืออัตโนมัติจากหลายปัจจัย และส่งเจ้าหน้าที่เฉพาะกรณียกเว้น — การรับรอง Level 2–4 ยังเป็นอำนาจของเจ้าหน้าที่' },
-};
 export const stepInstruction = (ins: string | ((c: DemoCtx) => string), ctx: DemoCtx) => (typeof ins === 'function' ? ins(ctx) : ins);
 
 /** บัญชีสาธิตสำหรับ Role Switcher */

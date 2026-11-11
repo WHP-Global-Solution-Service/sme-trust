@@ -58,17 +58,17 @@ const integrity = (label: string) => {
 
 // ================================================================ static checks
 describe('โครงสร้าง Scenario');
-check(scenarios.length === 8 && scenarios.map((s) => s.no).join() === '1,2,3,4,5,6,7,8', 'มี 8 Scenario เรียงตามลำดับ');
+check(scenarios.length === 7 && scenarios.map((s) => s.no).join() === '1,2,4,5,6,7,8', 'ฟังก์ชันอื่นของระบบ 7 เรื่อง (ยกเลิกเรื่องผู้บริโภคตรวจสอบที่ซ้ำกับ Demo หลัก)');
 for (const s of scenarios) {
   const missing = s.steps.filter((st, i) => i > 0 && st.role !== s.steps[i - 1].role && !st.transition).map((st) => st.id);
   check(missing.length === 0, `S${s.no}: ทุกการเปลี่ยนบทบาทมีคำอธิบาย (Role Transition)${missing.length ? ' — ขาด: ' + missing.join(', ') : ''}`);
   check(new Set(s.steps.map((st) => st.id)).size === s.steps.length && !!s.benefits.sme && !!s.benefits.consumer && !!s.benefits.ocpb && !!s.keyMessage, `S${s.no}: Step ID ไม่ซ้ำ มีประโยชน์ 3 กลุ่ม และ Key Message`);
 }
 
-// ================================================================ Full Journey
-describe('Full Journey — Scenario 1: สมัครสมาชิกและยืนยันตัวตน');
-C.startJourney(nav);
-check(demo().journeyMode && demo().status === 'running' && demo().activeScenario === 's1', 'Start Full Journey → เริ่ม Scenario 1 ในโหมด Journey');
+// ================================================================ แต่ละเรื่อง (เล่นทีละเรื่อง ไม่มี Full Journey)
+describe('การสาธิต — Scenario 1: สมัครสมาชิกและยืนยันตัวตน');
+C.startScenario('s1', nav);
+check(demo().status === 'running' && demo().activeScenario === 's1', 'เริ่มการสาธิตสมัครสมาชิกและยืนยันตัวตน');
 check(assertStep('').includes('ลงทะเบียนด้วยตนเอง'), '  หน้าเริ่มต้นมีปุ่ม "ลงทะเบียนด้วยตนเอง"');
 go();
 assertStep('');
@@ -100,13 +100,13 @@ check(assertStep('').includes('ยืนยันตัวตนแล้ว (Le
 check(demo().current.operatorId === newOp.id, '  บันทึก currentOperatorId ของบัญชีที่เพิ่งสร้าง');
 check(go() === 'completed' && cur === '/demo/complete/s1', 'จบ Scenario 1 → Summary Screen');
 let page = view(cur);
-check(page.includes('Completed') && page.includes('ดำเนินการต่อ: ลงทะเบียนร้านค้า') && page.includes(newOp.name), '  Summary มีสถานะ Completed, สิ่งที่เปลี่ยน และ CTA ไป Scenario 2');
-check(demo().journey.operatorId === newOp.id, '  ส่งต่อ Operator ID ให้ Scenario ถัดไป');
+check(page.includes('สาธิตครบทุกขั้นแล้ว') && page.includes('จบการสาธิต') && page.includes(newOp.name), '  Summary มีสถานะ Completed, สิ่งที่เปลี่ยน และ CTA ไป Scenario 2');
 
-describe('Full Journey — Scenario 2: สมัครร้านค้าและได้รับการรับรอง');
+describe('การสาธิต — Scenario 2: สมัครร้านค้าและได้รับการรับรอง');
 const merchantsBefore = S.useMerchantStore.getState().items.length;
-C.continueToNext('s1', nav);
-check(demo().current.operatorId === newOp.id && S.useOperatorStore.getState().items.some((o) => o.id === newOp.id), 'ดำเนินการต่อโดยไม่ Reset — ใช้บัญชีจาก Scenario 1');
+C.startScenario('s2', nav);
+const s2Op = operator(demo().current.operatorId!)!;
+check(s2Op.id === 'OP-012' && s2Op.kycStatus === 'verified', 'เริ่มด้วยบัญชีตัวอย่างที่ยืนยันตัวตนแล้วแต่ยังไม่มีร้าน');
 assertStep('');
 go();
 assertStep('');
@@ -117,9 +117,9 @@ for (const n of [1, 3, 4, 5]) {
 }
 assertStep('submit');
 assertBlocked();
-const { merchant: shop, app } = asOwner(newOp.id, () => W.submitShopRegistration(newOp.id, {
-  businessType: 'individual', ownerName: newOp.name, shopName: 'ร้านสาธิตต่อเนื่อง', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง', phone: newOp.phone, email: newOp.email,
-  description: 'ร้านสำหรับทดสอบการสาธิตแบบต่อเนื่องทั้ง 8 เรื่อง', channels: [{ type: 'facebook', handle: 'journey.demo' }],
+const { merchant: shop, app } = asOwner(s2Op.id, () => W.submitShopRegistration(s2Op.id, {
+  businessType: 'individual', ownerName: s2Op.name, shopName: 'ร้านสาธิตต่อเนื่อง', category: 'บริการ', province: 'ชลบุรี', district: 'เมือง', phone: s2Op.phone, email: s2Op.email,
+  description: 'ร้านสำหรับทดสอบการสาธิตการลงทะเบียนและการรับรอง', channels: [{ type: 'facebook', handle: 'journey.demo' }],
   documents: [{ id: 'd-j', name: 'ทะเบียนพาณิชย์.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 1, addedAt: new Date().toISOString() }],
 }));
 go();
@@ -139,38 +139,20 @@ go();
 assertBlocked();
 check(!cert(shop.id), '  กดถัดไปไม่ออกใบรับรองแทนเจ้าหน้าที่');
 actAs(['officer', 'admin'], () => W.approveApplication(certReq.id));
-check(go() === 'transition→moved' && S.useSessionStore.getState().operatorId === newOp.id && S.useSessionStore.getState().activeMerchantId === shop.id, 'CTA "ดูผลในมุมผู้ประกอบการ" → กลับเป็นร้านเดิม (Operator/Merchant ID เดิม)');
+check(go() === 'transition→moved' && S.useSessionStore.getState().operatorId === s2Op.id && S.useSessionStore.getState().activeMerchantId === shop.id, 'CTA "ดูผลในมุมผู้ประกอบการ" → กลับเป็นร้านเดิม (Operator/Merchant ID เดิม)');
 check(assertStep('').includes('ได้รับอนุมัติ'), '  ร้านค้าเห็นการแจ้งเตือนผลอนุมัติ');
 go();
 check(assertStep('').includes('Business Verified'), '  Trust Badge อัปเดตจริง');
 go();
 check(assertStep('').includes('ร้านสาธิตต่อเนื่อง'), '  SME Trust Passport แสดงร้านใหม่');
 go();
-check(cur === '/demo/complete/s2' && demo().journey.merchantId === shop.id && demo().journey.certId === cert(shop.id)!.id, 'จบ Scenario 2 — ส่งต่อ Merchant/Certificate ID');
+check(cur === '/demo/complete/s2' && demo().results.s2?.merchantId === shop.id && demo().results.s2?.certId === cert(shop.id)!.id, 'จบการสาธิต — บันทึก Merchant/Certificate ID ในสรุป');
 integrity('Scenario 2');
 
-describe('Full Journey — Scenario 3: ผู้บริโภคตรวจสอบร้านค้า');
-C.continueToNext('s2', nav);
-check(demo().current.merchantId === shop.id, 'ใช้ Merchant ID เดียวกับ Scenario 2');
-assertStep('');
-check(go() === 'transition→moved', 'สลับเป็นผู้บริโภคผ่าน Role Transition');
-check(assertStep('').includes('ร้านสาธิตต่อเนื่อง') && view(cur).includes('ผ่านเกณฑ์ธุรกิจ'), '  ผลค้นหาแสดงสถานะตรงกับ Merchant View');
-go();
-assertStep('QR');
-assertBlocked();
-reportDemo('verify.viewed', demo().current.certId!);
-go();
-assertStep('');
-go();
-assertStep('');
-go();
-assertBlocked();
-reportDemo('channel.preview', true);
-check(go() === 'completed', 'จบ Scenario 3 (เปิดตัวอย่างหน้าร้านบนแพลตฟอร์มภายในแอป)');
-
-describe('Full Journey — Scenario 4: ร้องเรียนและร้านค้าแก้ไข');
-C.continueToNext('s3', nav);
-check(demo().current.merchantId === shop.id && demo().current.operatorId === newOp.id, 'ใช้ร้านเดิมจาก Scenario 2');
+describe('การสาธิต — Scenario 4: ร้องเรียนและร้านค้าแก้ไข');
+C.startScenario('s4', nav);
+const shop4 = merchant(demo().current.merchantId!)!;
+check(!!shop4 && shop4.registrationStatus === 'approved', 'เริ่มด้วยร้านตัวอย่างที่ลงทะเบียนแล้ว');
 assertStep('');
 go();
 assertStep('');
@@ -179,7 +161,7 @@ reportDemo('report.step', 5);
 go();
 assertBlocked();
 const complaintForm = {
-  merchantId: shop.id, consumerId: 'CS-003', category: 'not_as_described' as const, title: 'บริการไม่ตรงตามที่ตกลง', description: 'ได้รับบริการไม่ตรงตามแพ็กเกจที่ตกลงไว้ ต้องการให้ร้านแก้ไขหรือคืนเงิน',
+  merchantId: shop4.id, consumerId: 'CS-003', category: 'not_as_described' as const, title: 'บริการไม่ตรงตามที่ตกลง', description: 'ได้รับบริการไม่ตรงตามแพ็กเกจที่ตกลงไว้ ต้องการให้ร้านแก้ไขหรือคืนเงิน',
   incidentDate: '2026-10-19', orderRef: 'JRN-001', orderAmount: 1200, channel: 'facebook' as const, evidence: [],
 };
 const cmpBefore = S.useComplaintStore.getState().items.length;
@@ -187,7 +169,7 @@ actAs('consumer', () => W.submitComplaint(complaintForm));
 // Restart Scenario กลางทาง: คืนข้อมูลเป็นจุดเริ่มต้นของเรื่อง ไม่สร้างข้อมูลซ้ำ และไม่กระทบผลของ Scenario ก่อนหน้า
 C.restartScenario(nav);
 check(S.useComplaintStore.getState().items.length === cmpBefore && demo().stepIndex === 0, 'Restart Scenario: เรื่องที่สร้างระหว่างทางถูกถอยกลับ (ไม่ซ้ำ) และกลับขั้นแรก');
-check(merchant(shop.id)?.registrationStatus === 'approved' && demo().current.merchantId === shop.id, '  ผลของ Scenario 1–3 ยังอยู่ (ร้านที่อนุมัติแล้ว)');
+check(merchant(shop4.id)?.registrationStatus === 'approved' && demo().current.merchantId === shop4.id, '  ผลของ Scenario 1–3 ยังอยู่ (ร้านที่อนุมัติแล้ว)');
 go();
 reportDemo('report.step', 5);
 go();
@@ -195,7 +177,7 @@ const cmp = actAs('consumer', () => W.submitComplaint(complaintForm));
 go();
 check(demo().current.complaintId === cmp.id && S.useComplaintStore.getState().items.length === cmpBefore + 1, `บันทึก currentComplaintId ${cmp.id} (มีเพียง 1 เรื่อง)`);
 check(assertStep('').includes(cmp.id), '  หน้าติดตามสถานะแสดงเรื่องที่เพิ่งสร้าง');
-check(go() === 'transition→moved' && S.useSessionStore.getState().operatorId === newOp.id, 'CTA "ดูการรับเรื่องของร้านค้า" → ร้านเดิม');
+check(go() === 'transition→moved' && S.useSessionStore.getState().operatorId === shop4.operatorId, 'CTA "ดูการรับเรื่องของร้านค้า" → ร้านเดิม');
 check(assertStep('').includes(cmp.id), '  ร้านค้าเปิด Complaint ID เดิม');
 assertBlocked();
 S.useSessionStore.getState().set({ role: 'merchant' });
@@ -210,13 +192,13 @@ actAs('consumer', () => W.consumerConfirmResolved(cmp.id));
 go();
 check(assertStep('').includes('แก้ไขสำเร็จ'), '  Case Resolved พร้อม Timeline');
 go();
-check(cur === '/demo/complete/s4' && demo().journey.complaintId === cmp.id, 'จบ Scenario 4');
+check(cur === '/demo/complete/s4' && demo().results.s4?.complaintId === cmp.id, 'จบ Scenario 4');
 integrity('Scenario 4');
 
-describe('Full Journey — Scenario 5: คำเตือนและการอบรม');
-C.continueToNext('s4', nav);
+describe('การสาธิต — Scenario 5: คำเตือนและการอบรม');
+C.startScenario('s5', nav);
 check(demo().current.merchantId === 'M-003' && !!sc().caseNote, 'ใช้กรณีศึกษาแยก (ร้านสวยใสคอสเมติก) พร้อมคำอธิบายว่าเป็นคนละเหตุการณ์');
-check(merchant(shop.id)?.registrationStatus === 'approved' && complaint(cmp.id)?.status === 'resolved', '  ข้อมูลของ Scenario 1–4 ยังอยู่ (ไม่ Reset ทั้งระบบ)');
+
 assertStep('');
 go();
 assertStep('');
@@ -251,8 +233,8 @@ check(cur === '/demo/complete/s5' && S.useTrainingStore.getState().items.some((e
 check(merchant('M-003').riskStatus === 'none' && merchant('M-003').riskStatus !== 'suspended', '  คำเตือน/การอบรมไม่ทำให้ร้านถูกระงับ');
 integrity('Scenario 5');
 
-describe('Full Journey — Scenario 6: ระงับและอุทธรณ์');
-C.continueToNext('s5', nav);
+describe('การสาธิต — Scenario 6: ระงับและอุทธรณ์');
+C.startScenario('s6', nav);
 check(demo().current.riskCaseId === 'RSK-2569-0001' && verdict('M-004').key === 'business', 'เริ่มก่อนการระงับ (เคสความเสี่ยงแยก ร้านไอทีแกดเจ็ตช็อป)');
 assertStep('');
 go();
@@ -271,13 +253,13 @@ assertBlocked();
 actAs(['officer', 'admin'], () => W.reviewAppeal('RSK-2569-0001', 'upheld', 'หลักฐานยังไม่เพียงพอ'));
 check(go() === 'transition→moved', 'สลับเป็นผู้บริโภค');
 assertStep('');
-check(verdict('M-004').key === 'suspended' && verdict(shop.id).key === 'business', '  ผลอุทธรณ์ "ยืนยันการระงับ" — ผู้บริโภคเห็น Suspended และไม่กระทบร้านอื่น');
+check(verdict('M-004').key === 'suspended', '  ผลอุทธรณ์ "ยืนยันการระงับ" — ผู้บริโภคเห็น Suspended และไม่กระทบร้านอื่น');
 go();
 integrity('Scenario 6');
 
-describe('Full Journey — Scenario 7: AI ตรวจสอบโฆษณา');
-C.continueToNext('s6', nav);
-check(demo().current.operatorId === newOp.id, 'กลับมาใช้บัญชีของ Journey (ผู้ประกอบการจาก Scenario 1)');
+describe('การสาธิต — Scenario 7: AI ตรวจสอบโฆษณา');
+C.startScenario('s7', nav);
+check(!!demo().current.operatorId, 'เริ่มด้วยบัญชีผู้ประกอบการตัวอย่าง');
 check(assertStep('').includes('AI ผู้ช่วย SME'), '  Merchant Home มีส่วน AI ผู้ช่วย SME');
 go();
 assertStep('');
@@ -304,8 +286,8 @@ check(assertStep('').includes('เปรียบเทียบก่อน') &
 go();
 check(cur === '/demo/complete/s7', 'จบ Scenario 7');
 
-describe('Full Journey — Scenario 8: AI ช่วยแก้ไขข้อร้องเรียน');
-C.continueToNext('s7', nav);
+describe('การสาธิต — Scenario 8: AI ช่วยแก้ไขข้อร้องเรียน');
+C.startScenario('s8', nav);
 const cid = demo().current.complaintId!;
 check(cid === 'CMP-2569-0005' && !!complaint(cid), `ใช้ Complaint ID ที่มีอยู่ใน Mock Store (${cid})`);
 assertStep('');
@@ -339,13 +321,13 @@ check(go() === 'transition→moved' && S.useSessionStore.getState().consumerId =
 check(assertStep('').includes(friendly.slice(0, 20)), '  ผู้บริโภคเห็นคำตอบที่ส่งแล้ว');
 go();
 go();
-check(cur === '/demo/complete/s8' && view(cur).includes('ดูสรุปภาพรวม SME Trust Platform'), 'จบ Scenario 8 — มีปุ่มดูสรุปภาพรวม');
-check(demo().completed.length === 8 && scenarios.every((s) => C.scenarioStatus(s.id) === 'completed'), 'Full Journey: ทั้ง 8 Scenario สถานะ Completed');
-page = view('/demo/overview');
-check(page.includes('สรุปภาพรวม SME Trust Platform') && page.includes('8/8'), 'หน้าสรุปภาพรวมแสดงผลจากข้อมูลจำลอง');
-check(S.useMerchantStore.getState().items.length === merchantsBefore + 1, 'ทั้ง Journey สร้างร้านค้าใหม่เพียง 1 ร้าน (ไม่มีข้อมูลซ้ำ)');
-integrity('Full Journey');
-check(view('/demo/complete/s2').includes('ร้านสาธิตต่อเนื่อง'), 'ย้อนดูสรุป Scenario ก่อนหน้าได้ด้วยข้อมูลของเรื่องนั้น');
+check(cur === '/demo/complete/s8' && view(cur).includes('จบการสาธิต') && view(cur).includes('เริ่ม Demo ใหม่'), 'จบการสาธิต — หน้าสรุปมีปุ่ม "จบการสาธิต" และ "เริ่ม Demo ใหม่"');
+check(demo().completed.length === 7 && scenarios.every((s) => C.scenarioStatus(s.id) === 'completed'), 'ฟังก์ชันอื่นทั้ง 7 เรื่องเล่นจบได้ทีละเรื่อง');
+check(S.useMerchantStore.getState().items.length === MOCK.seed.merchants().length, 'แต่ละเรื่องเริ่มจากข้อมูลตั้งต้น — ไม่มีร้านค้าค้างหรือซ้ำจากเรื่องก่อน');
+integrity('ทุกเรื่อง');
+check(view('/demo/complete/s2').includes('สาธิตครบทุกขั้นแล้ว'), 'ย้อนดูหน้าสรุปของเรื่องที่จบแล้วได้');
+page = view('/demo');
+check(page.includes('ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ') && !page.includes('สรุปภาพรวม SME Trust Platform'), 'หน้า Demo แสดง Demo หลัก (ไม่มีหน้าสรุป Full Journey แล้ว)');
 
 // ================================================================ Refresh
 describe('Refresh Browser ระหว่างสาธิต');
@@ -364,7 +346,7 @@ assertBlocked();
 describe('Scenario แบบเดี่ยว');
 for (const s of scenarios) {
   C.startScenario(s.id, nav);
-  const ok = demo().activeScenario === s.id && !demo().journeyMode && demo().stepIndex === 0;
+  const ok = demo().activeScenario === s.id && demo().stepIndex === 0;
   check(ok, `S${s.no} เริ่มแบบเดี่ยว → ${cur}`);
   assertStep('');
   const firstProblems = integrityProblems();
@@ -387,53 +369,6 @@ go();
 check(verdict('M-004').key === 'business', 'S6 ผลอุทธรณ์ "ยกเลิกการระงับ" — ผู้บริโภคเห็นสถานะคืน');
 C.resetScenarioData('s5');
 check(demo().status === 'idle' && S.useWarningStore.getState().items.find((x) => x.id === 'WRN-2569-0001')!.status === 'completed', 'Reset Scenario จากหน้ารวม: เตรียมจุดเริ่มต้นโดยยังไม่เริ่มสาธิต');
-
-// ================================================================ Continuity
-describe('ความต่อเนื่องของ Full Journey — ไม่สลับร้านค้าแบบเงียบ');
-C.startJourney(nav);
-for (const n of [1, 2, 3]) {
-  reportDemo('register.step', n);
-}
-const cOp = W.registerOperator({ name: 'ทดสอบ ต่อเนื่อง', phone: '0897772222', email: 'cont@demo.local', province: 'ตาก', pin: '135790' });
-asOwner(cOp.id, () => W.setKycResult(cOp.id, true));
-useDemoStore.setState((st) => ({ current: { ...st.current, operatorId: cOp.id } }));
-// จบ S1 โดยตรง (ขั้นละเอียดทดสอบแล้วด้านบน)
-C.completeScenario(nav);
-check(demo().journey.operatorId === cOp.id && !C.continuityIssue('s2'), 'S1 จบ → บัญชีใช้ต่อใน S2 ได้ (ไม่มีปัญหาความต่อเนื่อง)');
-C.continueToNext('s1', nav);
-const { merchant: cShop, app: cApp } = asOwner(cOp.id, () => W.submitShopRegistration(cOp.id, {
-  businessType: 'individual', ownerName: cOp.name, shopName: 'ร้านยังไม่อนุมัติ', category: 'บริการ', province: 'ตาก', district: 'เมือง', phone: cOp.phone, email: cOp.email,
-  description: 'ร้านทดสอบกรณีข้าม Scenario ก่อนได้รับอนุมัติ', channels: [{ type: 'facebook', handle: 'cont.demo' }],
-  documents: [{ id: 'd-c', name: 'เอกสาร.pdf', kind: 'ทะเบียนพาณิชย์', sizeKb: 1, addedAt: new Date().toISOString() }],
-}));
-useDemoStore.setState((st) => ({ current: { ...st.current, merchantId: cShop.id, applicationId: cApp.id } }));
-const s2Step = demo().stepIndex;
-check(!demo().journey.merchantId, '  (S2 ยังไม่จบ — ร้านยังไม่ถูกส่งต่อใน journey)');
-const issue = C.continuityIssue('s3');
-check(!!issue && issue.message.includes('ร้านยังไม่อนุมัติ') && issue.message.includes('ยังไม่ได้รับการรับรอง') && issue.fixScenario === 's2' && issue.fallbackLabel.includes('M-001'), 'ร้านจาก S2 ยังไม่อนุมัติ → ระบบตรวจพบ พร้อมเหตุผลและทางเลือก (ย้อนกลับ S2 / ใช้ร้านตัวอย่าง M-001)');
-check(!!C.continuityIssue('s4'), '  Scenario 4 ตรวจพบเช่นกัน');
-C.goFixScenario('s2', nav);
-check(demo().activeScenario === 's2' && demo().stepIndex === s2Step && demo().status === 'running' && demo().current.merchantId === cShop.id, 'เลือก "กลับไปทำ Scenario 2 ให้ครบ" → กลับขั้นเดิมของ S2 พร้อมร้านเดิม');
-C.startScenario('s3', nav, { carry: true, journey: true });
-check(demo().current.merchantId === 'M-001' && !!demo().current.notice && demo().current.notice!.includes('ร้านยังไม่อนุมัติ') && demo().current.notice!.includes('M-001'), 'เลือก "ใช้ข้อมูลตัวอย่าง" → ใช้ M-001 พร้อมหมายเหตุที่บอกเหตุผล (ไม่สลับแบบเงียบ)');
-check(view(cur).length > 0 && demo().journey.merchantId === cShop.id, '  ร้านของ Journey ยังถูกเก็บไว้ ไม่ถูกเขียนทับด้วยร้านตัวอย่าง');
-C.restartScenario(nav);
-check(!!demo().current.notice && demo().current.merchantId === 'M-001', '  Restart Scenario ยังแสดงหมายเหตุเดิม');
-const snapNotice = storage['smetrust:v2:demo'];
-useDemoStore.setState({ current: {} });
-storage['smetrust:v2:demo'] = snapNotice;
-await (useDemoStore as unknown as { persist: { rehydrate: () => Promise<void> } }).persist.rehydrate();
-check(!!demo().current.notice, '  Refresh แล้วหมายเหตุยังอยู่');
-// Automation First: การลงทะเบียนผ่านอัตโนมัติแล้วแต่ยังไม่ใช่การรับรอง — Scenario 3 ต้องใช้ร้านที่ได้ใบรับรอง (ยื่นขอ Level 2 → เจ้าหน้าที่อนุมัติ)
-check(cApp.autoDecision?.route === 'AUTO_PASS' && !!C.continuityIssue('s3'), '  ลงทะเบียนผ่านอัตโนมัติแต่ยังไม่มีใบรับรอง → ยังแจ้งหมายเหตุ (ลงทะเบียน ≠ การรับรอง)');
-const cReq = asOwner(cShop.id, () => W.applyCertification(cShop.id, 2));
-actAs(['officer', 'admin'], () => W.approveApplication(cReq.id));
-check(!C.continuityIssue('s3'), 'เมื่อร้านได้รับการรับรองแล้ว → ใช้ร้านของ Journey ได้ ไม่มีหมายเหตุ');
-C.startScenario('s3', nav, { carry: true, journey: true });
-check(demo().current.merchantId === cShop.id && !demo().current.notice, '  Scenario 3 ใช้ร้านเดียวกับ Scenario 2');
-check(!C.continuityIssue('s5') && !!findScenario('s5')!.caseNote && !!findScenario('s6')!.caseNote && !!findScenario('s8')!.caseNote, 'S5, S6, S8 มี caseNote สำหรับแจ้งการเปลี่ยนเป็นกรณีศึกษาแยก');
-C.startScenario('s2', nav);
-check(!demo().current.notice, 'Scenario แบบเดี่ยวไม่แสดงหมายเหตุ (ใช้ข้อมูลตัวอย่างตามปกติ)');
 
 describe('ย้อนกลับไปขั้นที่ทำแล้ว — ไม่ต้องทำ Action ซ้ำ');
 C.startScenario('s4', nav);
@@ -468,15 +403,15 @@ go();
 go();
 check(JSON.stringify(S.domainStores.map((x) => x.getState().items)) === afterAction, 'กด ย้อนกลับ/ถัดไป ซ้ำหลายครั้ง — ข้อมูลธุรกิจไม่เปลี่ยน (ไม่ระงับซ้ำ ไม่เพิ่ม Audit/การแจ้งเตือน)');
 
-// ================================================================ Pause / Restart Journey
-describe('Pause / Restart Full Journey');
-C.startJourney(nav);
+// ================================================================ Pause / Resume / เริ่มใหม่
+describe('Pause / Resume / เริ่มใหม่');
+C.startScenario('s1', nav);
 C.pauseDemo();
 check(demo().status === 'paused' && view('/m').length > 0 && view('/demo').includes('สาธิตต่อ'), 'Exit Demo: หยุดไว้และกลับมาสาธิตต่อได้');
 C.resumeDemo(nav);
 check(demo().status === 'running' && cur === '/', 'Resume กลับขั้นเดิม');
-C.startJourney(nav);
-check(demo().completed.length === 0 && JSON.stringify(S.useMerchantStore.getState().items) === JSON.stringify(MOCK.seed.merchants()) && JSON.stringify(S.useOperatorStore.getState().items) === JSON.stringify(MOCK.seed.operators()), 'Restart Full Journey คืนข้อมูลสาธิตเริ่มต้น (ร้านค้าและบัญชีตรงกับ Seed ทุกรายการ)');
+C.startScenario('s1', nav);
+check(JSON.stringify(S.useMerchantStore.getState().items) === JSON.stringify(MOCK.seed.merchants()) && JSON.stringify(S.useOperatorStore.getState().items) === JSON.stringify(MOCK.seed.operators()), 'Restart Full Journey คืนข้อมูลสาธิตเริ่มต้น (ร้านค้าและบัญชีตรงกับ Seed ทุกรายการ)');
 
 // ================================================================ AI integration
 describe('AI Integration กับระบบเดิม');

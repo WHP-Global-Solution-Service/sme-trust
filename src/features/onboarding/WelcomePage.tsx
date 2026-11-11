@@ -11,14 +11,12 @@ import {
   Gauge,
   Link2,
   LogIn,
-  MonitorPlay,
   PenLine,
   Play,
   QrCode,
   Scale,
   Search,
   ShieldCheck,
-  Smartphone,
   Star,
   Store,
   Tag,
@@ -27,7 +25,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { useSessionStore, useOperatorStore, confirmDialog } from '@/stores';
+import { useSessionStore, useOperatorStore, useMerchantStore, confirmDialog } from '@/stores';
 import { useDemoStore } from '@/stores/demo';
 import { PrototypeBanner } from '@/components/feedback/Feedback';
 import { Logo } from '@/components/common/Trust';
@@ -36,8 +34,9 @@ import { DemoPanel } from '@/components/layout/DemoPanel';
 import { DEMO_INSET, DemoController, useDemoActive } from '@/components/layout/DemoController';
 import { cn } from '@/utils/cn';
 import { switchRole } from '@/components/layout/demo';
-import { allScenarios } from '@/mock/scenarios';
-import { startJourney, startScenario } from '@/demo/controller';
+import { findScenario } from '@/mock/scenarios';
+import { MAIN_CTA_LABEL, MAIN_JOURNEY_ID } from '@/demo/main';
+import { startScenario } from '@/demo/controller';
 import { TRUST_LEVELS } from '@/constants/labels';
 import { COMPONENTS, MODEL_V2 } from '@/features/trust-assessment/model';
 import { BandCriteriaSection } from './BandCriteriaSection';
@@ -81,14 +80,11 @@ const BENEFITS: { who: string; icon: LucideIcon; items: string[] }[] = [
   { who: 'เจ้าหน้าที่', icon: Building2, items: ['ลดงานตรวจซ้ำ', 'คัดกรองเฉพาะ Exception', 'มีหลักฐานประกอบการพิจารณา'] },
 ];
 
-type DemoStart = { kind: 'scenario'; id: string } | { kind: 'journey'; track: 'v1' | 'v2' };
-const JOURNEYS: { title: string; desc: string; icon: LucideIcon; cta: string; start: DemoStart }[] = [
-  { title: 'Marketplace App Entry', desc: 'เริ่มจากหน้าจอผู้ขายบน Marketplace (จำลอง) แล้วเชื่อมกับ SME Trust', icon: Smartphone, cta: 'เริ่มจาก Marketplace App', start: { kind: 'scenario', id: 's14' } },
-  { title: 'Marketplace Registration', desc: 'ร้านใหม่สมัครด้วยข้อมูลจาก Marketplace + Auto-Fill', icon: Link2, cta: 'เริ่ม Scenario 9A', start: { kind: 'scenario', id: 's9a' } },
-  { title: 'Self-Registration', desc: 'ร้านที่ไม่มี Marketplace สมัครเอง — ไม่ถูกหักคะแนน', icon: PenLine, cta: 'เริ่ม Scenario 9B', start: { kind: 'scenario', id: 's9b' } },
-  { title: 'Exception Review', desc: 'ข้อมูลตัวตนขัดแย้ง → เจ้าหน้าที่ตัดสิน → ระบบทำงานต่อ', icon: UserCheck, cta: 'เริ่ม Scenario 15', start: { kind: 'scenario', id: 's15' } },
-  { title: 'Consumer Verification', desc: 'ผู้บริโภคค้นหา สแกน QR และดูผลประเมินก่อนซื้อ', icon: QrCode, cta: 'เริ่ม Scenario 13', start: { kind: 'scenario', id: 's13' } },
-  { title: 'Consumer Protection', desc: 'ยืนยันตัวตน รับรอง ร้องเรียน คำเตือน อุทธรณ์ (Scenario 1–8)', icon: ShieldCheck, cta: 'เริ่ม Full Journey: Consumer Protection', start: { kind: 'journey', track: 'v1' } },
+/** กรณีพิเศษที่แสดงบนหน้าแรก (ภายในใช้ Scenario เดิม — ไม่แสดงรหัส) */
+const HOME_CASES: { scenario: string; icon: LucideIcon; desc: string }[] = [
+  { scenario: 's9b', icon: PenLine, desc: 'ร้านที่ไม่มี Marketplace ลงทะเบียนเอง — ระบบแสดงสถานะ "ข้อมูลยังไม่เพียงพอ" แทน Badge' },
+  { scenario: 's15', icon: UserCheck, desc: 'ข้อมูลตัวตนไม่ตรงกัน → เจ้าหน้าที่ตัดสิน → ระบบทำงานต่อ' },
+  { scenario: 's6', icon: ShieldCheck, desc: 'เจ้าหน้าที่ระงับการรับรองจากหลักฐาน ร้านค้าชี้แจงและอุทธรณ์ได้' },
 ];
 
 function SectionHead({ eyebrow, title, desc, id }: { eyebrow: string; title: string; desc?: string; id?: string }) {
@@ -143,8 +139,11 @@ export default function WelcomePage() {
   const op = useOperatorStore((s) => s.items.find((o) => o.id === opId));
   const demo = useDemoStore();
 
-  /** ผู้ประกอบการ: ไปยังขั้นตอนลงทะเบียนร้าน (A: Marketplace / B: ลงทะเบียนเอง) ผ่านการสมัครหรือเข้าสู่ระบบเมื่อจำเป็น */
-  const goMerchant = (target: string) => {
+  /** ผู้ประกอบการ: ไปยังขั้นตอนลงทะเบียนร้าน (A: Marketplace / B: ลงทะเบียนเอง) ผ่านการสมัครหรือเข้าสู่ระบบเมื่อจำเป็น
+   *  บัญชีที่มีร้านลงทะเบียนแล้ว → จัดการช่องทางขายออนไลน์ / ข้อมูลร้านค้า (ไม่เริ่มลงทะเบียนร้านใหม่ซ้ำ) */
+  const goMerchant = (wanted: string) => {
+    const hasShop = !!op && useMerchantStore.getState().items.some((m) => m.operatorId === op.id && m.registrationStatus !== 'draft');
+    const target = hasShop ? (wanted === MERCHANT_TARGET.connect ? '/m/marketplace' : '/m/shop') : wanted;
     if (!op) {
       switchRole('merchant');
       nav('/register', { state: { next: target } });
@@ -168,14 +167,14 @@ export default function WelcomePage() {
     nav(to);
   };
   /** เริ่ม Demo — ถ้ากำลังสาธิตอยู่ให้ยืนยันก่อนรีเซ็ต */
-  const startDemo = async (s: DemoStart, label: string) => {
-    const busy = demo.status === 'running' || demo.status === 'paused' || (s.kind === 'journey' && demo.completed.length > 0);
-    if (busy) {
-      const r = await confirmDialog({ title: label, body: 'ระบบจะรีเซ็ตข้อมูลสาธิตเป็นค่าเริ่มต้น แล้วเริ่มการสาธิตที่เลือก', confirmText: 'เริ่ม' });
+  const startDemo = async (id: string) => {
+    const sc = findScenario(id);
+    if (!sc) return;
+    if (demo.status === 'running' || demo.status === 'paused') {
+      const r = await confirmDialog({ title: `เริ่ม "${sc.title}"?`, body: 'ระบบจะรีเซ็ตข้อมูลสาธิตเป็นค่าเริ่มต้น แล้วเริ่มการสาธิตที่เลือก', confirmText: 'เริ่มตั้งแต่ต้น' });
       if (!r.ok) return;
     }
-    if (s.kind === 'journey') startJourney(nav, s.track);
-    else startScenario(s.id, nav);
+    startScenario(id, nav);
   };
 
   return (
@@ -214,7 +213,10 @@ export default function WelcomePage() {
                 ไม่ใช่ Marketplace ไม่ขายสินค้า และไม่รับชำระเงิน
               </p>
               <div className="mt-6 grid gap-2.5 sm:grid-cols-2" aria-label="เริ่มต้นใช้งาน">
-                <Button size="lg" variant="inverse" icon={Link2} onClick={() => goMerchant(MERCHANT_TARGET.connect)}>
+                <Button size="lg" variant="inverse" icon={Play} className="sm:col-span-2" onClick={() => void startDemo(MAIN_JOURNEY_ID)} data-testid="home-main-cta">
+                  {MAIN_CTA_LABEL}
+                </Button>
+                <Button size="lg" variant="inverseOutline" icon={Link2} onClick={() => goMerchant(MERCHANT_TARGET.connect)}>
                   เชื่อมร้านค้าออนไลน์
                 </Button>
                 <Button size="lg" variant="inverseOutline" icon={PenLine} onClick={() => goMerchant(MERCHANT_TARGET.manual)}>
@@ -222,9 +224,6 @@ export default function WelcomePage() {
                 </Button>
                 <Button size="lg" variant="inverseOutline" icon={Search} onClick={() => consumer('/check')}>
                   ตรวจสอบร้านค้า
-                </Button>
-                <Button size="lg" variant="inverseOutline" icon={MonitorPlay} onClick={() => nav('/demo')}>
-                  ทดลอง Demo
                 </Button>
               </div>
               {op && <p className="mt-3 text-sm text-white/70">บัญชีล่าสุดบนอุปกรณ์นี้: {op.name}</p>}
@@ -404,41 +403,36 @@ export default function WelcomePage() {
         {/* ---------------------------------------------------------------- 7. Interactive Demo */}
         <div className="border-y border-line bg-white">
           <section aria-labelledby="home-demo" className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-            <SectionHead id="home-demo" eyebrow="Interactive Demo" title={`สาธิตระบบ ${allScenarios.length} เส้นทาง — เลือกตาม User Journey`} />
-            <Card className="mb-4 border-2 border-primary/50 p-5" aria-label="Demo แนะนำ">
-              <p className="text-xs font-semibold uppercase tracking-wide text-secondary">แนะนำสำหรับผู้บริหาร</p>
-              <p className="mt-1 text-lg font-bold text-ink">เส้นทางอัตโนมัติ — จากเชื่อมร้านค้าจนถึงได้รับผลประเมิน</p>
-              <p className="mt-1 text-sm text-ink-soft">Marketplace App → SME Trust → Auto-Fill → ประเมินอัตโนมัติ → Assessment Badge → ผู้บริโภคตรวจสอบ · ไม่มีขั้นตอนของเจ้าหน้าที่ (≈ 4 นาที)</p>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <Button icon={Play} onClick={() => startDemo({ kind: 'scenario', id: 's14' }, 'เริ่ม Scenario 14')}>
-                  เริ่ม Scenario 14
-                </Button>
-                <Button variant="outline" icon={Play} onClick={() => startDemo({ kind: 'journey', track: 'v2' }, 'เริ่ม Full Journey: Marketplace & Trust')}>
-                  เริ่ม Full Journey: Marketplace & Trust
-                </Button>
-                <Button variant="ghost" icon={MonitorPlay} onClick={() => nav('/demo')}>
-                  ดู Demo ทั้งหมด
-                </Button>
-              </div>
+            <SectionHead id="home-demo" eyebrow="Interactive Demo" title="ทดลองใช้งานด้วยข้อมูลจำลอง" />
+            <Card className="mb-4 border-2 border-primary/50 p-5" aria-label="Demo หลัก">
+              <p className="text-lg font-bold text-ink">{MAIN_CTA_LABEL}</p>
+              <p className="mt-1 text-sm text-ink-soft">เชื่อมข้อมูลร้านค้า → ลงทะเบียน → ตรวจสอบอัตโนมัติ → ประเมินความน่าเชื่อถือ → แสดงผล Badge → ผู้บริโภคตรวจสอบ · ใช้ร้านค้าเดียวกันทุกขั้น ไม่มีขั้นตอนของเจ้าหน้าที่ในกรณีปกติ</p>
+              <Button variant="outline" icon={Play} className="mt-4" onClick={() => void startDemo(MAIN_JOURNEY_ID)}>
+                เริ่มทดลอง
+              </Button>
             </Card>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {JOURNEYS.map((j) => (
-                <Card key={j.title} className="flex flex-col p-4" data-journey={j.title}>
-                  <p className="flex items-center gap-2 font-semibold text-ink">
-                    <j.icon className="h-5 w-5 text-primary" aria-hidden />
-                    {j.title}
-                  </p>
-                  <p className="mt-1 flex-1 text-sm text-ink-soft">{j.desc}</p>
-                  <Button size="sm" variant="outline" className="mt-3 self-start" icon={Play} onClick={() => startDemo(j.start, j.cta)}>
-                    {j.cta}
-                  </Button>
-                </Card>
-              ))}
+            <p className="mb-2 text-sm font-semibold text-ink">กรณีพิเศษ (เฉพาะกรณีจำเป็น)</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {HOME_CASES.map((c) => {
+                const sc = findScenario(c.scenario)!;
+                return (
+                  <Card key={c.scenario} className="flex flex-col p-4" data-journey={sc.title}>
+                    <p className="flex items-center gap-2 font-semibold text-ink">
+                      <c.icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+                      {sc.title}
+                    </p>
+                    <p className="mt-1 flex-1 text-sm text-ink-soft">{c.desc}</p>
+                    <Button size="sm" variant="outline" className="mt-3 self-start" icon={Play} onClick={() => void startDemo(c.scenario)}>
+                      ทดลองกรณีนี้
+                    </Button>
+                  </Card>
+                );
+              })}
             </div>
             <p className="mt-3 text-xs text-ink-soft">
-              ทุกเส้นทางเป็นระบบเดียวกัน ·{' '}
+              ดูผลลัพธ์โดยตรงและฟังก์ชันอื่นของระบบได้ที่{' '}
               <Link to="/demo" className="font-medium text-primary hover:underline">
-                ดูรายการ Scenario ทั้งหมด
+                หน้า Demo
               </Link>
             </p>
           </section>
@@ -457,7 +451,7 @@ export default function WelcomePage() {
               <li>ผลประเมินและ Badge ไม่ใช่ใบรับรองทางการ และไม่ได้รับการรับรองจาก สคบ.</li>
               <li>Frontend-only ไม่มี Backend ไม่เรียก API และไม่ส่งข้อมูลออกนอกเบราว์เซอร์ — ข้อมูลสมมติเก็บใน localStorage ของเบราว์เซอร์นี้เท่านั้น</li>
               <li>ได้รับแรงบันดาลใจจากแนวคิดความร่วมมือระหว่างสภา SME และ สคบ. แต่ไม่ใช่ระบบที่หน่วยงานรับรองหรือใช้งานจริง</li>
-              <li>ใช้ปุ่ม "Demo Mode" เพื่อสลับบทบาท เลือก Scenario และ Reset ข้อมูลได้ตลอดเวลา</li>
+              <li>ใช้ปุ่ม "Demo Mode" เพื่อสลับบทบาท และรีเซ็ตข้อมูลได้ตลอดเวลา</li>
             </ul>
           </Card>
         </section>

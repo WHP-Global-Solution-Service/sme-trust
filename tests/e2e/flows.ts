@@ -1,9 +1,9 @@
 /**
- * ขั้นตอนของแต่ละ Scenario ผ่าน UI จริง — ใช้ทั้งแบบเดี่ยวและ Full Journey
+ * ขั้นตอนของแต่ละการสาธิตผ่าน UI จริง (เล่นทีละเรื่อง)
  * ทุก Business Action ทำด้วยการคลิกในหน้าจอ (Demo Controller ใช้เพียงเปลี่ยนขั้น)
  */
 import type { Page } from '@playwright/test';
-import { confirm, demoState, expect, expectBlocked, expectStep, next, openAllScenarios, panel, store } from './helpers';
+import { confirm, demoState, expect, expectBlocked, expectStep, next, panel, store } from './helpers';
 
 const main = (page: Page) => page.locator('main');
 const mainBtn = (page: Page, name: string | RegExp) => main(page).getByRole('button', { name, exact: typeof name === 'string' });
@@ -21,15 +21,6 @@ export async function fillReportSample(page: Page) {
   if (!(await normal.isVisible())) await main(page).getByText('เติมข้อมูลตัวอย่างสำหรับสาธิต').click();
   await normal.click();
   await expect(main(page).getByText(/ขั้นตอนที่ 6\/7/)).toBeVisible();
-}
-
-/** เริ่ม Full Journey จากหน้ารวม (ยืนยันกล่องถ้ามี) */
-export async function startJourney(page: Page) {
-  await openAllScenarios(page);
-  await page.getByRole('button', { name: 'Start Full Journey' }).click();
-  const ok = page.getByRole('dialog').getByRole('button', { name: 'เริ่ม Full Journey' });
-  if (await ok.isVisible({ timeout: 1000 }).catch(() => false)) await ok.click();
-  await expect(panel(page).getByText('Full Journey Demo')).toBeVisible();
 }
 
 type Merchant = { id: string; operatorId: string; registrationStatus: string; shopName: string };
@@ -152,29 +143,6 @@ export async function playS2(page: Page) {
   const m = (await store<Merchant>(page, 'merchants')).find((x) => x.id === current.merchantId)!;
   expect(m.registrationStatus).toBe('approved');
   return m;
-}
-
-// ------------------------------------------------------------------ S3
-export async function playS3(page: Page) {
-  const { current } = await demoState(page);
-  const shop = (await store<Merchant>(page, 'merchants')).find((x) => x.id === current.merchantId)!;
-  await expect(page).toHaveURL(/\/m\/toolkit$/);
-  await next(page, { expectTransition: true });
-  await expect(main(page).getByText(shop.shopName).first()).toBeVisible();
-  await next(page);
-  await expectBlocked(page);
-  await main(page).getByRole('button', { name: new RegExp(current.certId) }).click();
-  await expect(main(page).getByText('ผลการตรวจสอบใบรับรอง').first()).toBeVisible();
-  await expect(main(page).getByText(shop.shopName).first()).toBeVisible({ timeout: 5000 });
-  await next(page);
-  await expect(page).toHaveURL(new RegExp(`/verify/${current.certId}$`));
-  await next(page);
-  await expect(page).toHaveURL(new RegExp(`/shop/${shop.id}$`));
-  await next(page);
-  await expectBlocked(page);
-  await mainBtn(page, 'เปิด').first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: 'เข้าใจแล้ว' }).click();
 }
 
 // ------------------------------------------------------------------ S4

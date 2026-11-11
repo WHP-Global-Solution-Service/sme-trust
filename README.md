@@ -15,7 +15,7 @@ npm install
 npm run dev        # เปิด http://localhost:5173
 npm run build      # Type-check (tsc -b) + Production build ไปที่ dist/
 npm run preview    # เปิดดู build
-npm test           # พิสูจน์อักษรไทย, Flow ข้ามบทบาท, AI Simulation, Demo Scenarios 1–13 + Full Journey v1/v2, Workflow, Model Validation, P7 Regression และ Render ทุกหน้า
+npm test           # พิสูจน์อักษรไทย, Flow ข้ามบทบาท, AI Simulation, การสาธิตทุกเรื่อง (Demo หลัก · กรณีพิเศษ · ฟังก์ชันอื่น), Workflow, Model Validation, P7 Regression และ Render ทุกหน้า
 npm run typecheck  # TypeScript (strict)
 npm run test:e2e   # E2E บน Chromium จริง (build + preview อัตโนมัติ) — ครั้งแรกอาจต้อง npx playwright install chromium
 npm run test:e2e:subpath  # E2E ภายใต้ /sme-trust/ (เหมือน GitHub Pages)
@@ -24,7 +24,7 @@ npm run test:e2e:firefox  # E2E บน Firefox — ครั้งแรกต�
 npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/sme-trust/) + จำลอง GitHub Pages (404.html) + E2E (ไม่ Deploy)
 ```
 
-เริ่มนำเสนอ: เปิด **`/demo`** (หน้ารวม Demo Scenarios — ปุ่มบนหน้าแรก) → **Start Full Journey** (เรื่องต่อเนื่อง 1 → 8) หรือ **Start Demo** รายเรื่อง แล้วใช้ **Demo Controller** (แผงขวาบนเดสก์ท็อป / แถบล่างบนมือถือ) ไปทีละขั้น · ปุ่มถัดไปเปิดเมื่อทำขั้นนั้นเสร็จจริง · **Restart Scenario** เริ่มเรื่องเดิมใหม่ได้ทุกเมื่อ
+เริ่มนำเสนอ: กดปุ่ม **"ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ"** บนหน้าแรกหรือหน้า **`/demo`** (Demo หลักเส้นเดียว: เชื่อมข้อมูลร้านค้า → ลงทะเบียน → ตรวจสอบอัตโนมัติ → ประเมิน → แสดงผล Badge → ผู้บริโภคตรวจสอบ) แล้วใช้ **ตัวควบคุมการสาธิต** (แผงขวาบนเดสก์ท็อป / แถบล่างบนมือถือ) ไปทีละขั้น · ปุ่มถัดไปเปิดเมื่อทำขั้นนั้นเสร็จจริง (ถ้าไปต่อไม่ได้จะบอกเหตุผลและทางเลือก) · **เริ่มเรื่องนี้ใหม่** ได้ทุกเมื่อ · กรณีพิเศษและฟังก์ชันอื่นของระบบอยู่บนหน้า Demo
 จำลองหน้าจอโทรศัพท์ / iPad / โน้ตบุ๊ก: ปุ่ม **จำลองหน้าจอ** บน Topbar หรือ Demo Mode → มุมมองหน้าจอ
 บัญชีผู้ประกอบการตัวอย่างใช้ PIN `123456`
 
@@ -55,9 +55,9 @@ npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/s
 - เชื่อมต่อ **Shopee (จำลอง) / Lazada (จำลอง)** — ยังไม่มีการเชื่อมต่อ API จริง ข้อมูลการขายสร้างแบบ Deterministic ในเบราว์เซอร์
 - วิเคราะห์ราคา ยอดขาย รีวิว → **Trust Assessment** (Band A–D / Insufficient Data, Data Coverage, Data Confidence, คำอธิบายทุกปัจจัย)
 - ผู้บริโภคไม่เห็นคะแนนตัวเลข · Standing (ระงับ/เพิกถอน) แยกจาก Band · ยกระดับ Level 3–4 ผ่าน Officer Review และเกณฑ์ v1 เท่านั้น
-- **ลงทะเบียนด้วยข้อมูลจาก Marketplace (จำลอง)** — เลือก Shopee/Lazada (จำลอง) → อนุญาต (จำลอง) → เลือกร้าน → Preview → เติมแบบฟอร์มอัตโนมัติ พร้อมป้ายที่มาของข้อมูล ฉบับร่างอัตโนมัติ และตารางเทียบต้นฉบับกับข้อมูลที่แก้ให้เจ้าหน้าที่ (Scenario 9 สำหรับร้านเดิม, 9A สำหรับร้านใหม่)
-- **Demo v2** — Scenario 9–13 (เชื่อมข้อมูล → วิเคราะห์ → ประเมิน → เจ้าหน้าที่พิจารณา → ผู้บริโภคตรวจสอบ), เส้นทางทางเลือก 9A (ร้านใหม่ Auto-Fill) และ 9B (ร้านที่ไม่มี Marketplace), Full Journey v2 แยกจาก v1 และ Executive Impact Summary (`/demo/v2/summary`)
-- **หน้าแรก Concept v2** — แพลตฟอร์มกลางประเมินความน่าเชื่อถือ (ไม่ใช่ Marketplace ไม่ขายสินค้า ไม่รับชำระเงิน) · CTA เชื่อมร้านค้าออนไลน์ / ลงทะเบียนด้วยตนเอง / เข้าสู่ระบบ / ตรวจสอบร้านค้า · Trust Assessment 7 ปัจจัย · Trust Badge · Demo 15 เส้นทาง
+- **ลงทะเบียนด้วยข้อมูลจาก Marketplace (จำลอง)** — เลือก Shopee/Lazada (จำลอง) → อนุญาต (จำลอง) → เลือกร้าน → Preview → เติมแบบฟอร์มอัตโนมัติ พร้อมป้ายที่มาของข้อมูล ฉบับร่างอัตโนมัติ และตารางเทียบต้นฉบับกับข้อมูลที่แก้ให้เจ้าหน้าที่ (ร้านใหม่: Demo หลัก · ร้านที่ลงทะเบียนแล้ว: เมนู "ช่องทางขายออนไลน์")
+- **หน้า Demo** — Primary Action เดียว "ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ" · กรณีพิเศษ 3 เรื่อง (ร้านไม่มี Marketplace และข้อมูลยังไม่พอ · ข้อมูลร้านไม่ตรงกัน — เจ้าหน้าที่ตรวจสอบ · ร้านถูกระงับและอุทธรณ์) · ผลลัพธ์โดยตรง (ผลประเมิน · Badge · การตรวจสอบของผู้บริโภค) และฟังก์ชันอื่นของระบบ 6 เรื่อง (พับไว้) · ไม่แสดงเลข Scenario หรือ Full Journey
+- **หน้าแรก Concept v2** — แพลตฟอร์มกลางประเมินความน่าเชื่อถือ (ไม่ใช่ Marketplace ไม่ขายสินค้า ไม่รับชำระเงิน) · CTA เชื่อมร้านค้าออนไลน์ / ลงทะเบียนด้วยตนเอง / เข้าสู่ระบบ / ตรวจสอบร้านค้า · Trust Assessment 7 ปัจจัย · Trust Badge · Demo หลักเส้นเดียว + กรณีพิเศษ
 - **คำขอเปลี่ยนข้อมูลร้าน** — ชื่อร้าน/หมวดของร้านที่ได้รับการรับรองต้องให้เจ้าหน้าที่อนุมัติ (อนุมัติ / ไม่อนุมัติ / ขอข้อมูลเพิ่ม) พร้อมประวัติ การแจ้งเตือน และ Audit Log · ข้อมูลต้นฉบับ Marketplace และระดับใบรับรองไม่เปลี่ยน
 
 **อยู่ใน Branch `sme-trustv.2` — ยังไม่เผยแพร่: Automation First, Human by Exception** ([docs/automation-first-workflow.md](docs/automation-first-workflow.md))
@@ -66,7 +66,7 @@ npm run test:e2e:pages    # Build แบบเดียวกับ Workflow (/s
 - **Trust Assessment Badge** ออกและอัปเดตอัตโนมัติ (แยกจากใบรับรอง — Level 2–4 ยังต้องให้เจ้าหน้าที่อนุมัติ)
 - **Exception Queue** สำหรับเจ้าหน้าที่ (`/o/exceptions`) — หนึ่งงานต่อประเด็น พร้อม Evidence Snapshot เหตุผล และ Approve / Reject / Request Info · KPI จาก Mock State (`/o/automation`)
 - ชื่อร้าน/หมวดที่ตรงกับต้นฉบับ Marketplace ตรวจสอบอัตโนมัติ · ค่าอื่นใช้ Workflow อนุมัติเดิม
-- Demo: Scenario 14 (เส้นทางปกติ ไม่มีเจ้าหน้าที่) · Scenario 15 (กรณียกเว้น) · ชื่อใน UI รวมเป็นระบบเดียว
+- Demo: เส้นทางปกติอยู่ใน Demo หลัก (ไม่มีเจ้าหน้าที่) · กรณีข้อมูลร้านค้าไม่ตรงกันเป็นกรณีพิเศษ (เจ้าหน้าที่ตรวจเฉพาะกรณี)
 
 **อยู่ใน Branch `sme-trustv.2` — ยังไม่เผยแพร่: Unified Platform Enhancement** ([docs/unified-merchant-onboarding.md](docs/unified-merchant-onboarding.md))
 
@@ -106,7 +106,7 @@ src/
   demo/           Demo Controller (types, controller.ts)
   stores/         Zustand stores แยก Domain + workflows.ts (Action ข้าม Domain)
   mock/data/      ข้อมูลจำลองที่เชื่อมโยงกันผ่าน ID
-  mock/scenarios/ Demo Scenario 1–8 + Fixtures + บัญชีสาธิต
+  mock/scenarios/ นิยามการสาธิต (Demo หลัก · กรณีพิเศษ · ฟังก์ชันอื่น) + Fixtures + บัญชีสาธิต
   types/          TypeScript models
   utils/          trust (ผลตรวจสอบ), screening (Rule-based), criteria, stats (KPI), format, id
   hooks/          useCurrent*, useStats
@@ -122,7 +122,7 @@ docs/             เอกสารประกอบ
 - [docs/design-system.md](docs/design-system.md) — สี ตัวอักษร Component
 - [docs/user-flows.md](docs/user-flows.md) — ลำดับการใช้งานและสถานะ
 - [docs/demo-guide.md](docs/demo-guide.md) — ขั้นตอนสาธิตแต่ละ Scenario
-- [docs/demo-scenario-architecture.md](docs/demo-scenario-architecture.md) — Demo Controller, Gate, Full Journey, Restart
+- [docs/demo-scenario-architecture.md](docs/demo-scenario-architecture.md) — Demo Controller, Gate, การป้องกันข้อมูลซ้ำ, Restart
 - [docs/ai-simulation.md](docs/ai-simulation.md) — กฎและการทำงานของ AI-01 / AI-02
 - [docs/mock-data.md](docs/mock-data.md) — ข้อมูลจำลองและความเชื่อมโยง
 - [docs/test-checklist.md](docs/test-checklist.md) — รายการทดสอบและผล

@@ -168,7 +168,7 @@ page = view('/');
 check(page.includes('เชื่อมข้อมูลร้านค้า ประเมินความน่าเชื่อถือ สร้างความมั่นใจในการซื้อขายออนไลน์'), 'Hero Heading ตามข้อกำหนด');
 check(page.includes('SME Trust เป็นแพลตฟอร์มกลางที่ช่วยผู้ประกอบการเชื่อมข้อมูลจากช่องทางขายออนไลน์ หรือสมัครด้วยตนเอง เพื่อประเมินความน่าเชื่อถือจากหลายปัจจัย และให้ผู้บริโภคตรวจสอบข้อมูลร้านค้าได้อย่างโปร่งใส'), 'Hero Subheading ตามข้อกำหนด');
 check(page.includes('ไม่ใช่ Marketplace ไม่ขายสินค้า และไม่รับชำระเงิน'), 'ข้อความสั้น: ไม่ใช่ Marketplace ไม่ขายสินค้า และไม่รับชำระเงิน');
-check(['เชื่อมร้านค้าออนไลน์', 'ลงทะเบียนด้วยตนเอง', 'ตรวจสอบร้านค้า', 'ทดลอง Demo'].every((t) => page.includes(t)), 'CTA หลัก 4 ปุ่ม');
+check(['ทดลองใช้งาน SME Trust ตั้งแต่ต้นจนจบ', 'เชื่อมร้านค้าออนไลน์', 'ลงทะเบียนด้วยตนเอง', 'ตรวจสอบร้านค้า'].every((t) => page.includes(t)), 'Primary Action เดียว (ทดลองใช้งานตั้งแต่ต้นจนจบ) + ปุ่มเริ่มต้นใช้งาน 3 ปุ่ม');
 check(['เชื่อมร้านค้า / สมัครเอง', 'นำเข้าหรือกรอกข้อมูล พร้อมยืนยันตัวตน', 'ระบบตรวจสอบและประเมินอัตโนมัติ', 'สร้าง Assessment Badge หรือแจ้งข้อมูลที่ต้องเพิ่มเติม', 'ผู้บริโภคตรวจสอบผ่าน QR หรือค้นหาร้านค้า', 'เจ้าหน้าที่ตรวจสอบเฉพาะกรณีจำเป็น'].every((t) => page.includes(t)), 'How SME Trust Works: 5 ขั้นตอน + เจ้าหน้าที่ตรวจเฉพาะกรณีจำเป็น');
 check(['A. มีร้านบน Marketplace', 'เชื่อมบัญชี (จำลอง)', 'Auto-Fill', 'B. ไม่มี Marketplace', 'เลือกประเภทผู้ประกอบการ', 'เพิ่มหลักฐาน', 'มาตรฐานเดียวกัน', 'ไม่ถูกหักคะแนน'].every((t) => page.includes(t)), 'สองช่องทางสมัคร ภายใต้มาตรฐานเดียวกัน');
 check(['ตัวตนผู้ประกอบการ', 'พฤติกรรมการขาย', 'คะแนนและรีวิว', 'ราคาและหมวดสินค้า', 'การปฏิบัติตามข้อกำหนด', 'ความครบถ้วนของข้อมูล', 'ความเชื่อมั่นในข้อมูล'].every((t) => page.includes(t)) && ['Identity & Business', 'Sales Performance', 'Customer Experience', 'Price Transparency', 'Compliance'].every((t) => page.includes(t)), 'Trust Assessment: 7 ปัจจัยตรงกับ Engine v2.1');
@@ -177,9 +177,9 @@ check(['ระบบสร้างผลประเมินและ Assessme
 check(['Insufficient Data', 'Outdated', 'Under Review', 'Withheld', 'Suspended / Revoked', 'Certification Level'].every((t) => page.includes(t)), 'แสดงสถานะ Badge และแยกจาก Certification Level');
 check(['ลดการกรอกข้อมูลซ้ำ', 'ประเมินได้ตามข้อมูลที่มี', 'ตรวจสอบร้านค้า', 'ดูแหล่งข้อมูล', 'ดูสถานะ Badge', 'ลดงานตรวจซ้ำ', 'คัดกรองเฉพาะ Exception', 'มีหลักฐานประกอบการพิจารณา'].every((t) => page.includes(t)), 'Benefits 3 กลุ่ม');
 check(!/\d+\s?%\s*(ของงาน|ภาระ)|ลดภาระ(งาน)?ได้\s*\d/.test(page), 'ไม่กล่าวอ้างตัวเลขการลดภาระงาน');
-check([`สาธิตระบบ ${allScenarios.length} เส้นทาง`, 'เส้นทางอัตโนมัติ — จากเชื่อมร้านค้าจนถึงได้รับผลประเมิน', 'Marketplace App Entry', 'Marketplace Registration', 'Self-Registration', 'Exception Review', 'Consumer Verification', 'Consumer Protection', 'เริ่ม Full Journey: Marketplace & Trust', 'เริ่ม Full Journey: Consumer Protection'].every((t) => page.includes(t)), 'Interactive Demo แยกตาม User Journey + เน้นเส้นทางอัตโนมัติ');
+check(['ทดลองใช้งานด้วยข้อมูลจำลอง', 'กรณีพิเศษ (เฉพาะกรณีจำเป็น)', ...['s9b', 's15', 's6'].map((id) => allScenarios.find((s) => s.id === id)!.title)].every((t) => page.includes(t)) && !page.includes('Full Journey') && !/Scenario \d/.test(page), 'Interactive Demo: Demo หลัก + กรณีพิเศษ 3 เรื่อง · ไม่มี Full Journey หรือเลข Scenario');
 check(page.includes('ระบบนี้เป็นต้นแบบเพื่อสาธิตแนวคิด ใช้ข้อมูลจำลอง และยังไม่เชื่อมต่อกับ Shopee, Lazada, DBD หรือ สคบ. จริง'), 'Prototype Notice ตามข้อกำหนด');
 check(!/\bv1\b|\bv2\b(?!\.1)/.test(page.replace(/v2\.1-sim/g, '')) && !page.includes('Prevention First') && !/8 Scenario/.test(page), 'หน้าแรกไม่แสดง v1/v2 หรือ Concept เก่า');
-check(allScenarios.length === 17, 'Demo มี 17 เส้นทาง (1–8, 9–13, 9A, 9B, 14, 15)');
+check(JSON.stringify(allScenarios.map((s) => s.id).sort()) === JSON.stringify(['s1', 's15', 's2', 's4', 's5', 's6', 's7', 's8', 's9a', 's9b']), 'การสาธิตที่คงไว้ 10 เรื่อง: Demo หลัก · กรณีพิเศษ 3 · ฟังก์ชันอื่น 6');
 
 finish();
